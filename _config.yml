@@ -1,0 +1,27 @@
+title: Tell
+description: >-
+  Tell coordinates a single reply to an open question and routes it to a data-pile
+  that Atlas reflects. You arrive by scanning a poll's QR code, which carries the
+  poll's configuration in the link.
+url: "https://tell.anecdote.channel"
+baseurl: ""
+
+# Custom build: we run `jekyll build` ourselves in Actions (see bin/jekyll), so
+# we control the Jekyll version and may add plugins later.
+plugins: []
+
+# Notes / build bits are not site pages. widget/public.html is intentionally left
+# in the build so it stays served at /widget/public.html for civic-node consumers.
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - bin/
+  - vendor/
+  - README.md
+
+# Pretty URLs (/foo/ instead of /foo.html).
+permalink: pretty
+
+# The baked widget carries UTF-8 punctuation; read everything as UTF-8 regardless
+# of the build host locale.
+encoding: utf-8
