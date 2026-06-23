@@ -1,0 +1,51 @@
+name: Build & Deploy Tell
+
+on:
+  # Any branch push validates the build; only main / manual dispatch deploys.
+  push:
+  workflow_dispatch:
+
+# Allow the deploy job to publish to GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never run two deploys at once; let an in-flight run finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+
+      - name: Build site
+        # Use the committed binstub: bare `bundle exec jekyll` fails to resolve
+        # the executable under the Bundler version pinned in Gemfile.lock.
+        run: bin/jekyll build --trace
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    # Feature-branch pushes validate the build above without deploying.
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      github.event_name == 'workflow_dispatch'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
