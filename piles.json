@@ -1,0 +1,17 @@
+---
+# Build-time manifest: renders the fronted-pile registry to a small, cacheable JSON
+# list. The feed-gateway Worker reads it to resolve a pile's id -> feed branch.
+# No network IO at build.
+layout: null
+permalink: /piles.json
+---
+{%- assign piles = site.data.piles -%}
+[
+{%- for pile in piles -%}
+  {
+    "id": {{ pile.id | jsonify }},
+    "scope": {{ pile.scope | jsonify }},
+    "feed": {{ pile.feed | jsonify }}
+  }{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]

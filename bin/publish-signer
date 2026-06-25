@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Publish Tell's PUBLIC delivery-signer material so a pile owner can register it
+# by hand (and confirm it out-of-band / IRL). This is the whole trust handoff —
+# there is no GitHub App. Tell signs each manifest head with an ordinary SSH key
+# (ssh-keygen -Y sign); a pile records the matching public key + fingerprint and
+# bin/verify checks every delivery against it.
+#
+#   bin/publish-signer PUBKEY        # e.g. keys/tell-signer.pub, or ~/.ssh/id_ed25519.pub
+#
+# Emits, into keys/:
+#   keys/tell.signers   one allowed-signers line: `tell <type> <base64> ...`
+#                        (copy this verbatim into a pile's keys/tell.signers)
+#   keys/tell.pub       the raw public key
+#   keys/tell.fpr       the SHA256:… fingerprint a pile pins in pile.yml `signer:`
+#
+# The PRIVATE key is never handled here. In CI it lives only as the secret
+# TELL_SIGNER_KEY, materialized to a temp file for the one ssh-keygen -Y sign call.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+keys="$here/../keys"; mkdir -p "$keys"
+
+pub="${1:-}"
+[ -n "$pub" ] && [ -f "$pub" ] || { echo "usage: bin/publish-signer PATH/TO/signer.pub" >&2; exit 1; }
+
+cp "$pub" "$keys/tell.pub"
+# allowed-signers: <principal> <key>. Principal "tell" matches verify's -I <source>.
+printf 'tell %s\n' "$(cat "$pub")" > "$keys/tell.signers"
+fpr="$(ssh-keygen -lf "$pub" | awk '{print $2}')"
+printf '%s\n' "$fpr" > "$keys/tell.fpr"
+
+echo "Published Tell signer:"
+echo "  fingerprint : $fpr   (pin this in a pile's pile.yml  signer:)"
+echo "  allowed-line: $(cat "$keys/tell.signers")"
+echo "  -> a pile copies keys/tell.signers into its own keys/tell.signers"

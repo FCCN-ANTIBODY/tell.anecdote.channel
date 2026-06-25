@@ -1,0 +1,25 @@
+# Registry of the data-piles this Tell fronts.
+#
+# A pile registers with this Tell by opening a PR that appends its entry here (the
+# `handshake` workflow in the data-pile template does this). That PR is the consent
+# signal — accepting it is, for now, the whole of "attestation". Once listed, Tell
+# produces this pile's encrypted digests and publishes them at /piles/<id>/feed/*
+# for the pile to pull (see CONTRACT.md). Tell never writes into the pile's repo.
+#
+# At build time this renders piles.json (the manifest the feed-gateway Worker reads
+# to resolve id -> feed branch). No data is fetched at build.
+#
+# Each entry needs:
+#   id:            stable slug for the pile (also the served path segment)
+#   scope:         region/namespace tier; the <scope> segment of the feed ref
+#   feed:          Tell's OWN ref carrying this pile's encrypted chain
+#                  (convention feed/<scope>/<id>); served at /piles/<id>/feed/*
+#   age_recipient: the pile's age recipient (age1…), supplied by its handshake PR.
+#                  Tell wraps each digest's ratchet seed to this so only the owner reads it.
+#
+# Tell signs every manifest with its single delivery key (keys/tell.*), which the pile
+# pins in ITS pile.yml. No GitHub App; no write access to any pile.
+- id: cd04-q1
+  scope: "colorado"
+  feed: "feed/colorado/cd04-q1"
+  age_recipient: "age1PLACEHOLDER000000000000000000000000000000000000000000000000"

@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Guard against crypto-core drift. bin/pile-lib.sh is vendored verbatim from
+# FCCN-ANTIBODY/data-pile bin/lib.sh; the producer (Tell) and the consumer
+# (data-pile) MUST agree byte-for-byte or bin/verify / bin/prove break silently
+# on the pile side. This compares our vendored copy (stripped of its local
+# provenance header) against the upstream source.
+#
+#   bin/check-pile-lib            # fetch upstream from GitHub raw and diff
+#   DP_LIB=path bin/check-pile-lib  # diff against a local checkout instead
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+vendored="$here/pile-lib.sh"
+
+# Our copy carries a leading provenance header (lines beginning differently from
+# upstream). The vendored body starts at the upstream shebang line.
+strip_header() { awk 'f||/^#!\/usr\/bin\/env bash$/{f=1;print}' "$1"; }
+
+up="$(mktemp)"; trap 'rm -f "$up"' EXIT
+if [ -n "${DP_LIB:-}" ]; then
+  if [ ! -f "$DP_LIB" ]; then
+    echo "check-pile-lib: SKIP — upstream \$DP_LIB not found ($DP_LIB)" >&2
+    exit 0
+  fi
+  cp "$DP_LIB" "$up"
+else
+  url="https://raw.githubusercontent.com/FCCN-ANTIBODY/data-pile/main/bin/lib.sh"
+  curl -fsSL "$url" -o "$up" || { echo "check-pile-lib: cannot fetch $url" >&2; exit 2; }
+fi
+
+if diff -u <(strip_header "$vendored") "$up" >/tmp/pile-lib.diff 2>&1; then
+  echo "check-pile-lib: OK — vendored crypto core matches data-pile"
+else
+  echo "check-pile-lib: DRIFT — bin/pile-lib.sh differs from data-pile bin/lib.sh:" >&2
+  cat /tmp/pile-lib.diff >&2
+  exit 1
+fi
