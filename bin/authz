@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# The EJECTED authorization check. Decides whether a submission is authorized for a
+# pile this Tell fronts. Default: verify the QR's HMAC token against the per-pile key
+# derived from TELL_QR_SECRET, and (optionally) that the round is the allowed one.
+#
+# Swap in your own logic without touching the pipeline by pointing TELL_AUTHZ_CMD at
+# another command with the same contract (mirrors the bin/rollup seam) — that is where
+# stricter rules live (rate, dedup, geo, one-reply, …).
+#
+#   bin/authz <id> <round> <tok>     exit 0 = authorized, 1 = rejected (reason on stderr)
+#
+# Needs TELL_QR_SECRET. Optional: a `round:` field on the pile's _data/piles.yml entry
+# (or TELL_ALLOWED_ROUND) pins the currently-open round so old QRs stop being accepted.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/tell-lib.sh"
+repo="$(cd "$here/.." && pwd)"
+
+id="${1:?usage: bin/authz <id> <round> <tok>}"
+round="${2:?round required}"
+tok="${3:?tok required}"
+: "${TELL_QR_SECRET:?set TELL_QR_SECRET}"
+
+reject() { echo "authz: reject $id round $round — $1" >&2; exit 1; }
+
+# Pile must be one this Tell fronts.
+awk -v s="$id" '$1=="-" && $2=="id:"{gsub(/[" ]/,"",$3); if($3==s) f=1} END{exit !f}' \
+  "$repo/_data/piles.yml" 2>/dev/null || reject "unknown pile"
+
+# Round pinning (optional): env wins, else a per-pile `round:` in the registry.
+allowed="${TELL_ALLOWED_ROUND:-}"
+[ -z "$allowed" ] && allowed="$(awk -v s="$id" '
+  $1=="-" && $2=="id:"{gsub(/[" ]/,"",$3); cur=$3}
+  cur==s && $1=="round:"{gsub(/[" ]/,"",$2); print $2; exit}' "$repo/_data/piles.yml" 2>/dev/null || true)"
+if [ -n "$allowed" ] && [ "$allowed" != "$round" ]; then
+  reject "round closed (open round is $allowed)"
+fi
+
+tl_verify "$TELL_QR_SECRET" "$id" "$round" "$tok" || reject "bad token"
+echo "authz: ok $id round $round" >&2

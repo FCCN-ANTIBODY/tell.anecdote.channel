@@ -1,38 +1,39 @@
 #!/usr/bin/env bash
-# REFERENCE inbound-digest rollup hook — the pluggable seam in deliver.yml.
+# Inbound-digest rollup hook — the pluggable seam the deliver pipeline calls per pile.
 #
-# deliver.yml calls `bin/rollup <id> [scope]` once per delivery window and seals
-# whatever this prints on stdout as ONE digest block (encrypted under that block's
-# ratchet key, hash-linked, signed). This reference emits a small provenance-stamped
-# JSON record; replace it with your real source — the window's collected poll
-# responses, a sink export, etc. The pile never trusts the transport: integrity comes
-# from the signed manifest, so the only contract here is "print the bytes to seal."
+# `bin/rollup <id> [scope]` prints this window's plaintext digest on stdout; deliver
+# seals it as ONE encrypted, hash-linked, signed block. Empty stdout = "nothing new
+# this window" → deliver skips the pile (no empty block).
 #
-# Two ways to plug in your real rollup:
-#   • replace this file, or
-#   • leave it and set TELL_ROLLUP_CMD=/path/to/your/rollup (same args, its stdout
-#     becomes the block plaintext).
+# Default behavior: emit the authorized submissions bin/collect-submissions staged for
+# this pile under $TELL_SUBMISSIONS_DIR/<id>/ — i.e. the responses Tell received as
+# Issues and authorized. Each block is the window's batch of accepted answers, stamped
+# with the issue number that carried each (a literal ingress→egress custody record).
 #
-# Print NOTHING (empty stdout) to mean "no new data this window" — deliver skips the
-# pile and appends no empty block. Exit non-zero to signal a hard failure (skipped,
-# logged) rather than emitting a bogus block.
+# Override entirely by replacing this file or setting TELL_ROLLUP_CMD (same contract).
 set -euo pipefail
 id="${1:?usage: bin/rollup <id> [scope]}"
 scope="${2:-}"
+here="$(cd "$(dirname "$0")" && pwd)"
+stage="${TELL_SUBMISSIONS_DIR:-$(cd "$here/.." && pwd)/.submissions}/$id"
 
-# --- reference payload (placeholder; carries no real data) -------------------
-# A real rollup would put the window's records in `records` and, ideally, stamp
-# provenance (where each record came from) so the decrypted tank is a literal
-# ingress→egress custody log.
+# No staged submissions for this pile this window → emit nothing (deliver skips).
+ls "$stage"/*.json >/dev/null 2>&1 || exit 0
+
+# Fold the accepted answers into one record. `records` preserves the issue number that
+# carried each answer, so the owner's decrypted tank shows exactly what arrived and from
+# which submission.
+records="$(jq -s '[.[] | {issue: .number, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
 jq -n \
   --arg id "$id" \
   --arg scope "$scope" \
-  --arg at "$(date -u +%FT%TZ)" '
+  --arg at "$(date -u +%FT%TZ)" \
+  --argjson records "$records" '
   {
-    schema: "tell.digest/v0-reference",
+    schema: "tell.digest/v0",
     pile: $id,
     scope: $scope,
     window_end: $at,
-    note: "Reference rollup output — replace bin/rollup (or set TELL_ROLLUP_CMD).",
-    records: []
+    count: ($records | length),
+    records: $records
   }'

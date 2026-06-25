@@ -17,13 +17,14 @@ name: deliver
 # or whatever the registry's piles want. Everything around it is production code.
 
 on:
+  # Manual re-delivery only. The scheduled ingress cadence lives in
+  # ingest-submissions.yml (collect -> deliver -> finalize); this workflow just
+  # dogfoods the deliver action against whatever bin/rollup currently stages.
   workflow_dispatch:
     inputs:
       only_id:
         description: "Deliver to just this pile id (blank = every registered pile)"
         required: false
-  schedule:
-    - cron: "47 * * * *" # hourly, best-effort, batched
 
 permissions:
   contents: write

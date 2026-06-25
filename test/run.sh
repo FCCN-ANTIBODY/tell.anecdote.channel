@@ -75,13 +75,61 @@ else
   echo "[4-6] SKIPPED — no data-pile checkout at \$DP_REPO ($DP_REPO)"
 fi
 
-echo "[7] rollup hook emits sealable output, and deliver seals it"
+# ── ingress: QR authorization + Issue collection + rollup wiring ──────────────
+export TELL_QR_SECRET="$(openssl rand -hex 32)"
+
+echo "[7] QR token round-trips through the ejected authz check"
+url="$(bin/qr cd04-q1 1 "Q?" "Yes,No" 2>/dev/null)"
+tok="$(printf '%s' "$url" | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
+[ -n "$tok" ] || fail "bin/qr emitted no token"
+bin/authz cd04-q1 1 "$tok" 2>/dev/null || fail "authz rejected a valid token"
+bin/authz cd04-q1 1 "${tok%?}f" 2>/dev/null && fail "authz accepted a tampered token" || true
+bin/authz cd04-q1 2 "$tok"      2>/dev/null && fail "authz accepted a wrong round"     || true
+bin/authz ghost   1 "$tok"      2>/dev/null && fail "authz accepted an unknown pile"   || true
+ok "valid token accepted; tamper / wrong-round / unknown-pile rejected"
+
+echo "[8] collect-submissions stages only authorized replies"
+mkb() { jq -n --arg p "$1" --arg r "$2" --arg t "$3" --arg a "$4" \
+  '{schema:"tell.submission/v0",pile:$p,round:$r,tok:$t,answer:$a,ts:"2026-06-25T19:00:00Z"}'; }
+fence() { printf '```tell\n%s\n```' "$1"; }
+jq -n \
+  --arg b1 "$(fence "$(mkb cd04-q1 1 "$tok" Yes)")" \
+  --arg b2 "$(fence "$(mkb cd04-q1 1 "$tok" Study)")" \
+  --arg b3 "$(fence "$(mkb cd04-q1 1 "${tok%?}f" No)")" \
+  --arg b4 "$(fence "$(mkb ghost 1 "$tok" Yes)")" \
+  --arg b5 "no block here" \
+  '[{number:1,body:$b1},{number:2,body:$b2},{number:3,body:$b3},{number:4,body:$b4},{number:5,body:$b5}]' \
+  > "$work/issues.json"
+TELL_ISSUES_JSON="$work/issues.json" TELL_SUBMISSIONS_DIR="$work/stage" bin/collect-submissions 2>/dev/null
+[ "$(wc -l < "$work/stage/.accepted.tsv")" = 2 ] || fail "expected 2 accepted"
+[ "$(wc -l < "$work/stage/.rejected.tsv")" = 2 ] || fail "expected 2 rejected (bad token + unknown pile)"
+ok "2 authorized staged, 2 rejected, no-block issue ignored"
+
+echo "[9] rollup emits the accepted batch; deliver seals it; consumer verifies"
 rb="$work/rollup.block"
-bin/rollup cd04-q1 colorado > "$rb"
-[ -s "$rb" ] || fail "bin/rollup produced no output"
-jq -e . "$rb" >/dev/null || fail "bin/rollup output is not valid JSON"
+TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"
+[ "$(jq -r '.count' "$rb")" = 2 ] || fail "rollup did not batch the 2 accepted answers"
 bin/deliver --dir "$work/rfeed" --recipient "$recip" --signkey "$work/sign" --block "$rb" >/dev/null \
   || fail "deliver could not seal rollup output"
-ok "rollup output sealed into a delivery block"
+if [ -x "$DP_REPO/bin/verify" ]; then
+  printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/qr.signers"
+  "$DP_REPO/bin/verify" --dir "$work/rfeed" --source tell --signers "$work/qr.signers" >/dev/null \
+    || fail "consumer rejected the sealed submissions"
+  ok "accepted batch sealed + verified end to end"
+else
+  ok "accepted batch sealed (consumer verify skipped — no \$DP_REPO)"
+fi
+
+echo "[10] empty stage => rollup emits nothing (deliver would skip)"
+[ -z "$(TELL_SUBMISSIONS_DIR="$work/empty" bin/rollup cd04-q1 colorado)" ] || fail "rollup emitted on empty stage"
+ok "no staged submissions -> no block"
+
+if command -v node >/dev/null 2>&1; then
+  echo "[11] landing builds a parseable issues/new link"
+  node "$root/test/landing.test.mjs" || fail "landing link-builder test failed"
+  ok "landing emits a valid prefilled issue link"
+else
+  echo "[11] SKIPPED — node not available for the landing test"
+fi
 
 echo "ALL TESTS PASSED"

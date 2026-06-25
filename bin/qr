@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Mint an authorized QR for a pile this Tell fronts. Prints the URL a respondent's
+# scan lands on; that URL carries the poll config + an HMAC token the ingestion side
+# (bin/authz) verifies. With `qrencode` present it also writes a PNG.
+#
+#   bin/qr <id> <round> [question] [optsCSV]
+#     <round>     bump this to expire/rotate an outstanding QR for the pile
+#     [question]  optional poll question to render on the landing
+#     [optsCSV]   optional comma-separated answer options
+#
+# Needs TELL_QR_SECRET (the master secret; bin/tell-bootstrap generates it).
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/tell-lib.sh"
+
+id="${1:?usage: bin/qr <id> <round> [question] [optsCSV]}"
+round="${2:?round required (e.g. 1)}"
+question="${3:-}"
+opts="${4:-}"
+: "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
+: "${TELL_DOMAIN:=https://tell.anecdote.channel}"
+
+tok="$(tl_token "$TELL_QR_SECRET" "$id" "$round")"
+
+enc() { jq -rn --arg s "$1" '$s|@uri'; }   # URL-encode
+url="${TELL_DOMAIN}/?pile=$(enc "$id")&round=$(enc "$round")&tok=${tok}"
+[ -n "$question" ] && url="${url}&q=$(enc "$question")"
+[ -n "$opts" ]     && url="${url}&opts=$(enc "$opts")"
+
+echo "$url"
+if command -v qrencode >/dev/null 2>&1; then
+  out="qr-${id}-${round}.png"
+  qrencode -o "$out" "$url" && echo "wrote $out" >&2
+else
+  echo "note: qrencode not installed — encode the URL above into a QR yourself" >&2
+fi

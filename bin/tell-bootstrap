@@ -42,9 +42,10 @@ fi
 umask 077
 tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
 
-echo "==> generating delivery signer (ssh ed25519) + seed identity (age)"
+echo "==> generating delivery signer (ssh ed25519) + seed identity (age) + QR secret"
 ssh-keygen -t ed25519 -N '' -C tell-delivery-signer -f "$tmp/tell-signer" >/dev/null
 age-keygen -o "$tmp/tell-seed.identity" 2>/dev/null
+openssl rand -hex 32 > "$tmp/tell-qr.secret"   # master from which per-pile QR tokens derive
 
 echo "==> publishing PUBLIC signer material (keys/tell.{pub,signers,fpr})"
 bin/publish-signer "$tmp/tell-signer.pub" >/dev/null
@@ -54,13 +55,16 @@ if [ "$do_secrets" = 1 ] && command -v gh >/dev/null 2>&1; then
   echo "==> storing PRIVATE halves as repo secrets via gh"
   gh secret set TELL_SIGNER_KEY    < "$tmp/tell-signer"
   gh secret set TELL_SEED_IDENTITY < "$tmp/tell-seed.identity"
-  echo "    set TELL_SIGNER_KEY + TELL_SEED_IDENTITY"
+  gh secret set TELL_QR_SECRET     < "$tmp/tell-qr.secret"
+  echo "    set TELL_SIGNER_KEY + TELL_SEED_IDENTITY + TELL_QR_SECRET"
 else
-  echo "==> NOT setting secrets here. Set these two yourself (values printed ONCE below):"
+  echo "==> NOT setting secrets here. Set these three yourself (values printed ONCE below):"
   echo "    gh secret set TELL_SIGNER_KEY    # paste the private signer key"
   echo "    gh secret set TELL_SEED_IDENTITY # paste the age identity"
+  echo "    gh secret set TELL_QR_SECRET     # paste the QR master secret"
   echo "----- TELL_SIGNER_KEY -----";    cat "$tmp/tell-signer"
   echo "----- TELL_SEED_IDENTITY -----"; cat "$tmp/tell-seed.identity"
+  echo "----- TELL_QR_SECRET -----";     cat "$tmp/tell-qr.secret"
   echo "----------------------------"
 fi
 

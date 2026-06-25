@@ -1,0 +1,50 @@
+name: ingest-submissions
+
+# The ingress loop. Read the open submission Issues (the mailbox), authorize them
+# (bin/authz — the ejected check), seal the abiding ones into each addressed pile's
+# encrypted feed via the deliver action, then close the Issues. Tell writes only its
+# own repo: NO GitHub App, NO cross-repo token.
+#
+# Secrets: TELL_QR_SECRET (verify QR tokens), TELL_SIGNER_KEY + TELL_SEED_IDENTITY
+# (sign + ratchet the digests). Submissions arrive as Issues carrying a fenced ```tell
+# block (see index.md); a respondent creates one by clicking the QR landing's prefilled
+# issues/new link.
+
+on:
+  schedule:
+    - cron: "31 * * * *" # hourly, best-effort
+  issues:
+    types: [opened, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # push encrypted feeds to feed/**
+  issues: write     # label + close the mailbox
+
+concurrency:
+  group: ingest-submissions
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Collect + authorize submissions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TELL_QR_SECRET: ${{ secrets.TELL_QR_SECRET }}
+        run: bin/collect-submissions
+      - name: Seal authorized submissions into pile feeds
+        uses: ./.github/actions/deliver
+        with:
+          signer-key: ${{ secrets.TELL_SIGNER_KEY }}
+          seed-identity: ${{ secrets.TELL_SEED_IDENTITY }}
+          # bin/rollup (default) reads the staged submissions; no override needed.
+      - name: Close the mailbox (ingested / rejected)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bin/finalize-submissions
