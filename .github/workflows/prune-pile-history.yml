@@ -1,0 +1,67 @@
+name: Prune pile history
+
+# Housekeeping for the "retain + periodic prune" custody choice. Pile branches
+# are append-only signed-commit logs; left alone they grow forever. This job
+# bounds the LIVE ref while preserving the signed audit trail elsewhere.
+#
+# IMPORTANT (signatures): do NOT rebase/truncate a live branch in place — rewriting
+# an ancestor changes descendant commit hashes and invalidates their signatures.
+# Instead we ARCHIVE the intact pile-signed history to archive/<branch>@<date>,
+# then reset the live branch to a single fresh snapshot of the current artifact.
+# (Post-prune snapshot is signed by this workflow's key; subsequent placements are
+# pile-signed again. The authentic pile-signed chain lives on, in the archive ref.)
+
+on:
+  schedule:
+    - cron: "17 4 1 * *" # 04:17 UTC on the 1st of each month (cron is best-effort)
+  workflow_dispatch:
+    inputs:
+      keep_days:
+        description: "Archive+reset branches whose history is older than N days"
+        default: "60"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prune-pile-history
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Archive old history and reset live pile branches
+        env:
+          KEEP_DAYS: ${{ github.event.inputs.keep_days || '60' }}
+        run: |
+          set -euo pipefail
+          git config user.name  "tell-prune"
+          git config user.email "tell-prune@users.noreply.github.com"
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+          cutoff="$(date -u -d "-${KEEP_DAYS} days" +%s)"
+
+          # Each feed/** branch is an independent, non-merging append-only signed
+          # namespace (one per fronted pile). Bound the live ref, keep the chain.
+          for ref in $(git for-each-ref --format='%(refname:short)' \
+                         'refs/remotes/origin/feed/*'); do
+            branch="${ref#origin/}"
+            root_epoch="$(git log -1 --format=%ct "$ref")"
+            # Only touch branches whose newest commit predates the cutoff window;
+            # actively-updated slices are left untouched.
+            if [ "$root_epoch" -gt "$cutoff" ]; then
+              echo "skip $branch (fresh)"; continue
+            fi
+            echo "prune $branch -> archive/$branch@$stamp"
+            # 1) Preserve the intact signed chain.
+            git push origin "$ref:refs/heads/archive/$branch@$stamp"
+            # 2) Reset the live ref to a lean snapshot of the current tree.
+            git checkout --quiet "$ref" -- . 2>/dev/null || true
+            tree="$(git rev-parse "$ref^{tree}")"
+            new="$(printf 'prune: snapshot %s at %s\n' "$branch" "$stamp" | git commit-tree "$tree")"
+            git push --force origin "$new:refs/heads/$branch"
+          done

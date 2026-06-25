@@ -1,0 +1,38 @@
+name: test
+
+# Exercises the inbound-digest producer (bin/deliver) end to end, including the
+# append / ratchet-resume path, and cross-checks the produced chain with the REAL
+# consumer by cloning the data-pile template and running its bin/verify / bin/prove.
+# Also guards against crypto-core drift (bin/check-pile-lib).
+
+on:
+  push:
+    paths:
+      - "bin/**"
+      - "test/**"
+      - ".github/workflows/test.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install age (ssh-keygen, openssl, jq are preinstalled on the runner)
+        run: sudo apt-get update && sudo apt-get install -y age
+      - name: Clone the data-pile consumer (the real verifier)
+        # Prefer the matching branch (the producer + consumer change together and ship on the
+        # same branch name); fall back to main once both have merged. data-pile's main does not
+        # carry bin/ until the companion PR lands, so a plain main clone would have no verifier.
+        run: |
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --depth 1 --branch "$ref" https://github.com/FCCN-ANTIBODY/data-pile ../data-pile \
+            || git clone --depth 1 https://github.com/FCCN-ANTIBODY/data-pile ../data-pile
+      - name: Crypto core has not drifted from data-pile
+        run: DP_LIB=../data-pile/bin/lib.sh bin/check-pile-lib
+      - name: Producer + cross-repo verify
+        run: DP_REPO=../data-pile test/run.sh

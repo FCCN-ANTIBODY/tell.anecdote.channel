@@ -1,0 +1,46 @@
+name: deliver
+
+# Produce inbound encrypted digests and publish them on this Tell's OWN feed branches
+# (feed/<scope>/<id>). A pile PULLS its feed from the gateway (see CONTRACT.md); Tell
+# never writes into a pile, so this needs NO GitHub App and NO cross-repo token — only
+# contents:write on THIS repo, which the built-in GITHUB_TOKEN already grants.
+#
+# The work itself is the reusable `deliver` composite action (.github/actions/deliver),
+# which any jurisdiction can drop into their own repo to run on their own dataset. This
+# workflow just dogfoods it.
+#
+# Secrets required:
+#   TELL_SIGNER_KEY     ssh private signing key (public half committed at keys/tell.pub)
+#   TELL_SEED_IDENTITY  age identity; resumes each pile's one-way ratchet across runs
+#
+# The plaintext digest source is the pluggable rollup seam — bin/rollup (a reference)
+# or whatever the registry's piles want. Everything around it is production code.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only_id:
+        description: "Deliver to just this pile id (blank = every registered pile)"
+        required: false
+  schedule:
+    - cron: "47 * * * *" # hourly, best-effort, batched
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deliver
+  cancel-in-progress: false
+
+jobs:
+  deliver:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/deliver
+        with:
+          signer-key: ${{ secrets.TELL_SIGNER_KEY }}
+          seed-identity: ${{ secrets.TELL_SEED_IDENTITY }}
+          only-id: ${{ inputs.only_id }}

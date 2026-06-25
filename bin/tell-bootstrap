@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# One-time Tell operator setup for the inbound digest channel. Generates the two
+# keys deliver.yml needs, stores their PRIVATE halves as repo secrets, publishes
+# the signer's PUBLIC half for piles to pin, and commits that public material.
+#
+# There is no GitHub App: these are ordinary keys an operator holds. Running this a
+# second time refuses to clobber an existing committed signer unless --force (a new
+# signer means every pile must re-pin — see keys/README.md).
+#
+#   bin/tell-bootstrap [--force] [--no-secrets] [--no-commit]
+#     --force        rotate even if keys/tell.pub already exists (piles must re-pin)
+#     --no-secrets   skip `gh secret set` (just print what to set, for manual/CI setup)
+#     --no-commit    generate + publish locally but don't git commit/push
+#
+# Requires: ssh-keygen, age-keygen, age, git. `gh` only for --no-secrets-less runs.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$here/.." && pwd)"
+cd "$repo"
+
+force=0; do_secrets=1; do_commit=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force) force=1; shift;;
+    --no-secrets) do_secrets=0; shift;;
+    --no-commit) do_commit=0; shift;;
+    *) echo "tell-bootstrap: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+
+for t in ssh-keygen age-keygen age git; do
+  command -v "$t" >/dev/null 2>&1 || { echo "tell-bootstrap: missing required tool: $t" >&2; exit 1; }
+done
+
+if [ -f keys/tell.pub ] && [ "$force" != 1 ]; then
+  echo "tell-bootstrap: keys/tell.pub already exists." >&2
+  echo "  Tell is already provisioned. Re-running rotates the signer, which forces EVERY" >&2
+  echo "  pile to re-pin the new fingerprint. Pass --force only if you mean to rotate." >&2
+  exit 1
+fi
+
+umask 077
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+
+echo "==> generating delivery signer (ssh ed25519) + seed identity (age)"
+ssh-keygen -t ed25519 -N '' -C tell-delivery-signer -f "$tmp/tell-signer" >/dev/null
+age-keygen -o "$tmp/tell-seed.identity" 2>/dev/null
+
+echo "==> publishing PUBLIC signer material (keys/tell.{pub,signers,fpr})"
+bin/publish-signer "$tmp/tell-signer.pub" >/dev/null
+fpr="$(cat keys/tell.fpr)"
+
+if [ "$do_secrets" = 1 ] && command -v gh >/dev/null 2>&1; then
+  echo "==> storing PRIVATE halves as repo secrets via gh"
+  gh secret set TELL_SIGNER_KEY    < "$tmp/tell-signer"
+  gh secret set TELL_SEED_IDENTITY < "$tmp/tell-seed.identity"
+  echo "    set TELL_SIGNER_KEY + TELL_SEED_IDENTITY"
+else
+  echo "==> NOT setting secrets here. Set these two yourself (values printed ONCE below):"
+  echo "    gh secret set TELL_SIGNER_KEY    # paste the private signer key"
+  echo "    gh secret set TELL_SEED_IDENTITY # paste the age identity"
+  echo "----- TELL_SIGNER_KEY -----";    cat "$tmp/tell-signer"
+  echo "----- TELL_SEED_IDENTITY -----"; cat "$tmp/tell-seed.identity"
+  echo "----------------------------"
+fi
+
+if [ "$do_commit" = 1 ]; then
+  echo "==> committing public signer material"
+  git add keys/tell.pub keys/tell.signers keys/tell.fpr
+  if git diff --cached --quiet; then
+    echo "    (no change to commit)"
+  else
+    git commit -q -m "tell: publish delivery signer (public material only)"
+    echo "    committed. Push when ready: git push"
+  fi
+fi
+
+# Private key files live only under $tmp (umask 077) and are shredded on exit.
+echo
+echo "Done. Tell delivery signer fingerprint:"
+echo "    $fpr"
+echo "Each pile pins this (keys/tell.signers + pile.yml signer) and confirms it"
+echo "out-of-band / IRL. deliver.yml can now produce signed digests."

@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# REFERENCE inbound-digest rollup hook — the pluggable seam in deliver.yml.
+#
+# deliver.yml calls `bin/rollup <id> [scope]` once per delivery window and seals
+# whatever this prints on stdout as ONE digest block (encrypted under that block's
+# ratchet key, hash-linked, signed). This reference emits a small provenance-stamped
+# JSON record; replace it with your real source — the window's collected poll
+# responses, a sink export, etc. The pile never trusts the transport: integrity comes
+# from the signed manifest, so the only contract here is "print the bytes to seal."
+#
+# Two ways to plug in your real rollup:
+#   • replace this file, or
+#   • leave it and set TELL_ROLLUP_CMD=/path/to/your/rollup (same args, its stdout
+#     becomes the block plaintext).
+#
+# Print NOTHING (empty stdout) to mean "no new data this window" — deliver skips the
+# pile and appends no empty block. Exit non-zero to signal a hard failure (skipped,
+# logged) rather than emitting a bogus block.
+set -euo pipefail
+id="${1:?usage: bin/rollup <id> [scope]}"
+scope="${2:-}"
+
+# --- reference payload (placeholder; carries no real data) -------------------
+# A real rollup would put the window's records in `records` and, ideally, stamp
+# provenance (where each record came from) so the decrypted tank is a literal
+# ingress→egress custody log.
+jq -n \
+  --arg id "$id" \
+  --arg scope "$scope" \
+  --arg at "$(date -u +%FT%TZ)" '
+  {
+    schema: "tell.digest/v0-reference",
+    pile: $id,
+    scope: $scope,
+    window_end: $at,
+    note: "Reference rollup output — replace bin/rollup (or set TELL_ROLLUP_CMD).",
+    records: []
+  }'

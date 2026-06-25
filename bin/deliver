@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# Tell inbound-digest PRODUCER. The executable counterpart to the data-pile's
+# bin/verify: it builds (or extends) the encrypted, hash-linked, signed chain a
+# pile pulls from feed/<scope>/<id>. No GitHub App, no write into the pile — this
+# only edits a local inbox/ directory; the deliver.yml workflow does the git push
+# to Tell's OWN feed branch, and the pile pulls from there.
+#
+# Usage:
+#   bin/deliver --dir DIR --recipient AGE_RECIP --source NAME \
+#               [--signkey SSH_KEY] --block FILE [--block FILE ...]
+#
+#   --dir         working dir holding inbox/ (created if missing)
+#   --recipient   the pile's age recipient (age1…) — wraps the seed FOR THE OWNER
+#   --source      feed source name written into each entry (default: tell)
+#   --signkey     ssh private key to sign the manifest head; omitted => head.sig=null
+#   --block FILE  plaintext digest block to append (repeatable; one seq each)
+#
+# Ratchet resume (the reason Tell keeps ONE age identity, not per-pile secrets):
+#   At genesis Tell draws K_0 and writes BOTH inbox/seed.age (wrapped to the pile,
+#   one-time, for the owner) AND inbox/seed.tell.age (wrapped to Tell's own
+#   recipient). On every later delivery Tell unwraps its own copy, replays the
+#   one-way ratchet to head.seq+1, and appends. Losing the identity only prevents
+#   EXTENDING a chain; it never touches the owner's ability to decrypt.
+#
+# Env:
+#   TELL_SEED_IDENTITY   age identity text (preferred in CI), or
+#   TELL_IDENTITY_FILE   path to an age identity file.
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/pile-lib.sh"
+
+dir=""; recip=""; source="tell"; signkey=""; blocks=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dir) dir="$2"; shift 2;;
+    --recipient) recip="$2"; shift 2;;
+    --source) source="$2"; shift 2;;
+    --signkey) signkey="$2"; shift 2;;
+    --block) blocks+=("$2"); shift 2;;
+    *) dp_die "unknown arg: $1";;
+  esac
+done
+[ -n "$dir" ] || dp_die "specify --dir DIR"
+[ "${#blocks[@]}" -gt 0 ] || dp_die "specify at least one --block FILE"
+inbox="$dir/inbox"; mkdir -p "$inbox"
+manifest="$inbox/manifest.json"
+
+# Resolve the Tell age identity (needed to wrap at genesis and to resume later).
+idfile=""
+if [ -n "${TELL_IDENTITY_FILE:-}" ]; then idfile="$TELL_IDENTITY_FILE"
+elif [ -n "${TELL_SEED_IDENTITY:-}" ]; then
+  idfile="$(mktemp)"; trap 'rm -f "$idfile"' EXIT
+  printf '%s\n' "$TELL_SEED_IDENTITY" > "$idfile"
+else dp_die "no Tell identity (set TELL_SEED_IDENTITY or TELL_IDENTITY_FILE)"; fi
+tell_recip="$(age-keygen -y "$idfile")" || dp_die "cannot derive Tell recipient from identity"
+
+if [ -f "$manifest" ]; then
+  # --- resume: replay the ratchet from Tell's own wrapped seed ---
+  [ -f "$inbox/seed.tell.age" ] || dp_die "manifest present but no seed.tell.age (cannot extend chain)"
+  head_seq="$(jq -r '.head.seq' "$manifest")"
+  next_seq=$((head_seq + 1))
+  entries="$(jq -c '.entries' "$manifest")"
+  prev="$(jq -c '.entries[-1].this_hash' "$manifest")"   # already a JSON string
+  k0="$(age -d -i "$idfile" "$inbox/seed.tell.age")"
+  kk="$k0"; r=0
+  while [ "$r" -lt "$next_seq" ]; do kk="$(dp_ratchet_next "$kk")"; r=$((r+1)); done
+  dp_log "resume: head seq $head_seq → appending from seq $next_seq"
+else
+  # --- genesis: draw K_0, wrap it for the owner AND for Tell ---
+  next_seq=0; entries="[]"; prev="null"
+  kk="$(openssl rand -hex 32)"   # K_0
+  [ -n "$recip" ] || dp_die "genesis needs --recipient (the pile's age recipient)"
+  printf '%s' "$kk" | age -r "$recip" -o "$inbox/seed.age"
+  printf '%s' "$kk" | age -r "$tell_recip" -o "$inbox/seed.tell.age"
+  dp_log "genesis: wrote seed.age (owner) + seed.tell.age (Tell resume)"
+fi
+
+# --- append each plaintext block under its own ratchet key ---
+seq="$next_seq"
+for plain in "${blocks[@]}"; do
+  [ -f "$plain" ] || dp_die "no such block file: $plain"
+  seqp="$(printf '%06d' "$seq")"
+  dp_enc "$kk" "$plain" "$inbox/$seqp.enc"
+  this="sha256:$(dp_sha256_file "$inbox/$seqp.enc")"
+  rpub="sha256:$(dp_ratchet_pub "$kk")"
+  entries="$(printf '%s' "$entries" | jq \
+    --argjson seq "$seq" --arg ca "$(date -u +%FT%TZ)" --arg src "$source" \
+    --arg block "$seqp.enc" --arg th "$this" --argjson ph "$prev" --arg rp "$rpub" \
+    '. + [{seq:$seq, created_at:$ca, source:$src, block:$block, this_hash:$th, prev_hash:$ph, ratchet_pub:$rp}]')"
+  prev="\"$this\""
+  kk="$(dp_ratchet_next "$kk")"
+  seq=$((seq+1))
+done
+last_seq=$((seq-1))
+
+# --- write manifest, then sign its head over the EXACT digest verify recomputes ---
+jq -n --argjson entries "$entries" --argjson seq "$last_seq" --arg src "$source" '
+  { version:1, source:$src, entries:$entries, head:{seq:$seq, digest:"", sig:null} }' \
+  > "$manifest"
+digest="$(dp_entries_digest "$manifest")"
+
+sig="null"
+if [ -n "$signkey" ] && command -v ssh-keygen >/dev/null 2>&1; then
+  tmp="$(mktemp)"
+  printf '%s' "$digest" | ssh-keygen -Y sign -n data-pile -f "$signkey" 2>/dev/null > "$tmp"
+  sig="$(base64 -w0 < "$tmp" | jq -R '.')"
+  rm -f "$tmp"
+else
+  dp_log "WARN: no --signkey; head.sig=null (pile must run with DP_ALLOW_UNSIGNED=1)"
+fi
+
+tmp="$(mktemp)"
+jq --arg dg "$digest" --argjson sig "$sig" \
+  '.head.digest=$dg | .head.sig=$sig' "$manifest" > "$tmp" && mv "$tmp" "$manifest"
+
+dp_log "OK: source '$source' now $((last_seq+1)) block(s) (head seq $last_seq, digest $digest, signed=$([ "$sig" = null ] && echo no || echo yes))"
+echo "$manifest"

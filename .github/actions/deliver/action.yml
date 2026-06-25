@@ -1,0 +1,56 @@
+name: "Tell deliver"
+description: >
+  Turn a repository into its own Tell: read its pile registry, run its rollup over
+  its own jurisdiction's dataset, and produce + encrypt + ratchet + sign + publish
+  each pile's feed into this repo. No GitHub App, no cross-repo token — only
+  contents:write on the calling repo (the built-in GITHUB_TOKEN).
+
+inputs:
+  signer-key:
+    description: "SSH private signing key (the Tell's delivery signer). Pass a secret. Blank => unsigned."
+    required: false
+    default: ""
+  seed-identity:
+    description: "age identity for ratchet resume across runs. Pass a secret. Required."
+    required: true
+  registry:
+    description: "Path to the pile registry in this repo."
+    required: false
+    default: "_data/piles.yml"
+  only-id:
+    description: "Deliver to just this pile id (blank = every registered pile)."
+    required: false
+    default: ""
+  rollup:
+    description: >
+      Command that prints a pile's window digest: `<cmd> <id> <scope>`. Default:
+      this repo's ./bin/rollup if present, else the action's bundled reference.
+    required: false
+    default: ""
+  source-name:
+    description: "Feed source name written into each manifest entry."
+    required: false
+    default: "tell"
+  install-age:
+    description: "Apt-install age on the runner (set false if already present)."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install age
+      if: ${{ inputs.install-age == 'true' }}
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y age
+
+    - name: Produce and publish digests
+      shell: bash
+      env:
+        TELL_SIGNER_KEY: ${{ inputs.signer-key }}
+        TELL_SEED_IDENTITY: ${{ inputs.seed-identity }}
+        REGISTRY: ${{ inputs.registry }}
+        ONLY_ID: ${{ inputs.only-id }}
+        ROLLUP_CMD: ${{ inputs.rollup }}
+        SOURCE_NAME: ${{ inputs.source-name }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"
