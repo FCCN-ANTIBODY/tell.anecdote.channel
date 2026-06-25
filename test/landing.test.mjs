@@ -12,6 +12,7 @@ globalThis.document = { getElementById: () => el };
 globalThis.location = {
   search:
     "?pile=cd04-q1&poll=bikes&round=3&type=open&asker=" + encodeURIComponent("dot-office") +
+    "&guidance=" + encodeURIComponent("one option; no essays") +
     "&tok=deadbeef&q=" + encodeURIComponent("Expand bike lanes?") +
     "&opts=" + encodeURIComponent("Yes,No,Study"),
   hash: "",
@@ -37,6 +38,7 @@ assert(
   obj.schema === "tell.submission/v1" &&
   obj.pile === "cd04-q1" && obj.poll === "bikes" && obj.round === "3" &&
   obj.type === "open" && obj.asker === "dot-office" &&
+  obj.shown_guidance === "one option; no essays" &&
   obj.tok === "deadbeef" && obj.answer === "Study",
   "tell block fields wrong: " + JSON.stringify(obj)
 );

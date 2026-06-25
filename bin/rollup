@@ -24,7 +24,7 @@ ls "$stage"/*.json >/dev/null 2>&1 || exit 0
 # its type/asker, so the owner's pile can route the mixed signals (a budget question, a
 # bike-lane poll, a sensor dropbox) to the right poll's handling — plus the issue number
 # that carried it, a literal ingress→egress custody trail.
-records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
+records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, shown_guidance: .shown_guidance, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
 jq -n \
   --arg id "$id" \
   --arg scope "$scope" \

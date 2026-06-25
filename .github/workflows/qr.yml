@@ -31,6 +31,9 @@ on:
       opts:
         description: "Comma-separated answer options (default: Yes,No)"
         required: false
+      guidance:
+        description: "Guidance shown to the respondent (format/mood). The pile governs by its own."
+        required: false
 
 permissions:
   contents: read
@@ -53,6 +56,7 @@ jobs:
           ASKER: ${{ inputs.asker }}
           QUESTION: ${{ inputs.question }}
           OPTS: ${{ inputs.opts }}
+          GUIDANCE: ${{ inputs.guidance }}
         run: |
           set -euo pipefail
           [ -n "${TELL_QR_SECRET:-}" ] || { echo "::error::TELL_QR_SECRET secret required (see bin/tell-bootstrap)"; exit 1; }
@@ -60,6 +64,7 @@ jobs:
           [ -n "${ASKER:-}" ]    && args+=(--asker "$ASKER")
           [ -n "${QUESTION:-}" ] && args+=(--question "$QUESTION")
           [ -n "${OPTS:-}" ]     && args+=(--opts "$OPTS")
+          [ -n "${GUIDANCE:-}" ] && args+=(--guidance "$GUIDANCE")
           url="$(bin/qr "${args[@]}")"
           mkdir -p out; mv qr-*.png out/ 2>/dev/null || qrencode -o "out/qr-${PILE}-${POLL}-${ROUND}.png" "$url"
           { echo "## QR for \`$POLL\` on \`$PILE\` (round $ROUND)";
