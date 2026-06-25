@@ -69,17 +69,23 @@ Tell-runner mints:
   `…/?pile&poll&round&tok&type&asker&q&opts`. This is "the runtime generates what future QR builds use."
 - **Submission.** `index.md` reads that config and builds a **pre-filled `issues/new` link**; the
   respondent's click posts an Issue whose body carries a fenced ```tell``` JSON block
-  `{schema:"tell.submission/v1", pile, poll, round, type, asker, tok, answer}`. The page only builds a
-  link — nothing phones home.
+  `{schema:"tell.submission/v1", pile, poll, round, type, asker, shown_guidance, tok, answer}`. The
+  page only builds a link — nothing phones home. `shown_guidance` is the guidance the respondent was
+  *shown* — informational provenance, carried to the pile; the pile governs by its **own** constitution.
 - **The ejected check.** `bin/authz` reads the submission JSON on stdin (overridable via
   `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
   {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,
   type/asker-aware rules (rate, dedup, geo, one-reply, sensor checks) plug in here.
 - **Ingest loop.** `ingest-submissions.yml`: `bin/collect-submissions` reads open Issues, runs
-  `bin/authz`, and **stages** only the authorized ones (tagged with poll/type/asker); `bin/rollup`
-  emits a `tell.digest/v1` block whose records carry each answer's `poll`/`type`/`asker` so the pile
-  routes mixed signals; the deliver action seals it; then `bin/finalize-submissions` closes each Issue
-  — `ingested` for the abiding, `rejected` (with reason) for the rest. Tell writes only its own repo.
+  `bin/authz`, and **stages** only the authorized ones (tagged with poll/type/asker/shown_guidance);
+  `bin/rollup` emits a `tell.digest/v1` block whose records carry each answer's
+  `poll`/`type`/`asker`/`shown_guidance` so the pile routes and judges mixed signals; the deliver
+  action seals it; then `bin/finalize-submissions` closes each Issue — `ingested` meaning *authorized
+  and delivered* (not "kept"), `rejected` (with reason) for the unauthorized. Tell writes only its own repo.
+- **Authorize, don't govern.** Tell decides only what is *authorized and delivered*. Whether a reply is
+  *kept* is the **data-pile's** call, against its own per-question constitution (see
+  [`data-pile`](https://github.com/FCCN-ANTIBODY/data-pile) → `questions/` + `bin/govern`), which the
+  pile-runner can patch live and which publishes its own transparency report.
 - **Exposure, named.** A raw answer is world-readable in its Issue between posting and sealing, so
   this channel is for **coarse, consented answers, not secrets** (see CONSTITUTION.md).
 

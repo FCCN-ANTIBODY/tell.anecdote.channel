@@ -18,7 +18,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
-pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""
+pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -28,10 +28,11 @@ while [ $# -gt 0 ]; do
     --asker) asker="$2"; shift 2;;
     --question) question="$2"; shift 2;;
     --opts) opts="$2"; shift 2;;
+    --guidance) guidance="$2"; shift 2;;
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
-[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV]" >&2; exit 1; }
+[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
 : "${TELL_DOMAIN:=https://tell.anecdote.channel}"
 
@@ -44,6 +45,7 @@ url="${url}&type=$(enc "$type")"
 [ -n "$asker" ]    && url="${url}&asker=$(enc "$asker")"
 [ -n "$question" ] && url="${url}&q=$(enc "$question")"
 [ -n "$opts" ]     && url="${url}&opts=$(enc "$opts")"
+[ -n "$guidance" ] && url="${url}&guidance=$(enc "$guidance")"
 
 echo "$url"
 if command -v qrencode >/dev/null 2>&1; then

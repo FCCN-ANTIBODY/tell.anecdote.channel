@@ -49,6 +49,7 @@ while [ "$i" -lt "$n" ]; do
   round="$(printf '%s' "$block" | jq -r '.round // empty')"
   type="$(printf '%s' "$block" | jq -r '.type // "open"')"
   asker="$(printf '%s' "$block" | jq -r '.asker // empty')"
+  shown="$(printf '%s' "$block" | jq -r '.shown_guidance // empty')"
   answer="$(printf '%s' "$block" | jq -r '.answer // empty')"
   ts="$(printf '%s' "$block" | jq -r '.ts // empty')"
   tok="$(printf '%s' "$block" | jq -r '.tok // empty')"
@@ -61,8 +62,8 @@ while [ "$i" -lt "$n" ]; do
   if reason="$(printf '%s' "$block" | "$authz" 2>&1 >/dev/null)"; then
     mkdir -p "$stage/$pile"
     jq -n --argjson n "$num" --arg p "$pile" --arg poll "$poll" --arg ty "$type" \
-          --arg ask "$asker" --arg r "$round" --arg a "$answer" --arg t "$ts" \
-      '{number:$n, pile:$p, poll:$poll, type:$ty, asker:$ask, round:$r, answer:$a, ts:$t}' \
+          --arg ask "$asker" --arg sg "$shown" --arg r "$round" --arg a "$answer" --arg t "$ts" \
+      '{number:$n, pile:$p, poll:$poll, type:$ty, asker:$ask, shown_guidance:$sg, round:$r, answer:$a, ts:$t}' \
       > "$stage/$pile/$num.json"
     printf '%s\t%s\n' "$num" "$pile" >> "$stage/.accepted.tsv"; acc=$((acc+1))
   else

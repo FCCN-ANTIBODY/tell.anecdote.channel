@@ -54,6 +54,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
       schema: "tell.submission/v1",
       pile: cfg.pile, poll: cfg.poll, round: cfg.round,
       type: cfg.type || "open", asker: cfg.asker || "",
+      shown_guidance: cfg.guidance || "",
       tok: cfg.tok, answer: answer, ts: new Date().toISOString()
     };
     var body = "Reply to **" + cfg.pile + "** / poll **" + cfg.poll + "** — option: **" + answer + "**\n\n" +
@@ -72,6 +73,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
   mount.innerHTML =
     '<p class="tell-loaded">Poll <code>' + esc(cfg.poll) + "</code> on <code>" + esc(cfg.pile) + "</code> (round " + esc(cfg.round) + "):</p>" +
     '<p class="tell-q">' + esc(question) + "</p>" +
+    (cfg.guidance ? '<p class="tell-guidance">' + esc(cfg.guidance) + "</p>" : "") +
     '<div class="tell-grid">' + rows + "</div>" +
     '<p class="tell-fineprint">Choosing an option opens a pre-filled GitHub issue. Review it, then submit to reply.</p>';
 })();

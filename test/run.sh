@@ -93,7 +93,7 @@ ok "valid tuple accepted; cross-poll / wrong-round / tamper / unknown-pile rejec
 echo "[8] collect stages authorized replies across two polls on one pile"
 tokK="$(bin/qr --pile cd04-q1 --poll bikes --round 1 2>/dev/null | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
 mkb() { jq -n --arg p "$1" --arg poll "$2" --arg t "$3" --arg a "$4" \
-  '{schema:"tell.submission/v1",pile:$p,poll:$poll,round:"1",type:"open",asker:"clerk",tok:$t,answer:$a,ts:"2026-06-25T19:00:00Z"}'; }
+  '{schema:"tell.submission/v1",pile:$p,poll:$poll,round:"1",type:"open",asker:"clerk",shown_guidance:"g-\($poll)",tok:$t,answer:$a,ts:"2026-06-25T19:00:00Z"}'; }
 fence() { printf '```tell\n%s\n```' "$1"; }
 jq -n \
   --arg b1 "$(fence "$(mkb cd04-q1 budget "$tokB" Cut)")" \
@@ -113,6 +113,7 @@ rb="$work/rollup.block"
 TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"
 [ "$(jq -r '.count' "$rb")" = 2 ] || fail "rollup did not batch the 2 accepted answers"
 [ "$(jq -r '[.records[].poll]|sort|join(",")' "$rb")" = "bikes,budget" ] || fail "rollup did not tag records by poll"
+[ "$(jq -r '[.records[].shown_guidance]|sort|join(",")' "$rb")" = "g-bikes,g-budget" ] || fail "rollup dropped shown_guidance"
 bin/deliver --dir "$work/rfeed" --recipient "$recip" --signkey "$work/sign" --block "$rb" >/dev/null \
   || fail "deliver could not seal rollup output"
 if [ -x "$DP_REPO/bin/verify" ]; then
