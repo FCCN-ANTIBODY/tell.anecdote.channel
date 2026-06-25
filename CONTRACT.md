@@ -54,24 +54,32 @@ write access to the pile is ever requested.
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
 Tell-runner mints:
 
-- **Authorization (HMAC).** One master secret `TELL_QR_SECRET` (set by `bin/tell-bootstrap`) derives a
-  per-pile key `k_pile = HMAC(TELL_QR_SECRET, "qr:"||id)`, never stored. A QR for pile `id` at `round`
-  embeds `tok = HMAC(k_pile, "tok:"||id||":"||round)`. The token is a bearer "this poll is open"
-  capability — public in the QR — but only the secret can *mint* one, so no one forges tokens for
-  other piles/rounds. Bump `round` to expire an outstanding QR.
-- **QR build.** `bin/qr <id> <round> [question] [opts]` (run by the `qr.yml` workflow with the secret)
-  prints the landing URL `…/?pile&round&tok&q&opts`. This is "the runtime generates what future QR
-  builds use."
+- **A pile hosts many polls.** A QR addresses a specific **poll** on a pile — unrelated polls (an open
+  question, an unsolicited broadcast, a sensor-checked dropbox) can share one pile and route by `poll`.
+  The QR also carries the originating **asker** and the poll **type** as routing metadata.
+- **Authorization (HMAC), bound to {pile, poll, round}.** One master secret `TELL_QR_SECRET` (set by
+  `bin/tell-bootstrap`) derives a per-pile key `k_pile = HMAC(TELL_QR_SECRET, "qr:"||id)`, never
+  stored. A QR for pile `id` / poll `poll` at `round` embeds `tok = HMAC(k_pile, "tok:"||id||":"||poll||":"||round)`.
+  Only the secret can *mint* one, and a token minted for one (pile, poll, round) does **not** verify
+  as any other — so a QR can't be retargeted to a different poll. `type` and `asker` ride along
+  **unbound** (carried to the pile for routing, not pinned). The token is the authority: a valid
+  token *is* the authorization, so Tell keeps **no poll/asker registry**. Bump `round` to rotate a QR.
+- **QR build.** `bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV]`
+  (run by the `qr.yml` workflow with the secret) prints the landing URL
+  `…/?pile&poll&round&tok&type&asker&q&opts`. This is "the runtime generates what future QR builds use."
 - **Submission.** `index.md` reads that config and builds a **pre-filled `issues/new` link**; the
   respondent's click posts an Issue whose body carries a fenced ```tell``` JSON block
-  `{pile, round, tok, answer}`. The page only builds a link — nothing phones home.
-- **The ejected check.** `bin/authz <id> <round> <tok>` (overridable via `TELL_AUTHZ_CMD`, mirroring
-  the rollup seam) re-derives `k_pile`, recomputes the HMAC, constant-time compares, and checks the
-  round is open. Stricter rules (rate, dedup, geo, one-reply) plug in here.
+  `{schema:"tell.submission/v1", pile, poll, round, type, asker, tok, answer}`. The page only builds a
+  link — nothing phones home.
+- **The ejected check.** `bin/authz` reads the submission JSON on stdin (overridable via
+  `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
+  {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,
+  type/asker-aware rules (rate, dedup, geo, one-reply, sensor checks) plug in here.
 - **Ingest loop.** `ingest-submissions.yml`: `bin/collect-submissions` reads open Issues, runs
-  `bin/authz`, and **stages** only the authorized ones; the deliver action seals them; then
-  `bin/finalize-submissions` closes each Issue — `ingested` for the abiding, `rejected` (with reason)
-  for the rest. Tell writes only its own repo.
+  `bin/authz`, and **stages** only the authorized ones (tagged with poll/type/asker); `bin/rollup`
+  emits a `tell.digest/v1` block whose records carry each answer's `poll`/`type`/`asker` so the pile
+  routes mixed signals; the deliver action seals it; then `bin/finalize-submissions` closes each Issue
+  — `ingested` for the abiding, `rejected` (with reason) for the rest. Tell writes only its own repo.
 - **Exposure, named.** A raw answer is world-readable in its Issue between posting and sealing, so
   this channel is for **coarse, consented answers, not secrets** (see CONSTITUTION.md).
 

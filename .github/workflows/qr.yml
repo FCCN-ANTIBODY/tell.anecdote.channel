@@ -1,9 +1,9 @@
 name: qr
 
-# Mint an authorized QR for a pile this Tell fronts. The runtime (this Action) is what
-# generates what a QR build needs: it derives the per-pile token from TELL_QR_SECRET so
-# the landing the QR opens carries a token bin/authz will later accept. Output is the
-# URL (in the run summary) + a PNG artifact you print or share.
+# Mint an authorized QR for a specific POLL on a pile this Tell fronts. The runtime
+# (this Action) derives the per-pile token from TELL_QR_SECRET so the landing the QR
+# opens carries a token bin/authz will later accept — bound to {pile, poll, round}.
+# Output: the URL (in the run summary) + a PNG artifact you print or share.
 
 on:
   workflow_dispatch:
@@ -11,12 +11,22 @@ on:
       pile:
         description: "Pile id the QR feeds (must be in _data/piles.yml)"
         required: true
+      poll:
+        description: "Poll id on that pile (free-form; the token binds it)"
+        required: true
       round:
-        description: "Round (bump to expire an outstanding QR)"
+        description: "Round (bump to expire an outstanding QR for this poll)"
         required: true
         default: "1"
+      type:
+        description: "Poll type — carried, not bound (open | broadcast | dropbox | …)"
+        required: false
+        default: "open"
+      asker:
+        description: "Originating asker address — carried, not bound"
+        required: false
       question:
-        description: "Poll question shown on the landing"
+        description: "Poll question shown on the landing (open type)"
         required: false
       opts:
         description: "Comma-separated answer options (default: Yes,No)"
@@ -35,17 +45,28 @@ jobs:
       - name: Mint authorized QR
         env:
           TELL_QR_SECRET: ${{ secrets.TELL_QR_SECRET }}
+          # Pass inputs via env (never interpolate into the shell) to avoid injection.
+          PILE: ${{ inputs.pile }}
+          POLL: ${{ inputs.poll }}
+          ROUND: ${{ inputs.round }}
+          TYPE: ${{ inputs.type }}
+          ASKER: ${{ inputs.asker }}
+          QUESTION: ${{ inputs.question }}
+          OPTS: ${{ inputs.opts }}
         run: |
           set -euo pipefail
           [ -n "${TELL_QR_SECRET:-}" ] || { echo "::error::TELL_QR_SECRET secret required (see bin/tell-bootstrap)"; exit 1; }
-          url="$(bin/qr "${{ inputs.pile }}" "${{ inputs.round }}" "${{ inputs.question }}" "${{ inputs.opts }}")"
-          mkdir -p out
-          mv qr-*.png out/ 2>/dev/null || qrencode -o "out/qr-${{ inputs.pile }}-${{ inputs.round }}.png" "$url"
-          { echo "## QR for \`${{ inputs.pile }}\` round ${{ inputs.round }}";
+          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND" --type "${TYPE:-open}")
+          [ -n "${ASKER:-}" ]    && args+=(--asker "$ASKER")
+          [ -n "${QUESTION:-}" ] && args+=(--question "$QUESTION")
+          [ -n "${OPTS:-}" ]     && args+=(--opts "$OPTS")
+          url="$(bin/qr "${args[@]}")"
+          mkdir -p out; mv qr-*.png out/ 2>/dev/null || qrencode -o "out/qr-${PILE}-${POLL}-${ROUND}.png" "$url"
+          { echo "## QR for \`$POLL\` on \`$PILE\` (round $ROUND)";
             echo; echo "Landing URL (encode into a QR, or use the artifact):";
             echo; echo "    $url"; } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         with:
-          name: qr-${{ inputs.pile }}-${{ inputs.round }}
+          name: qr-${{ inputs.pile }}-${{ inputs.poll }}-${{ inputs.round }}
           path: out/
           if-no-files-found: warn

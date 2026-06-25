@@ -20,17 +20,18 @@ stage="${TELL_SUBMISSIONS_DIR:-$(cd "$here/.." && pwd)/.submissions}/$id"
 # No staged submissions for this pile this window → emit nothing (deliver skips).
 ls "$stage"/*.json >/dev/null 2>&1 || exit 0
 
-# Fold the accepted answers into one record. `records` preserves the issue number that
-# carried each answer, so the owner's decrypted tank shows exactly what arrived and from
-# which submission.
-records="$(jq -s '[.[] | {issue: .number, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
+# Fold the accepted answers into one record. Each record carries the poll it targets and
+# its type/asker, so the owner's pile can route the mixed signals (a budget question, a
+# bike-lane poll, a sensor dropbox) to the right poll's handling — plus the issue number
+# that carried it, a literal ingress→egress custody trail.
+records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
 jq -n \
   --arg id "$id" \
   --arg scope "$scope" \
   --arg at "$(date -u +%FT%TZ)" \
   --argjson records "$records" '
   {
-    schema: "tell.digest/v0",
+    schema: "tell.digest/v1",
     pile: $id,
     scope: $scope,
     window_end: $at,

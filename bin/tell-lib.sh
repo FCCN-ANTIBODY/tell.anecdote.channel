@@ -4,10 +4,12 @@
 # bin/check-pile-lib — do not add to that file. Source this one instead.
 #
 # Authorization model (see CONTRACT.md / CONSTITUTION.md):
-#   k_pile = HMAC(TELL_QR_SECRET, "qr:"||id)         per-pile key, never stored
-#   tok    = HMAC(k_pile, "tok:"||id||":"||round)    bearer "this poll is open" cap
+#   k_pile = HMAC(TELL_QR_SECRET, "qr:"||id)                 per-pile key, never stored
+#   tok    = HMAC(k_pile, "tok:"||id||":"||poll||":"||round) binds {pile, poll, round}
 # The master secret mints tokens; the QR only carries one. No one without the secret
-# can forge a token for another pile/round.
+# can forge a token, and a token minted for one (pile, poll, round) does not verify as
+# any other — so a QR can't be retargeted to a different poll. `type` and `asker` ride
+# along as unbound routing metadata (carried to the pile, not pinned by the token).
 
 # HMAC-SHA256(key, msg) -> lowercase hex.
 tl_hmac() { # KEY MSG
@@ -16,8 +18,8 @@ tl_hmac() { # KEY MSG
 tl_pile_key() { # MASTER ID
   tl_hmac "$1" "qr:$2"
 }
-tl_token() { # MASTER ID ROUND
-  tl_hmac "$(tl_pile_key "$1" "$2")" "tok:$2:$3"
+tl_token() { # MASTER ID POLL ROUND
+  tl_hmac "$(tl_pile_key "$1" "$2")" "tok:$2:$3:$4"
 }
 
 # Constant-time-ish equality: compare sha256 digests of each side so the byte
@@ -26,8 +28,8 @@ tl_eq() { # A B
   [ "$(printf '%s' "$1" | sha256sum)" = "$(printf '%s' "$2" | sha256sum)" ]
 }
 
-# Verify a token for (id, round) under MASTER. 0 = valid, 1 = invalid.
-tl_verify() { # MASTER ID ROUND TOK
-  printf '%s' "$4" | grep -Eq '^[0-9a-f]{64}$' || return 1
-  tl_eq "$(tl_token "$1" "$2" "$3")" "$4"
+# Verify a token for (id, poll, round) under MASTER. 0 = valid, 1 = invalid.
+tl_verify() { # MASTER ID POLL ROUND TOK
+  printf '%s' "$5" | grep -Eq '^[0-9a-f]{64}$' || return 1
+  tl_eq "$(tl_token "$1" "$2" "$3" "$4")" "$5"
 }

@@ -45,18 +45,25 @@ while [ "$i" -lt "$n" ]; do
   fi
 
   pile="$(printf '%s' "$block" | jq -r '.pile // empty')"
+  poll="$(printf '%s' "$block" | jq -r '.poll // empty')"
   round="$(printf '%s' "$block" | jq -r '.round // empty')"
-  tok="$(printf '%s' "$block" | jq -r '.tok // empty')"
+  type="$(printf '%s' "$block" | jq -r '.type // "open"')"
+  asker="$(printf '%s' "$block" | jq -r '.asker // empty')"
   answer="$(printf '%s' "$block" | jq -r '.answer // empty')"
   ts="$(printf '%s' "$block" | jq -r '.ts // empty')"
-  if [ -z "$pile" ] || [ -z "$round" ] || [ -z "$tok" ]; then
-    printf '%s\t%s\n' "$num" "missing pile/round/tok" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
+  tok="$(printf '%s' "$block" | jq -r '.tok // empty')"
+  if [ -z "$pile" ] || [ -z "$poll" ] || [ -z "$round" ] || [ -z "$tok" ]; then
+    printf '%s\t%s\n' "$num" "missing pile/poll/round/tok" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
   fi
 
-  if reason="$("$authz" "$pile" "$round" "$tok" 2>&1 >/dev/null)"; then
+  # The ejected check gets the whole submission object on stdin (pile+poll+round bound;
+  # type+asker available for richer overrides).
+  if reason="$(printf '%s' "$block" | "$authz" 2>&1 >/dev/null)"; then
     mkdir -p "$stage/$pile"
-    jq -n --argjson n "$num" --arg p "$pile" --arg r "$round" --arg a "$answer" --arg t "$ts" \
-      '{number:$n, pile:$p, round:$r, answer:$a, ts:$t}' > "$stage/$pile/$num.json"
+    jq -n --argjson n "$num" --arg p "$pile" --arg poll "$poll" --arg ty "$type" \
+          --arg ask "$asker" --arg r "$round" --arg a "$answer" --arg t "$ts" \
+      '{number:$n, pile:$p, poll:$poll, type:$ty, asker:$ask, round:$r, answer:$a, ts:$t}' \
+      > "$stage/$pile/$num.json"
     printf '%s\t%s\n' "$num" "$pile" >> "$stage/.accepted.tsv"; acc=$((acc+1))
   else
     printf '%s\t%s\n' "$num" "${reason##*— }" >> "$stage/.rejected.tsv"; rej=$((rej+1))

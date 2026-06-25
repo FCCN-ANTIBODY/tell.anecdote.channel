@@ -78,37 +78,41 @@ fi
 # ── ingress: QR authorization + Issue collection + rollup wiring ──────────────
 export TELL_QR_SECRET="$(openssl rand -hex 32)"
 
-echo "[7] QR token round-trips through the ejected authz check"
-url="$(bin/qr cd04-q1 1 "Q?" "Yes,No" 2>/dev/null)"
-tok="$(printf '%s' "$url" | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
-[ -n "$tok" ] || fail "bin/qr emitted no token"
-bin/authz cd04-q1 1 "$tok" 2>/dev/null || fail "authz rejected a valid token"
-bin/authz cd04-q1 1 "${tok%?}f" 2>/dev/null && fail "authz accepted a tampered token" || true
-bin/authz cd04-q1 2 "$tok"      2>/dev/null && fail "authz accepted a wrong round"     || true
-bin/authz ghost   1 "$tok"      2>/dev/null && fail "authz accepted an unknown pile"   || true
-ok "valid token accepted; tamper / wrong-round / unknown-pile rejected"
+echo "[7] poll-bound token round-trips through the ejected authz check"
+sub() { jq -n --arg p "$1" --arg poll "$2" --arg r "$3" --arg t "$4" \
+  '{pile:$p,poll:$poll,round:$r,type:"open",asker:"x",tok:$t}'; }
+tokB="$(bin/qr --pile cd04-q1 --poll budget --round 1 2>/dev/null | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
+[ -n "$tokB" ] || fail "bin/qr emitted no token"
+sub cd04-q1 budget 1 "$tokB"        | bin/authz 2>/dev/null || fail "authz rejected a valid token"
+sub cd04-q1 bikes  1 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted cross-poll" || true
+sub cd04-q1 budget 2 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted wrong round" || true
+sub cd04-q1 budget 1 "${tokB%?}f"   | bin/authz 2>/dev/null && fail "authz accepted a tamper"    || true
+sub ghost   budget 1 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted unknown pile" || true
+ok "valid tuple accepted; cross-poll / wrong-round / tamper / unknown-pile rejected"
 
-echo "[8] collect-submissions stages only authorized replies"
-mkb() { jq -n --arg p "$1" --arg r "$2" --arg t "$3" --arg a "$4" \
-  '{schema:"tell.submission/v0",pile:$p,round:$r,tok:$t,answer:$a,ts:"2026-06-25T19:00:00Z"}'; }
+echo "[8] collect stages authorized replies across two polls on one pile"
+tokK="$(bin/qr --pile cd04-q1 --poll bikes --round 1 2>/dev/null | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
+mkb() { jq -n --arg p "$1" --arg poll "$2" --arg t "$3" --arg a "$4" \
+  '{schema:"tell.submission/v1",pile:$p,poll:$poll,round:"1",type:"open",asker:"clerk",tok:$t,answer:$a,ts:"2026-06-25T19:00:00Z"}'; }
 fence() { printf '```tell\n%s\n```' "$1"; }
 jq -n \
-  --arg b1 "$(fence "$(mkb cd04-q1 1 "$tok" Yes)")" \
-  --arg b2 "$(fence "$(mkb cd04-q1 1 "$tok" Study)")" \
-  --arg b3 "$(fence "$(mkb cd04-q1 1 "${tok%?}f" No)")" \
-  --arg b4 "$(fence "$(mkb ghost 1 "$tok" Yes)")" \
+  --arg b1 "$(fence "$(mkb cd04-q1 budget "$tokB" Cut)")" \
+  --arg b2 "$(fence "$(mkb cd04-q1 bikes  "$tokK" Yes)")" \
+  --arg b3 "$(fence "$(mkb cd04-q1 budget "$tokK" Keep)")" \
+  --arg b4 "$(fence "$(mkb ghost  budget "$tokB" Yes)")" \
   --arg b5 "no block here" \
   '[{number:1,body:$b1},{number:2,body:$b2},{number:3,body:$b3},{number:4,body:$b4},{number:5,body:$b5}]' \
   > "$work/issues.json"
 TELL_ISSUES_JSON="$work/issues.json" TELL_SUBMISSIONS_DIR="$work/stage" bin/collect-submissions 2>/dev/null
-[ "$(wc -l < "$work/stage/.accepted.tsv")" = 2 ] || fail "expected 2 accepted"
-[ "$(wc -l < "$work/stage/.rejected.tsv")" = 2 ] || fail "expected 2 rejected (bad token + unknown pile)"
-ok "2 authorized staged, 2 rejected, no-block issue ignored"
+[ "$(wc -l < "$work/stage/.accepted.tsv")" = 2 ] || fail "expected 2 accepted (budget + bikes)"
+[ "$(wc -l < "$work/stage/.rejected.tsv")" = 2 ] || fail "expected 2 rejected (cross-poll token + unknown pile)"
+ok "2 polls staged, cross-poll forgery + unknown pile rejected, no-block ignored"
 
-echo "[9] rollup emits the accepted batch; deliver seals it; consumer verifies"
+echo "[9] rollup tags each record with its poll; deliver seals it; consumer verifies"
 rb="$work/rollup.block"
 TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"
 [ "$(jq -r '.count' "$rb")" = 2 ] || fail "rollup did not batch the 2 accepted answers"
+[ "$(jq -r '[.records[].poll]|sort|join(",")' "$rb")" = "bikes,budget" ] || fail "rollup did not tag records by poll"
 bin/deliver --dir "$work/rfeed" --recipient "$recip" --signkey "$work/sign" --block "$rb" >/dev/null \
   || fail "deliver could not seal rollup output"
 if [ -x "$DP_REPO/bin/verify" ]; then
