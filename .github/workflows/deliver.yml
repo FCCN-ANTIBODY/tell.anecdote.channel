@@ -1,20 +1,20 @@
 name: deliver
 
-# Produce inbound encrypted digests and publish them on Tell's OWN feed branches
-# (feed/<scope>/<id>), parallel to the outbound pile/<scope>/<id> namespace. A pile
-# PULLS its feed from the gateway (see CONTRACT.md "Inbound digest channel"); Tell
-# never writes into a pile, so this needs NO GitHub App and NO cross-repo token —
-# only contents:write on THIS repo, which the built-in GITHUB_TOKEN already grants.
+# Produce inbound encrypted digests and publish them on this Tell's OWN feed branches
+# (feed/<scope>/<id>). A pile PULLS its feed from the gateway (see CONTRACT.md); Tell
+# never writes into a pile, so this needs NO GitHub App and NO cross-repo token — only
+# contents:write on THIS repo, which the built-in GITHUB_TOKEN already grants.
+#
+# The work itself is the reusable `deliver` composite action (.github/actions/deliver),
+# which any jurisdiction can drop into their own repo to run on their own dataset. This
+# workflow just dogfoods it.
 #
 # Secrets required:
-#   TELL_SIGNER_KEY     ssh private signing key; public half is committed at
-#                        keys/tell.pub and registered by each pile (see keys/README.md)
-#   TELL_SEED_IDENTITY  age identity; lets deliver resume each pile's one-way ratchet
-#                        across runs without per-pile secrets (see bin/deliver)
+#   TELL_SIGNER_KEY     ssh private signing key (public half committed at keys/tell.pub)
+#   TELL_SEED_IDENTITY  age identity; resumes each pile's one-way ratchet across runs
 #
-# The plaintext block content is the ONE deliberately stubbed seam: the real rollup
-# digest source plugs in where marked below. Everything around it (encrypt, chain,
-# sign, publish) is production code exercised by test/run.sh.
+# The plaintext digest source is the pluggable rollup seam — bin/rollup (a reference)
+# or whatever the registry's piles want. Everything around it is production code.
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ on:
         description: "Deliver to just this pile id (blank = every registered pile)"
         required: false
   schedule:
-    - cron: "47 * * * *" # hourly, best-effort, batched — neither side burns the other's CI
+    - cron: "47 * * * *" # hourly, best-effort, batched
 
 permissions:
   contents: write
@@ -39,87 +39,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Install age
-        run: sudo apt-get update && sudo apt-get install -y age
-
-      - name: Produce and publish digests
-        env:
-          TELL_SIGNER_KEY: ${{ secrets.TELL_SIGNER_KEY }}
-          TELL_SEED_IDENTITY: ${{ secrets.TELL_SEED_IDENTITY }}
-          ONLY_ID: ${{ inputs.only_id }}
-        run: |
-          set -euo pipefail
-          [ -n "${TELL_SEED_IDENTITY:-}" ] || { echo "::error::TELL_SEED_IDENTITY secret required"; exit 1; }
-          umask 077
-          signkey=""
-          if [ -n "${TELL_SIGNER_KEY:-}" ]; then
-            signkey="$(mktemp)"; printf '%s\n' "$TELL_SIGNER_KEY" > "$signkey"
-          else
-            echo "::warning::no TELL_SIGNER_KEY — manifests will be unsigned"
-          fi
-          git config user.name  "tell-deliver"
-          git config user.email "tell-deliver@users.noreply.github.com"
-
-          # Parse the simple registry shape (id / scope / age_recipient / feed) without a YAML dep.
-          python3 - "$ONLY_ID" <<'PY' > /tmp/targets.tsv
-          import sys, re
-          only = sys.argv[1].strip()
-          cur = {}
-          out = []
-          def flush():
-              if cur.get("id") and cur.get("age_recipient") and cur.get("feed"):
-                  out.append((cur["id"], cur.get("scope",""), cur["age_recipient"], cur["feed"]))
-          for line in open("_data/piles.yml"):
-              m = re.match(r'\s*-\s*id:\s*"?([^"\n]+)"?', line)
-              if m:
-                  flush(); cur = {"id": m.group(1).strip()}
-                  continue
-              for k in ("scope","age_recipient","feed"):
-                  mm = re.match(r'\s*%s:\s*"?([^"\n]+)"?' % k, line)
-                  if mm: cur[k] = mm.group(1).strip()
-          flush()
-          for id_,scope,recip,feed in out:
-              if only and id_ != only: continue
-              print("\t".join([id_,scope,recip,feed]))
-          PY
-
-          [ -s /tmp/targets.tsv ] || { echo "no deliverable piles (need id + age_recipient + feed)"; exit 0; }
-
-          while IFS=$'\t' read -r id scope recip feed; do
-            echo "::group::deliver $id -> $feed"
-            work="$(mktemp -d)"; mkdir -p "$work/inbox"
-            parent=""
-            if git rev-parse -q --verify "origin/$feed" >/dev/null; then
-              git fetch --quiet origin "$feed"
-              git archive "origin/$feed" inbox 2>/dev/null | tar -x -C "$work" 2>/dev/null || true
-              parent="-p origin/$feed"
-            fi
-
-            # Rollup hook (the pluggable seam): produce this window's plaintext digest.
-            # Default bin/rollup is the reference; point TELL_ROLLUP_CMD at your real
-            # source to override without editing this workflow. Empty output = nothing
-            # new this window, so skip the pile (no empty block appended).
-            block="$(mktemp)"
-            "${TELL_ROLLUP_CMD:-bin/rollup}" "$id" "$scope" > "$block" || {
-              echo "rollup failed for $id; skipping"; echo "::endgroup::"; continue; }
-            if [ ! -s "$block" ]; then
-              echo "rollup produced no data for $id; skipping (no delivery)"
-              echo "::endgroup::"; continue
-            fi
-
-            args=(--dir "$work" --recipient "$recip" --source tell --block "$block")
-            [ -n "$signkey" ] && args+=(--signkey "$signkey")
-            bin/deliver "${args[@]}"
-
-            # Commit ONLY inbox/ to the feed branch via a temp index (never touch main's tree).
-            idx="$(mktemp)"; export GIT_INDEX_FILE="$idx"
-            git read-tree --empty
-            git --work-tree="$work" add -A inbox
-            tree="$(git write-tree)"
-            head_seq="$(jq -r '.head.seq' "$work/inbox/manifest.json")"
-            commit="$(git commit-tree "$tree" $parent -m "deliver: $id seq $head_seq $(date -u +%FT%TZ)")"
-            git push origin "$commit:refs/heads/$feed"
-            unset GIT_INDEX_FILE
-            echo "pushed $feed @ seq $head_seq"
-            echo "::endgroup::"
-          done < /tmp/targets.tsv
+      - uses: ./.github/actions/deliver
+        with:
+          signer-key: ${{ secrets.TELL_SIGNER_KEY }}
+          seed-identity: ${{ secrets.TELL_SEED_IDENTITY }}
+          only-id: ${{ inputs.only_id }}
