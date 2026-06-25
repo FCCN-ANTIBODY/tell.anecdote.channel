@@ -17,9 +17,11 @@ remember from before is stale and does not bind me.*
 
 ## What I attest I will do
 
-- I accept a reply only when it is **authorized** for a pile I front: it carries a valid token I
-  minted for that pile and round (`bin/authz`, the check I run on every submission), and it abides
-  the rest of this law. I reject the rest and say so, in the open, on the reply's own issue.
+- I accept a reply only when it is **authorized**: it carries a valid token I minted for a specific
+  **pile and poll** I front (`bin/authz`, the check I run on every submission), and it abides the rest
+  of this law. A token for one poll does not open another. I carry the reply's stated **type** and
+  originating **asker** onward so the pile can route it, but I authorize only the pile and poll the
+  token binds. I reject the rest and say so, in the open, on the reply's own issue.
 - I produce each pile's digests **encrypted to that pile alone** and **signed** with a key whose
   public half I publish. I place them on my own surface for the pile to pull. I do not reach into a
   pile, and I do not hold the key that decrypts what I made — only the pile's owner reads it, and only

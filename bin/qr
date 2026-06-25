@@ -1,35 +1,53 @@
 #!/usr/bin/env bash
-# Mint an authorized QR for a pile this Tell fronts. Prints the URL a respondent's
-# scan lands on; that URL carries the poll config + an HMAC token the ingestion side
-# (bin/authz) verifies. With `qrencode` present it also writes a PNG.
+# Mint an authorized QR for a specific POLL on a pile this Tell fronts. A pile can host
+# many polls (an open question, an unsolicited broadcast, a sensor-checked dropbox, …);
+# the token binds {pile, poll, round} so a scan can't be retargeted to another poll.
+# The landing the URL opens carries the poll config + the token bin/authz verifies.
 #
-#   bin/qr <id> <round> [question] [optsCSV]
-#     <round>     bump this to expire/rotate an outstanding QR for the pile
-#     [question]  optional poll question to render on the landing
-#     [optsCSV]   optional comma-separated answer options
+#   bin/qr --pile ID --poll POLL [--round 1] [--type open] [--asker ADDR] \
+#          [--question Q] [--opts CSV]
+#
+#     --round    bump to expire/rotate an outstanding QR for this poll
+#     --type     poll type (carried, not bound) — routing hint for the pile/runner
+#     --asker    originating asker address (carried, not bound) — who posed the poll
+#     --question / --opts   shown on the landing (open-question type)
 #
 # Needs TELL_QR_SECRET (the master secret; bin/tell-bootstrap generates it).
+# With qrencode present, also writes a PNG.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
-id="${1:?usage: bin/qr <id> <round> [question] [optsCSV]}"
-round="${2:?round required (e.g. 1)}"
-question="${3:-}"
-opts="${4:-}"
+pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pile) pile="$2"; shift 2;;
+    --poll) poll="$2"; shift 2;;
+    --round) round="$2"; shift 2;;
+    --type) type="$2"; shift 2;;
+    --asker) asker="$2"; shift 2;;
+    --question) question="$2"; shift 2;;
+    --opts) opts="$2"; shift 2;;
+    *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
 : "${TELL_DOMAIN:=https://tell.anecdote.channel}"
 
-tok="$(tl_token "$TELL_QR_SECRET" "$id" "$round")"
+tok="$(tl_token "$TELL_QR_SECRET" "$pile" "$poll" "$round")"
 
 enc() { jq -rn --arg s "$1" '$s|@uri'; }   # URL-encode
-url="${TELL_DOMAIN}/?pile=$(enc "$id")&round=$(enc "$round")&tok=${tok}"
+# Bound fields first, then the unbound routing/render metadata.
+url="${TELL_DOMAIN}/?pile=$(enc "$pile")&poll=$(enc "$poll")&round=$(enc "$round")&tok=${tok}"
+url="${url}&type=$(enc "$type")"
+[ -n "$asker" ]    && url="${url}&asker=$(enc "$asker")"
 [ -n "$question" ] && url="${url}&q=$(enc "$question")"
 [ -n "$opts" ]     && url="${url}&opts=$(enc "$opts")"
 
 echo "$url"
 if command -v qrencode >/dev/null 2>&1; then
-  out="qr-${id}-${round}.png"
+  out="qr-${pile}-${poll}-${round}.png"
   qrencode -o "$out" "$url" && echo "wrote $out" >&2
 else
   echo "note: qrencode not installed — encode the URL above into a QR yourself" >&2

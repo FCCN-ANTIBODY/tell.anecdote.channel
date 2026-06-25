@@ -11,8 +11,8 @@ const el = { innerHTML: "" };
 globalThis.document = { getElementById: () => el };
 globalThis.location = {
   search:
-    "?pile=cd04-q1&round=3&tok=deadbeef&q=" +
-    encodeURIComponent("Expand bike lanes?") +
+    "?pile=cd04-q1&poll=bikes&round=3&type=open&asker=" + encodeURIComponent("dot-office") +
+    "&tok=deadbeef&q=" + encodeURIComponent("Expand bike lanes?") +
     "&opts=" + encodeURIComponent("Yes,No,Study"),
   hash: "",
 };
@@ -34,8 +34,9 @@ const block = body.match(/```tell\n([\s\S]*?)\n```/);
 assert(block, "no fenced tell block in body");
 const obj = JSON.parse(block[1]);
 assert(
-  obj.schema === "tell.submission/v0" &&
-  obj.pile === "cd04-q1" && obj.round === "3" &&
+  obj.schema === "tell.submission/v1" &&
+  obj.pile === "cd04-q1" && obj.poll === "bikes" && obj.round === "3" &&
+  obj.type === "open" && obj.asker === "dot-office" &&
   obj.tok === "deadbeef" && obj.answer === "Study",
   "tell block fields wrong: " + JSON.stringify(obj)
 );

@@ -39,24 +39,26 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
   function esc(s) { return String(s).replace(/[<&>]/g, function (c) { return { "<": "&lt;", "&": "&amp;", ">": "&gt;" }[c]; }); }
 
   var cfg = params();
-  if (!cfg.pile || !cfg.round || !cfg.tok) {
+  if (!cfg.pile || !cfg.poll || !cfg.round || !cfg.tok) {
     mount.innerHTML = '<p class="tell-empty">No poll loaded — open Tell from a poll’s QR code.</p>';
     return;
   }
 
-  var question = cfg.q || ("Reply to " + cfg.pile);
+  var question = cfg.q || ("Reply to " + cfg.pile + " / " + cfg.poll);
   var opts = (cfg.opts ? String(cfg.opts).split(",") : ["Yes", "No"]).map(function (s) { return s.trim(); }).filter(Boolean);
 
   // Build a pre-filled issues/new link for the chosen option. Exposed for tests.
+  // The token binds pile+poll+round; type+asker ride along so the pile can route.
   function issueUrl(answer) {
     var block = {
-      schema: "tell.submission/v0",
-      pile: cfg.pile, round: cfg.round, tok: cfg.tok,
-      answer: answer, ts: new Date().toISOString()
+      schema: "tell.submission/v1",
+      pile: cfg.pile, poll: cfg.poll, round: cfg.round,
+      type: cfg.type || "open", asker: cfg.asker || "",
+      tok: cfg.tok, answer: answer, ts: new Date().toISOString()
     };
-    var body = "Reply to **" + cfg.pile + "** — option: **" + answer + "**\n\n" +
+    var body = "Reply to **" + cfg.pile + "** / poll **" + cfg.poll + "** — option: **" + answer + "**\n\n" +
                "```tell\n" + JSON.stringify(block) + "\n```\n";
-    var qs = "title=" + encodeURIComponent("tell submission " + cfg.pile) +
+    var qs = "title=" + encodeURIComponent("tell submission " + cfg.pile + " / " + cfg.poll) +
              "&labels=" + encodeURIComponent("tell-submission") +
              "&body=" + encodeURIComponent(body);
     return "https://github.com/" + REPO + "/issues/new?" + qs;
@@ -68,7 +70,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
   }).join("");
 
   mount.innerHTML =
-    '<p class="tell-loaded">Poll <code>' + esc(cfg.pile) + "</code> (round " + esc(cfg.round) + "):</p>" +
+    '<p class="tell-loaded">Poll <code>' + esc(cfg.poll) + "</code> on <code>" + esc(cfg.pile) + "</code> (round " + esc(cfg.round) + "):</p>" +
     '<p class="tell-q">' + esc(question) + "</p>" +
     '<div class="tell-grid">' + rows + "</div>" +
     '<p class="tell-fineprint">Choosing an option opens a pre-filled GitHub issue. Review it, then submit to reply.</p>';
