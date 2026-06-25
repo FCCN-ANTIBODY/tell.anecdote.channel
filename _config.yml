@@ -16,6 +16,7 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - bin/
+  - test/
   - vendor/
   - README.md
 

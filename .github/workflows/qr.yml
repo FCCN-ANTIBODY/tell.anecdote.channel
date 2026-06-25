@@ -1,0 +1,51 @@
+name: qr
+
+# Mint an authorized QR for a pile this Tell fronts. The runtime (this Action) is what
+# generates what a QR build needs: it derives the per-pile token from TELL_QR_SECRET so
+# the landing the QR opens carries a token bin/authz will later accept. Output is the
+# URL (in the run summary) + a PNG artifact you print or share.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pile:
+        description: "Pile id the QR feeds (must be in _data/piles.yml)"
+        required: true
+      round:
+        description: "Round (bump to expire an outstanding QR)"
+        required: true
+        default: "1"
+      question:
+        description: "Poll question shown on the landing"
+        required: false
+      opts:
+        description: "Comma-separated answer options (default: Yes,No)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  qr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install qrencode + jq
+        run: sudo apt-get update && sudo apt-get install -y qrencode jq
+      - name: Mint authorized QR
+        env:
+          TELL_QR_SECRET: ${{ secrets.TELL_QR_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "${TELL_QR_SECRET:-}" ] || { echo "::error::TELL_QR_SECRET secret required (see bin/tell-bootstrap)"; exit 1; }
+          url="$(bin/qr "${{ inputs.pile }}" "${{ inputs.round }}" "${{ inputs.question }}" "${{ inputs.opts }}")"
+          mkdir -p out
+          mv qr-*.png out/ 2>/dev/null || qrencode -o "out/qr-${{ inputs.pile }}-${{ inputs.round }}.png" "$url"
+          { echo "## QR for \`${{ inputs.pile }}\` round ${{ inputs.round }}";
+            echo; echo "Landing URL (encode into a QR, or use the artifact):";
+            echo; echo "    $url"; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qr-${{ inputs.pile }}-${{ inputs.round }}
+          path: out/
+          if-no-files-found: warn

@@ -52,6 +52,13 @@ The `TELL_SEED_IDENTITY` `age` identity has no public half worth committing. It 
 Tell resume the per-pile ratchet across deliveries without per-pile secrets; see
 `bin/deliver`.
 
+A third secret, **`TELL_QR_SECRET`** (32 random bytes, also set by `bin/tell-bootstrap`),
+is the master from which per-pile QR-authorization tokens derive (`k_pile =
+HMAC(TELL_QR_SECRET, "qr:"||id)`). `bin/qr` mints a QR's token from it; `bin/authz`
+re-derives and verifies it at ingestion. It has no public half — the token in a QR is a
+bearer "this poll is open" capability, but only the secret can *mint* one. See
+`CONTRACT.md` → authorization.
+
 ## What a pile owner does
 
 1. Copy `tell.signers` here into the pile's `keys/tell.signers`.

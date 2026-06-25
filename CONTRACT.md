@@ -49,14 +49,40 @@ data-pile `handshake` workflow does this): `id`, `scope`, `feed/<scope>/<id>`, a
 layer yet. The pile separately pins this Tell's published signer fingerprint (`keys/tell.fpr`). No
 write access to the pile is ever requested.
 
+## Ingress: QR → authorized Issue → digest
+
+A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
+Tell-runner mints:
+
+- **Authorization (HMAC).** One master secret `TELL_QR_SECRET` (set by `bin/tell-bootstrap`) derives a
+  per-pile key `k_pile = HMAC(TELL_QR_SECRET, "qr:"||id)`, never stored. A QR for pile `id` at `round`
+  embeds `tok = HMAC(k_pile, "tok:"||id||":"||round)`. The token is a bearer "this poll is open"
+  capability — public in the QR — but only the secret can *mint* one, so no one forges tokens for
+  other piles/rounds. Bump `round` to expire an outstanding QR.
+- **QR build.** `bin/qr <id> <round> [question] [opts]` (run by the `qr.yml` workflow with the secret)
+  prints the landing URL `…/?pile&round&tok&q&opts`. This is "the runtime generates what future QR
+  builds use."
+- **Submission.** `index.md` reads that config and builds a **pre-filled `issues/new` link**; the
+  respondent's click posts an Issue whose body carries a fenced ```tell``` JSON block
+  `{pile, round, tok, answer}`. The page only builds a link — nothing phones home.
+- **The ejected check.** `bin/authz <id> <round> <tok>` (overridable via `TELL_AUTHZ_CMD`, mirroring
+  the rollup seam) re-derives `k_pile`, recomputes the HMAC, constant-time compares, and checks the
+  round is open. Stricter rules (rate, dedup, geo, one-reply) plug in here.
+- **Ingest loop.** `ingest-submissions.yml`: `bin/collect-submissions` reads open Issues, runs
+  `bin/authz`, and **stages** only the authorized ones; the deliver action seals them; then
+  `bin/finalize-submissions` closes each Issue — `ingested` for the abiding, `rejected` (with reason)
+  for the rest. Tell writes only its own repo.
+- **Exposure, named.** A raw answer is world-readable in its Issue between posting and sealing, so
+  this channel is for **coarse, consented answers, not secrets** (see CONSTITUTION.md).
+
 ## The rollup seam (what each block carries)
 
-What a block *contains* is isolated to one pluggable hook: `deliver.yml` runs `bin/rollup <id>
+What a block *contains* is isolated to one pluggable hook: the deliver pipeline runs `bin/rollup <id>
 [scope]` (or `$TELL_ROLLUP_CMD`) once per window and seals its stdout as that window's block. Empty
-output means "nothing new this window" and the pile is skipped. `bin/rollup` ships as a reference
-emitting a small provenance-stamped JSON record; replace it with the real source — the window's
-collected responses (Tell's GitHub Issues are the intended "mailbox"; wiring that read is deferred).
-Everything downstream of the hook — encrypt, chain, sign, publish — is fixed production code.
+output means "nothing new this window" and the pile is skipped. The default `bin/rollup` emits the
+**authorized submissions `bin/collect-submissions` staged** for the pile — each block is the window's
+batch of accepted answers, stamped with the Issue number that carried each (a literal ingress→egress
+custody record). Everything downstream — encrypt, chain, sign, publish — is fixed production code.
 
 ## What Tell guarantees a pile
 

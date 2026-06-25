@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Read open submission Issues (the "mailbox"), run the ejected authorization check on
+# each, and STAGE the authorized ones for the digest pipeline. This step performs NO
+# GitHub mutations and NO network writes — it parses + authorizes only, so it is fully
+# testable offline. bin/finalize-submissions does the closing/labeling afterward.
+#
+# Source of issues:
+#   TELL_ISSUES_JSON   path to a JSON array of {number, body} (tests / offline); else
+#                      `gh api repos/$GITHUB_REPOSITORY/issues?state=open` (CI).
+#
+# Outputs under $TELL_SUBMISSIONS_DIR (default .submissions):
+#   <id>/<number>.json        one accepted answer (number, pile, round, answer, ts)
+#   .accepted.tsv             number<TAB>pile           (for finalize + rollup)
+#   .rejected.tsv             number<TAB>reason         (for finalize)
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$here/.." && pwd)"
+authz="${TELL_AUTHZ_CMD:-$here/authz}"
+stage="${TELL_SUBMISSIONS_DIR:-$repo/.submissions}"
+rm -rf "$stage"; mkdir -p "$stage"
+: > "$stage/.accepted.tsv"; : > "$stage/.rejected.tsv"
+
+issues="$(mktemp)"
+if [ -n "${TELL_ISSUES_JSON:-}" ]; then
+  cp "$TELL_ISSUES_JSON" "$issues"
+else
+  : "${GITHUB_REPOSITORY:?need GITHUB_REPOSITORY (or TELL_ISSUES_JSON)}"
+  gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+    -q '[.[] | select(.pull_request|not) | {number, body}]' > "$issues" \
+    || { echo "collect: gh api failed" >&2; exit 1; }
+fi
+
+n="$(jq 'length' "$issues")"
+acc=0; rej=0; i=0
+while [ "$i" -lt "$n" ]; do
+  num="$(jq -r ".[$i].number" "$issues")"
+  body="$(jq -r ".[$i].body // \"\"" "$issues")"
+  i=$((i+1))
+
+  # Extract the fenced ```tell JSON block; skip issues that carry none.
+  block="$(printf '%s\n' "$body" | awk '/^```tell[[:space:]]*$/{f=1;next} /^```[[:space:]]*$/{f=0} f')"
+  [ -n "$block" ] || continue
+  if ! printf '%s' "$block" | jq -e . >/dev/null 2>&1; then
+    printf '%s\t%s\n' "$num" "unparseable tell block" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
+  fi
+
+  pile="$(printf '%s' "$block" | jq -r '.pile // empty')"
+  round="$(printf '%s' "$block" | jq -r '.round // empty')"
+  tok="$(printf '%s' "$block" | jq -r '.tok // empty')"
+  answer="$(printf '%s' "$block" | jq -r '.answer // empty')"
+  ts="$(printf '%s' "$block" | jq -r '.ts // empty')"
+  if [ -z "$pile" ] || [ -z "$round" ] || [ -z "$tok" ]; then
+    printf '%s\t%s\n' "$num" "missing pile/round/tok" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
+  fi
+
+  if reason="$("$authz" "$pile" "$round" "$tok" 2>&1 >/dev/null)"; then
+    mkdir -p "$stage/$pile"
+    jq -n --argjson n "$num" --arg p "$pile" --arg r "$round" --arg a "$answer" --arg t "$ts" \
+      '{number:$n, pile:$p, round:$r, answer:$a, ts:$t}' > "$stage/$pile/$num.json"
+    printf '%s\t%s\n' "$num" "$pile" >> "$stage/.accepted.tsv"; acc=$((acc+1))
+  else
+    printf '%s\t%s\n' "$num" "${reason##*— }" >> "$stage/.rejected.tsv"; rej=$((rej+1))
+  fi
+done
+
+echo "collect: $acc accepted, $rej rejected (staged at $stage)" >&2

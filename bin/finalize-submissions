@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Close the mailbox loop after deliver has published the digests: mark each accepted
+# Issue `ingested` and each rejected Issue `rejected`, with a reason, and close them.
+# The closed/labeled Issues (public) + the encrypted feed commit are the record that
+# "we received the submissions and ate the ones that abide our constitution."
+#
+# Reads the manifests bin/collect-submissions staged:
+#   $TELL_SUBMISSIONS_DIR/.accepted.tsv   number<TAB>pile
+#   $TELL_SUBMISSIONS_DIR/.rejected.tsv   number<TAB>reason
+#
+# Uses `gh` against $GITHUB_REPOSITORY. Set TELL_FINALIZE_DRYRUN=1 to print actions
+# instead (tests / offline).
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+stage="${TELL_SUBMISSIONS_DIR:-$(cd "$here/.." && pwd)/.submissions}"
+dry="${TELL_FINALIZE_DRYRUN:-0}"
+
+run() { if [ "$dry" = 1 ]; then echo "DRYRUN: $*"; else "$@"; fi; }
+
+if [ "$dry" != 1 ]; then
+  : "${GITHUB_REPOSITORY:?need GITHUB_REPOSITORY}"
+  # Ensure labels exist (best effort).
+  for l in tell-submission ingested rejected; do
+    gh label create "$l" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
+  done
+fi
+
+if [ -s "$stage/.accepted.tsv" ]; then
+  while IFS=$'\t' read -r num pile; do
+    [ -n "$num" ] || continue
+    run gh issue edit "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" --add-label ingested
+    run gh issue close "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" \
+      --comment "Ingested into the encrypted feed for \`$pile\`. Thank you — your reply is sealed to the pile owner."
+  done < "$stage/.accepted.tsv"
+fi
+
+if [ -s "$stage/.rejected.tsv" ]; then
+  while IFS=$'\t' read -r num reason; do
+    [ -n "$num" ] || continue
+    run gh issue edit "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" --add-label rejected
+    run gh issue close "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" \
+      --comment "Not ingested — ${reason:-unauthorized}. See CONSTITUTION.md for what Tell accepts."
+  done < "$stage/.rejected.tsv"
+fi
+
+a=$(wc -l < "$stage/.accepted.tsv" 2>/dev/null || echo 0)
+r=$(wc -l < "$stage/.rejected.tsv" 2>/dev/null || echo 0)
+echo "finalize: closed $a accepted, $r rejected" >&2
