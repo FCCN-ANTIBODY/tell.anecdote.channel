@@ -12,6 +12,8 @@ name: ingest-submissions
 
 on:
   schedule:
+    # Cadence customization point: the logic lives in bin/* and the deliver action; change
+    # only this line (or run on demand via workflow_dispatch) to retune the pickup cadence.
     - cron: "31 * * * *" # hourly, best-effort
   issues:
     types: [opened, reopened]

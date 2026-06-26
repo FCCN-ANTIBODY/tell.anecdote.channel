@@ -23,8 +23,12 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
 <script>
 (function () {
   "use strict";
-  // The Tell repo whose Issues are this poll's mailbox.
-  var REPO = "FCCN-ANTIBODY/tell.anecdote.channel";
+  // The Tell repo whose Issues are this poll's mailbox. The QR may address a specific
+  // jurisdiction Tell via &repo=OWNER/NAME (so a scan on the shared tell.anecdote.channel
+  // domain routes to YOUR Tell); we accept it only if it is a clean OWNER/NAME, else fall
+  // back to the canonical repo. The mint binds pile+poll+round, not the repo — a Tell that
+  // did not mint the token rejects it, so a swapped repo cannot smuggle a reply in.
+  var CANONICAL_REPO = "FCCN-ANTIBODY/tell.anecdote.channel";
 
   var mount = document.getElementById("tell-poll");
   if (!mount) return;
@@ -46,6 +50,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
 
   var question = cfg.q || ("Reply to " + cfg.pile + " / " + cfg.poll);
   var opts = (cfg.opts ? String(cfg.opts).split(",") : ["Yes", "No"]).map(function (s) { return s.trim(); }).filter(Boolean);
+  var repo = (cfg.repo && /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(cfg.repo)) ? cfg.repo : CANONICAL_REPO;
 
   // Build a pre-filled issues/new link for the chosen option. Exposed for tests.
   // The token binds pile+poll+round; type+asker ride along so the pile can route.
@@ -62,7 +67,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
     var qs = "title=" + encodeURIComponent("tell submission " + cfg.pile + " / " + cfg.poll) +
              "&labels=" + encodeURIComponent("tell-submission") +
              "&body=" + encodeURIComponent(body);
-    return "https://github.com/" + REPO + "/issues/new?" + qs;
+    return "https://github.com/" + repo + "/issues/new?" + qs;
   }
   window.tellIssueUrl = issueUrl; // test hook
 
