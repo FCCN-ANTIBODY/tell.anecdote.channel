@@ -1,5 +1,5 @@
 # Vendored verbatim from FCCN-ANTIBODY/data-pile bin/lib.sh — DO NOT EDIT HERE.
-# Producer (Atlas) and consumer (data-pile) MUST share these primitives byte-for-byte;
+# Producer (Tell) and consumer (data-pile) MUST share these primitives byte-for-byte;
 # bin/check-pile-lib verifies this copy still matches the data-pile source.
 #
 #!/usr/bin/env bash

@@ -71,21 +71,28 @@ Tell-runner mints:
   respondent's click posts an Issue whose body carries a fenced ```tell``` JSON block
   `{schema:"tell.submission/v1", pile, poll, round, type, asker, shown_guidance, tok, answer}`. The
   page only builds a link — nothing phones home. `shown_guidance` is the guidance the respondent was
-  *shown* — informational provenance, carried to the pile; the pile governs by its **own** constitution.
+  *shown* — informational provenance, carried to the pile. What *governs* is the constitution the pile
+  delegated to Tell (`constitutions/<pile>/<poll>.json`), applied below before sealing.
 - **The ejected check.** `bin/authz` reads the submission JSON on stdin (overridable via
   `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
   {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,
   type/asker-aware rules (rate, dedup, geo, one-reply, sensor checks) plug in here.
 - **Ingest loop.** `ingest-submissions.yml`: `bin/collect-submissions` reads open Issues, runs
   `bin/authz`, and **stages** only the authorized ones (tagged with poll/type/asker/shown_guidance);
-  `bin/rollup` emits a `tell.digest/v1` block whose records carry each answer's
-  `poll`/`type`/`asker`/`shown_guidance` so the pile routes and judges mixed signals; the deliver
-  action seals it; then `bin/finalize-submissions` closes each Issue — `ingested` meaning *authorized
-  and delivered* (not "kept"), `rejected` (with reason) for the unauthorized. Tell writes only its own repo.
-- **Authorize, don't govern.** Tell decides only what is *authorized and delivered*. Whether a reply is
-  *kept* is the **data-pile's** call, against its own per-question constitution (see
-  [`data-pile`](https://github.com/FCCN-ANTIBODY/data-pile) → `questions/` + `bin/govern`), which the
-  pile-runner can patch live and which publishes its own transparency report.
+  `bin/govern` then judges each staged answer against the pile's delegated constitution and **attaches**
+  the verdict in place (pre-seal, on plaintext — no key); `bin/rollup` emits a `tell.digest/v1` block
+  whose records carry each answer's `poll`/`type`/`asker`/`shown_guidance` **and its `governed`
+  verdict** so the pile routes already-judged signals; the deliver action seals it; then
+  `bin/finalize-submissions` closes each Issue — `ingested` meaning *authorized and delivered* (not
+  "kept"), `rejected` (with reason) for the unauthorized. Tell writes only its own repo.
+- **Authorize always; govern only when delegated, and never withhold.** Tell always decides what is
+  *authorized and delivered*. It *judges* only the polls a pile delegated to it
+  (`constitutions/<pile>/<poll>.json`), and even then it only **attaches** a verdict before sealing — it
+  never drops or edits an authorized answer. Whether a reply is ultimately *kept* remains the
+  **data-pile's** call: it receives every authorized record already carrying its `governed` verdict and
+  the `constitution_sha`, and may re-judge at its boundary. A pile that delegates nothing gets its
+  answers sealed `held` (unjudged). Curating a few sound constitutions in one open place lets one
+  operator serve many piles; the authority is the pile's, lent and revocable.
 - **Exposure, named.** A raw answer is world-readable in its Issue between posting and sealing, so
   this channel is for **coarse, consented answers, not secrets** (see CONSTITUTION.md).
 

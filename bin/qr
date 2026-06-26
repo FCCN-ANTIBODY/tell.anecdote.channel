@@ -5,12 +5,18 @@
 # The landing the URL opens carries the poll config + the token bin/authz verifies.
 #
 #   bin/qr --pile ID --poll POLL [--round 1] [--type open] [--asker ADDR] \
-#          [--question Q] [--opts CSV]
+#          [--question Q] [--opts CSV] [--repo OWNER/NAME]
 #
 #     --round    bump to expire/rotate an outstanding QR for this poll
 #     --type     poll type (carried, not bound) — routing hint for the pile/runner
 #     --asker    originating asker address (carried, not bound) — who posed the poll
 #     --question / --opts   shown on the landing (open-question type)
+#     --repo     this jurisdiction Tell's GitHub repo (carried, not bound) — the mailbox
+#                the landing addresses the reply to. Defaults to $TELL_REPO; when blank the
+#                landing falls back to its canonical repo. A QR minted on the shared
+#                tell.anecdote.channel domain can thus address YOUR Tell
+#                (tell.antibody.fort-collins.colorado.anecdote.channel -> its repo). It is
+#                unbound metadata: a foreign Tell rejects a token it did not mint.
 #
 # Needs TELL_QR_SECRET (the master secret; bin/tell-bootstrap generates it).
 # With qrencode present, also writes a PNG.
@@ -18,7 +24,7 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
-pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""
+pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -29,9 +35,14 @@ while [ $# -gt 0 ]; do
     --question) question="$2"; shift 2;;
     --opts) opts="$2"; shift 2;;
     --guidance) guidance="$2"; shift 2;;
+    --repo) repo="$2"; shift 2;;
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
+# Sanitize repo to OWNER/NAME so it can only ever address a github.com repo path.
+if [ -n "$repo" ] && ! printf '%s' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
+  echo "bin/qr: --repo must be OWNER/NAME (got: $repo)" >&2; exit 1
+fi
 [ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
 : "${TELL_DOMAIN:=https://tell.anecdote.channel}"
@@ -46,6 +57,7 @@ url="${url}&type=$(enc "$type")"
 [ -n "$question" ] && url="${url}&q=$(enc "$question")"
 [ -n "$opts" ]     && url="${url}&opts=$(enc "$opts")"
 [ -n "$guidance" ] && url="${url}&guidance=$(enc "$guidance")"
+[ -n "$repo" ]     && url="${url}&repo=$(enc "$repo")"
 
 echo "$url"
 if command -v qrencode >/dev/null 2>&1; then

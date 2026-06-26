@@ -23,8 +23,11 @@ ls "$stage"/*.json >/dev/null 2>&1 || exit 0
 # Fold the accepted answers into one record. Each record carries the poll it targets and
 # its type/asker, so the owner's pile can route the mixed signals (a budget question, a
 # bike-lane poll, a sensor dropbox) to the right poll's handling — plus the issue number
-# that carried it, a literal ingress→egress custody trail.
-records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, shown_guidance: .shown_guidance, round: .round, answer: .answer, ts: .ts}]' "$stage"/*.json)"
+# that carried it, a literal ingress→egress custody trail. When bin/govern has run, each
+# staged file also carries its delegated verdict (governed/govern_reason/constitution_sha);
+# we seal that into the record so the pile receives the answer already judged.
+records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, shown_guidance: .shown_guidance, round: .round, answer: .answer, ts: .ts}
+  + (if .governed then {governed: .governed, govern_reason: .govern_reason, constitution_sha: .constitution_sha} else {} end)]' "$stage"/*.json)"
 jq -n \
   --arg id "$id" \
   --arg scope "$scope" \

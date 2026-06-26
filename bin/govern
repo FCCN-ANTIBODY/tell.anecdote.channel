@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+# Delegated constitutional acceptance — runs AFTER bin/collect-submissions and BEFORE the
+# digest is sealed. For every staged submission it finds THIS pile's per-poll constitution
+# (constitutions/<pile>/<poll>.json) and judges the answer against it. Because the staged
+# answer is still the public Issue's plaintext, NO decryption key is involved: Tell judges
+# only what it can already read.
+#
+# It does not withhold data. It ATTACHES a verdict to each staged record — `governed`,
+# `govern_reason`, `constitution_sha` — so bin/rollup carries the verdict into the sealed
+# digest and the pile receives every authorized answer already judged (and is free to
+# re-judge at its own boundary). It also emits a public transparency report tying each
+# verdict to the rule in force and the Issue that carried it.
+#
+# Multichoice option-matches are accepted mechanically; everything else goes to the judge
+# (bin/judge, or $TELL_JUDGE_CMD). A poll with no constitution is `held` (delivered unjudged).
+#
+#   bin/govern [--stage DIR] [--constitutions DIR]
+#     STAGE holds <pile>/<number>.json files written by bin/collect-submissions.
+#
+# Outputs:
+#   <stage>/<pile>/<number>.json               annotated in place with the verdict
+#   reports/govern-<stamp>.json                the transparency report (publishable)
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/pile-lib.sh"
+repo="$(cd "$here/.." && pwd)"
+judge="${TELL_JUDGE_CMD:-$here/judge}"
+
+stage="${TELL_SUBMISSIONS_DIR:-$repo/.submissions}"
+cons="${TELL_CONSTITUTIONS_DIR:-$repo/constitutions}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --stage) stage="$2"; shift 2;;
+    --constitutions) cons="$2"; shift 2;;
+    *) dp_die "unknown arg: $1";;
+  esac
+done
+[ -d "$stage" ] || { dp_log "govern: no stage at $stage (nothing to judge)"; exit 0; }
+
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+reports_dir="${TELL_REPORTS_DIR:-$repo/reports}"
+mkdir -p "$reports_dir"
+entries="[]"
+
+cons_for() { printf '%s/%s/%s.json' "$cons" "$1" "$2"; }
+
+for f in "$stage"/*/*.json; do
+  [ -f "$f" ] || continue
+  rec="$(cat "$f")"
+  pile="$(printf '%s' "$rec" | jq -r '.pile // empty')"
+  poll="$(printf '%s' "$rec" | jq -r '.poll // empty')"
+  answer="$(printf '%s' "$rec" | jq -r '.answer // empty')"
+  cfile="$(cons_for "$pile" "$poll")"
+
+  if [ ! -f "$cfile" ]; then
+    verdict="held"; reason="no constitution for $pile/$poll"; rule="none"; csha=""
+  else
+    csha="$(dp_sha256_file "$cfile")"
+    ctype="$(jq -r '.type // "open"' "$cfile")"
+    is_opt="$(jq --arg a "$answer" '(.options // []) | index($a) != null' "$cfile")"
+    if [ "$ctype" = "multichoice" ] && [ "$is_opt" = "true" ]; then
+      verdict="accept"; reason="listed option"; rule="auto"
+    else
+      v="$(jq -n --argjson rec "$rec" --slurpfile c "$cfile" '{record:$rec, constitution:$c[0]}' | "$judge")"
+      verdict="$(printf '%s' "$v" | jq -r '.verdict')"
+      reason="$(printf '%s' "$v" | jq -r '.reason')"
+      rule="judged"
+    fi
+  fi
+
+  # Attach the verdict to the staged record so rollup seals it into the digest.
+  printf '%s' "$rec" | jq --arg v "$verdict" --arg r "$reason" --arg csha "$csha" \
+    '. + {governed:$v, govern_reason:$r, constitution_sha:$csha}' > "$f.tmp" && mv "$f.tmp" "$f"
+
+  entries="$(printf '%s' "$entries" | jq \
+    --argjson rec "$rec" --arg v "$verdict" --arg r "$reason" --arg rule "$rule" --arg csha "$csha" '
+    . + [{ issue: $rec.number, pile: $rec.pile, poll: $rec.poll, asker: $rec.asker,
+           answer: $rec.answer, shown_guidance: $rec.shown_guidance,
+           verdict: $v, reason: $r, rule: $rule, constitution_sha: $csha }]')"
+done
+
+# Nothing staged this window → no verdicts, no report (keeps the published record churn-free).
+if [ "$(printf '%s' "$entries" | jq 'length')" -eq 0 ]; then
+  dp_log "govern: nothing staged to judge"; exit 0
+fi
+
+report="$reports_dir/govern-$stamp.json"
+jq -n --arg at "$stamp" --argjson entries "$entries" '
+  { generated_at:$at,
+    counts:( $entries | group_by(.verdict) | map({(.[0].verdict): length}) | add // {} ),
+    records:$entries }' > "$report"
+
+dp_log "governed $(printf '%s' "$entries" | jq 'length') record(s) → $report"
+echo "$report"

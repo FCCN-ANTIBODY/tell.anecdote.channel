@@ -12,6 +12,8 @@ name: ingest-submissions
 
 on:
   schedule:
+    # Cadence customization point: the logic lives in bin/* and the deliver action; change
+    # only this line (or run on demand via workflow_dispatch) to retune the pickup cadence.
     - cron: "31 * * * *" # hourly, best-effort
   issues:
     types: [opened, reopened]
@@ -37,12 +39,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TELL_QR_SECRET: ${{ secrets.TELL_QR_SECRET }}
         run: bin/collect-submissions
+      - name: Apply delegated constitutions (judge before sealing)
+        # Attach each pile's delegated verdict to the staged plaintext (no key needed),
+        # then publish the transparency report. rollup seals the verdict into the digest.
+        run: |
+          set -euo pipefail
+          report="$(bin/govern)" || { echo "::warning::govern failed; sealing unjudged"; report=""; }
+          if [ -n "$report" ] && [ -f "$report" ]; then
+            { echo "## govern"; echo '```'; jq -c '.counts' "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            git config user.name  "tell-govern"
+            git config user.email "tell-govern@users.noreply.github.com"
+            git add "$report"
+            git commit -m "govern: transparency report" && git push || echo "nothing to publish"
+          fi
       - name: Seal authorized submissions into pile feeds
         uses: ./.github/actions/deliver
         with:
           signer-key: ${{ secrets.TELL_SIGNER_KEY }}
           seed-identity: ${{ secrets.TELL_SEED_IDENTITY }}
-          # bin/rollup (default) reads the staged submissions; no override needed.
+          # bin/rollup (default) reads the staged (now judged) submissions; no override needed.
       - name: Close the mailbox (ingested / rejected)
         if: always()
         env:
