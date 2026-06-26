@@ -49,26 +49,60 @@ data-pile `handshake` workflow does this): `id`, `scope`, `feed/<scope>/<id>`, a
 layer yet. The pile separately pins this Tell's published signer fingerprint (`keys/tell.fpr`). No
 write access to the pile is ever requested.
 
-## The Atlas relationship (intended)
+## Registering with an Atlas
 
-> Forward intent. No Atlas repo is in scope yet; this pins the shape Tell builds toward, so the
-> reporting hooks already here (`reports/govern-…`, the Issue labels) aren't mistaken for decoration.
+[Atlas](https://atlas.anecdote.channel) is the **directory** that makes a Tell discoverable. A pile is
+not discoverable on its own — it has no address without a Tell to receive for it — so what an Atlas lists
+and addresses is a **whole Tell node**, and piles group up behind it. Registering with an Atlas is the
+same PR-as-consent gesture a pile makes with a Tell, one tier up — and the **cleanest** form of that
+gesture lives here, in `bin/register` (the data-pile carries the descendent forms; see
+`OPEN-QUESTIONS.md` #3).
 
-[Atlas](https://atlas.anecdote.channel) is the **index** that makes a Tell discoverable. A pile is
-not discoverable on its own — it has no address without a Tell to receive for it — so what Atlas lists
-and addresses is a **whole Tell node**. Registering with an Atlas is the same PR-as-consent gesture a
-pile makes with a Tell, one tier up.
+**The registration signs this Tell's ownership of its own instance.** `bin/register` opens a PR that
+appends this Tell's entry to the Atlas's `_data/tells.yml`, on a branch named **`tell/<scope>/<id>`**
+(its identity read from `tell.yml`). The branch **name** carries the claim — *which* Tell, in *what*
+scope, is asking to be listed; the commit is **signed with `TELL_SIGNER_KEY`** (the very key that signs
+digest manifests, fingerprint published at `keys/tell.fpr`), which is the **proof**; and the entry's
+`signer` field records that fingerprint as the **open anchor**. So an Atlas — and anyone reading its
+registry — can confirm the Tell that registered is the Tell that signs the digests it delivers.
 
-Discoverability is not free. To be listed is to accept:
+```sh
+bin/register entry     # this Tell's _data/tells.yml entry (id, name, url, scope, signer, reports)
+bin/register branch    # the ownership-signing branch: tell/<scope>/<id>
+bin/register pr        # open the signed PR to an Atlas  (the register-atlas.yml workflow runs this)
+```
 
-- **Addressability.** A listed Tell is reachable at a stable address and answers for the piles it fronts.
-- **Reporting in a required shape.** An Atlas guarantees **aggregation** — it rolls the Tells it lists
-  into constituency/jurisdiction reports on a schedule — so it needs their reports uniform. The chain is
-  constitutional: **Tell's `CONSTITUTION` describes its transparency reports** (the `reports/govern-…`
-  it already publishes), and an **Atlas's `CONSTITUTION` can require** those descriptions to be present
-  and take a particular form — carving out exactly what that Atlas will aggregate. An Atlas may promise
-  no aggregation at all; that is simply a different Atlas constitution, and not the model this
-  constellation builds for.
+`register-atlas.yml` dogfoods the reusable **`register` composite action**
+(`.github/actions/register`), which any jurisdiction drops into its own Tell to list itself on an Atlas:
+the action reads *its* `tell.yml` + `keys/tell.fpr` from the calling repo's workspace and signs with
+*its* `TELL_SIGNER_KEY` — never the template's (the same code-vs-data split the `deliver` action makes).
+It uses `ATLAS_PR_TOKEN` (Contents+PR write on the Atlas) to open the PR; without it, `bin/register`
+prints the entry to paste by hand.
+
+**This reach across repos is the consent gesture, not a privilege.** Registration is the handshake of a
+consent-driven discovery network: a Tell *offers* itself, an Atlas *accepts* by merging, and the piles
+behind a Tell keep the right to *leave* — to take their mailbox to another Tell if they dislike the
+Atlas this one keeps company with (a pile registers by PR and is revocable by leaving; the pile is the
+principal). Unlike a decision made over your head that can compel you to move a physical home, here
+consent is present in **every** outcome — including the ones in conflict. So the only token this gesture
+needs is write on the **Atlas**, to *offer*; it asks for **no** write access to this Tell, and none over
+any pile.
+
+Discoverability is not free. To be listed is to accept — and an Atlas guarantees in return (see
+[`atlas.anecdote.channel/CONSTITUTION.md`](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/CONSTITUTION.md)):
+
+- **Addressability.** A listed Tell is reachable at the stable `url` it registered and answers for the
+  piles it fronts.
+- **Reporting in a described shape.** An Atlas **aggregates** — it rolls the Tells it lists into
+  constituency/jurisdiction reports — so it needs their reports uniform. The chain is constitutional:
+  **Tell's `CONSTITUTION` describes its transparency reports** (the `reports/govern-…` it already
+  publishes; the entry's `reports` field points at them), and an **Atlas's `CONSTITUTION` requires**
+  those descriptions to be present and to take the form it aggregates.
+- **Affirmative escalation, and an open line.** The Atlas this constellation builds for escalates
+  *affirmatively* — every report rolls into **all** the constituency aggregations it belongs to — and
+  keeps an **open line** to every constituency instead of a strictness gate: a report gains weight and
+  credibility as it accumulates. (An Atlas that promises no aggregation is simply a different Atlas
+  constitution, and not this model.)
 
 So Tell's transparency reports are not only an audit surface for the pile — they are the raw material an
 Atlas aggregates upward. Keep them well-described (`CONSTITUTION.md` → "I describe the transparency

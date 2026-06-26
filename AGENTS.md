@@ -49,11 +49,12 @@ underneath that the others won't lead with.
   (`constitutions/<pile>/<poll>.json`), but the pile *delegated* it and revokes it by leaving.
   Tell attaches a verdict before sealing; it never decides what the pile keeps, and it withholds
   nothing it authorized.
-- **Atlas is the reporting-law layer** *(intended; no Atlas repo in scope yet)*. An Atlas lists
-  Tells to make them discoverable, and discoverability is not free: to be listed is to be
-  addressable and to report in the shape that Atlas requires, because an Atlas aggregates the
-  Tells it lists into constituency/jurisdiction reports. See `CONTRACT.md` → "The Atlas
-  relationship".
+- **Atlas is the reporting-law layer.** An Atlas lists Tells to make them discoverable, and
+  discoverability is not free: to be listed is to be addressable and to report in the shape that Atlas
+  requires, because an Atlas aggregates the Tells it lists into constituency/jurisdiction reports. A
+  Tell lists itself with `bin/register` — a signed PR on a `tell/<scope>/<id>` branch that proves its
+  ownership — and the Atlas anchors that with the Tell's `signer` fingerprint. See `CONTRACT.md` →
+  "Registering with an Atlas".
 - **Constitutions all the way up.** Each layer binds itself in the open and constrains the next:
   a pile's constitution delegates to a Tell's; an Atlas's constitution can require a Tell's to
   describe its transparency reports. Copyable constitutions are the point — a few sound ones let

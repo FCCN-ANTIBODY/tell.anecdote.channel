@@ -1,0 +1,117 @@
+#!/usr/bin/env bash
+# bin/register — the canonical registration gesture of the anecdote.channel constellation:
+# register THIS node with a directory by opening a PR that appends its entry to the
+# directory's registry, on a branch whose NAME signs the node's ownership of its own
+# instance and whose COMMIT is signed with the node's own key.
+#
+# Here that is: register this Tell with an ATLAS by appending this Tell's entry to the
+# Atlas's _data/tells.yml. The PR is opened on a `tell/<scope>/<id>` branch — the branch
+# NAME claims which Tell, in which scope, is asking — and its commit is signed with the
+# Tell's delivery-signer key (TELL_SIGNER_KEY, fingerprint published at keys/tell.fpr).
+# So the signature PROVES the registrant controls that Tell, and the entry's `signer`
+# field anchors the claim in the open. See CONTRACT.md -> "Registering with an Atlas".
+#
+# This is the CLEANEST version of the PR-as-consent paradigm; the data-pile carries it in
+# descendent forms (a pile registering with a Tell: handshake.yml; a need registering with
+# an Atlas: bin/need + need.yml). See OPEN-QUESTIONS.md #3.
+#
+#   bin/register entry     # print this Tell's _data/tells.yml entry (offline, pure)
+#   bin/register branch    # print the ownership-signing branch: tell/<scope>/<id>
+#   bin/register pr        # open the signed registration PR to an Atlas (needs gh + token)
+#
+# Env:
+#   ATLAS_REPO            owner/name of the Atlas to register with
+#                        (default: FCCN-ANTIBODY/atlas.anecdote.channel)
+#   TELL_SIGNER_KEY_FILE path to the delivery-signer PRIVATE key. When set, `pr` SSH-signs
+#                        the registration commit with it (the ownership proof). Without it,
+#                        `pr` warns and commits unsigned (the claim won't verify).
+#   TELL_FPR_FILE        path to the signer fingerprint (default: keys/tell.fpr) — a seam
+#                        for offline testing.
+#   GH_TOKEN             token with Contents+PR write on the Atlas (for `pr`). Without it,
+#                        `pr` prints the entry + branch to paste by hand.
+set -euo pipefail
+
+# DATA (this Tell's identity + published fingerprint) resolves to the CURRENT directory —
+# the workspace — never to this script's own checkout. That code-vs-data split (the same
+# one the deliver action makes for the pile registry) lets this script be loaded as a
+# composite action over a CONSUMER's repo: it registers THEIR Tell, signed with THEIR key,
+# not the template's. Both paths are overridable; run from the Tell repo root for CLI use.
+die() { echo "register: $*" >&2; exit 1; }
+
+tell_yml="${TELL_YML:-tell.yml}"
+fpr_file="${TELL_FPR_FILE:-keys/tell.fpr}"
+[ -f "$tell_yml" ] || die "no Tell identity at $tell_yml (set TELL_YML, or run from the Tell repo root) — never register another Tell's identity"
+[ -f "$fpr_file" ] || die "no signer fingerprint at $fpr_file — run bin/tell-bootstrap to publish the signer first"
+
+# Minimal flat-YAML scalar reader: `ty KEY` -> value. Handles a quoted scalar (takes
+# what is between the first pair of quotes) and an unquoted scalar with a trailing
+# `# inline comment` (a `#` starts a comment only after whitespace, per YAML), rstripped.
+ty() {
+  local v
+  v="$(sed -n "s/^$1:[[:space:]]*//p" "$tell_yml" | head -1)"
+  if [ "${v#\"}" != "$v" ]; then
+    v="${v#\"}"; v="${v%%\"*}"
+  else
+    v="$(printf '%s' "$v" | sed -e 's/[[:space:]][[:space:]]*#.*$//' -e 's/[[:space:]]*$//')"
+  fi
+  printf '%s' "$v"
+}
+
+id="$(ty id)"; scope="$(ty scope)"; url="$(ty url)"; name="$(ty name)"; reports="$(ty reports)"
+signer="$(cat "$fpr_file")"
+[ -n "$id" ] && [ -n "$scope" ] || die "tell.yml needs at least id and scope"
+
+atlas_repo="${ATLAS_REPO:-FCCN-ANTIBODY/atlas.anecdote.channel}"
+branch="tell/${scope}/${id}"
+
+emit_entry() {
+  cat <<YAML
+- id: ${id}
+  name: "${name}"
+  url: "${url}"
+  scope: "${scope}"
+  signer: "${signer}"
+  reports: "${reports}"
+YAML
+}
+
+case "${1:-entry}" in
+  entry)  emit_entry ;;
+  branch) printf '%s\n' "$branch" ;;
+  pr)
+    command -v git >/dev/null 2>&1 || die "git required for pr"
+    entryf="$(mktemp)"; emit_entry > "$entryf"
+    if [ -z "${GH_TOKEN:-}" ]; then
+      echo "::warning::No GH_TOKEN — paste this into ${atlas_repo}/_data/tells.yml on branch ${branch}:" >&2
+      cat "$entryf"; exit 0
+    fi
+    command -v gh >/dev/null 2>&1 || die "gh required for pr (or unset GH_TOKEN to print the entry)"
+    tmp="$(mktemp -d)"; cd "$tmp"
+    gh repo clone "$atlas_repo" atlas -- --depth 1
+    cd atlas
+    git switch -c "$branch"
+    cat "$entryf" >> _data/tells.yml
+    git config user.name  "tell-register"
+    git config user.email "tell-register@users.noreply.github.com"
+    git add _data/tells.yml
+    if [ -n "${TELL_SIGNER_KEY_FILE:-}" ] && [ -f "$TELL_SIGNER_KEY_FILE" ]; then
+      git -c gpg.format=ssh -c user.signingkey="$TELL_SIGNER_KEY_FILE" \
+          commit -S -q -m "register tell ${id} (${scope})"
+      echo "register: signed the registration commit with the Tell delivery signer (${signer})" >&2
+    else
+      echo "::warning::No TELL_SIGNER_KEY_FILE — committing UNSIGNED; the ownership claim won't verify against ${signer}." >&2
+      git commit -q -m "register tell ${id} (${scope})"
+    fi
+    git push -u origin "$branch"
+    gh pr create --repo "$atlas_repo" --base main --head "$branch" \
+      --title "Register Tell ${id} (${scope})" \
+      --body "$(printf '%s\n' \
+        "Registering this Tell with your Atlas directory (see CONTRACT.md -> \"Registering with an Atlas\")." \
+        "" \
+        "- Branch \`${branch}\` claims this Tell's identity; the commit is signed with the Tell's delivery-signer key, fingerprint \`${signer}\` — the \`signer\` anchor in the appended entry." \
+        "- This Tell is addressable at ${url} and publishes transparency reports at \`${reports}\`." \
+        "" \
+        "No write access to this Tell's repo is requested.")"
+    ;;
+  *) die "usage: bin/register {entry|branch|pr}" ;;
+esac
