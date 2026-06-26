@@ -108,12 +108,43 @@ TELL_ISSUES_JSON="$work/issues.json" TELL_SUBMISSIONS_DIR="$work/stage" bin/coll
 [ "$(wc -l < "$work/stage/.rejected.tsv")" = 2 ] || fail "expected 2 rejected (cross-poll token + unknown pile)"
 ok "2 polls staged, cross-poll forgery + unknown pile rejected, no-block ignored"
 
-echo "[9] rollup tags each record with its poll; deliver seals it; consumer verifies"
+echo "[9] govern judges staged answers against constitutions/<pile>/<poll>.json (pre-seal, no key)"
+# Real stage (budget=Cut, bikes=Yes — both listed options) gets accepted mechanically and
+# annotated in place, so the rollup below seals the verdict into the digest.
+rep="$(TELL_SUBMISSIONS_DIR="$work/stage" TELL_REPORTS_DIR="$work/reports" bin/govern)"
+[ "$(jq -r '.counts.accept' "$rep")" = 2 ] || fail "govern did not accept the two listed-option answers"
+for f in "$work"/stage/cd04-q1/*.json; do
+  [ "$(jq -r '.governed' "$f")" = accept ] || fail "govern did not annotate staged record with its verdict"
+done
+# Synthetic varied stage covers every verdict path against the example constitutions.
+gs="$work/gstage/cd04-q1"; mkdir -p "$gs"
+mk() { jq -n --argjson n "$1" --arg poll "$2" --arg a "$3" \
+  '{number:$n,pile:"cd04-q1",poll:$poll,type:"open",asker:"a",shown_guidance:"g",round:"1",answer:$a,ts:"t"}' > "$gs/$1.json"; }
+mk 1 budget Cut            # multichoice listed option   -> accept (auto)
+mk 2 budget Maybe          # multichoice write-in, off    -> reject
+mk 3 dog-photo "http://x/dog.jpg"  # open                 -> needs-judgment
+mk 4 dog-photo ""          # empty                        -> reject
+mk 5 mystery hi            # no constitution for poll      -> held
+grep="$(TELL_SUBMISSIONS_DIR="$work/gstage" TELL_REPORTS_DIR="$work/reports" bin/govern)"
+gv() { jq -r --argjson n "$1" '.records[]|select(.issue==$n)|.verdict' "$grep"; }
+[ "$(gv 1)" = accept ]         || fail "listed option not accepted"
+[ "$(gv 2)" = reject ]         || fail "write-in (accept_writein:false) not rejected"
+[ "$(gv 3)" = needs-judgment ] || fail "open answer not flagged needs-judgment"
+[ "$(gv 4)" = reject ]         || fail "empty answer not rejected"
+[ "$(gv 5)" = held ]           || fail "no-constitution poll not held"
+# TELL_JUDGE_CMD plugs a resolved verdict into the seam.
+printf '#!/usr/bin/env bash\njq -n %s\n' "'{verdict:\"accept\",reason:\"stub\"}'" > "$work/yes"; chmod +x "$work/yes"
+jrep="$(TELL_JUDGE_CMD="$work/yes" TELL_SUBMISSIONS_DIR="$work/gstage" TELL_REPORTS_DIR="$work/reports" bin/govern)"
+[ "$(jq -r '.records[]|select(.issue==3)|.verdict' "$jrep")" = accept ] || fail "TELL_JUDGE_CMD override not honored"
+ok "verdicts accept/reject/needs-judgment/held; staged records annotated; judge seam plugs in"
+
+echo "[10] rollup tags each record with its poll, carries the verdict; deliver seals it; consumer verifies"
 rb="$work/rollup.block"
 TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"
 [ "$(jq -r '.count' "$rb")" = 2 ] || fail "rollup did not batch the 2 accepted answers"
 [ "$(jq -r '[.records[].poll]|sort|join(",")' "$rb")" = "bikes,budget" ] || fail "rollup did not tag records by poll"
 [ "$(jq -r '[.records[].shown_guidance]|sort|join(",")' "$rb")" = "g-bikes,g-budget" ] || fail "rollup dropped shown_guidance"
+[ "$(jq -r '[.records[].governed]|unique|join(",")' "$rb")" = "accept" ] || fail "rollup did not seal the delegated verdict"
 bin/deliver --dir "$work/rfeed" --recipient "$recip" --signkey "$work/sign" --block "$rb" >/dev/null \
   || fail "deliver could not seal rollup output"
 if [ -x "$DP_REPO/bin/verify" ]; then
@@ -125,16 +156,16 @@ else
   ok "accepted batch sealed (consumer verify skipped — no \$DP_REPO)"
 fi
 
-echo "[10] empty stage => rollup emits nothing (deliver would skip)"
+echo "[11] empty stage => rollup emits nothing (deliver would skip)"
 [ -z "$(TELL_SUBMISSIONS_DIR="$work/empty" bin/rollup cd04-q1 colorado)" ] || fail "rollup emitted on empty stage"
 ok "no staged submissions -> no block"
 
 if command -v node >/dev/null 2>&1; then
-  echo "[11] landing builds a parseable issues/new link"
+  echo "[12] landing builds a parseable issues/new link"
   node "$root/test/landing.test.mjs" || fail "landing link-builder test failed"
   ok "landing emits a valid prefilled issue link"
 else
-  echo "[11] SKIPPED — node not available for the landing test"
+  echo "[12] SKIPPED — node not available for the landing test"
 fi
 
 echo "ALL TESTS PASSED"

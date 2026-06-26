@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# The pluggable acceptance judge — the constitutional "wildcard", isolated to one seam
+# (mirrors the rollup/authz hooks). bin/govern calls it for every staged submission that
+# is not a mechanical multichoice match. Override with TELL_JUDGE_CMD to plug in a real
+# agent or a human's resolved verdicts.
+#
+# This judge runs on Tell BEFORE sealing, against the plaintext the respondent posted as
+# a public Issue — so no decrypt key is involved. It is the delegated half of the seam:
+# Tell attaches the verdict the pile asked it to apply, it does not withhold data.
+#
+# Contract: read ONE JSON object on stdin: { "record": {…}, "constitution": {…} }
+#   exit 0 always; print a verdict JSON: { "verdict": "...", "reason": "..." }
+#   verdict ∈ accept | reject | needs-judgment
+#
+# Default policy is deliberately HONEST, not faked: it does the cheap mechanical guards a
+# rule can settle, and returns `needs-judgment` for anything substantive — because judging
+# an open answer against guidance is a call for a human or an agent (work done in parallel).
+set -euo pipefail
+in="$(cat)"
+ans="$(printf '%s' "$in" | jq -r '.record.answer // ""')"
+type="$(printf '%s' "$in" | jq -r '.constitution.type // "open"')"
+# Note: `//` treats false as empty, so read the boolean explicitly.
+writein_ok="$(printf '%s' "$in" | jq -r 'if .constitution.accept_writein == null then true else .constitution.accept_writein end')"
+is_option="$(printf '%s' "$in" | jq -r '(.constitution.options // []) as $o | (.record.answer // "") as $a | ($o | index($a)) != null')"
+
+verdict() { jq -n --arg v "$1" --arg r "$2" '{verdict:$v, reason:$r}'; }
+
+# Empty answers never pass.
+if [ -z "${ans//[[:space:]]/}" ]; then verdict reject "empty answer"; exit 0; fi
+
+# Multichoice option matches are handled mechanically by bin/govern before we are called;
+# if we still see a multichoice non-option, it is a write-in.
+if [ "$type" = "multichoice" ] && [ "$is_option" != "true" ]; then
+  if [ "$writein_ok" != "true" ]; then verdict reject "write-in not accepted for this poll"; exit 0; fi
+fi
+
+# Everything substantive (open answers, accepted write-ins) is a real call.
+verdict needs-judgment "open answer requires agent/human judgment against the guidance"
