@@ -52,6 +52,16 @@ ok "hash chain links seq 0→1→2"
 
 # Cross-repo: verify with the real consumer if a data-pile checkout is reachable.
 DP_REPO="${DP_REPO:-$root/../data-pile}"
+
+# Drift guard: our vendored crypto core must match data-pile's byte-for-byte, or the
+# producer and consumer would silently disagree. Check against the local checkout when
+# present (offline); CI without one can run bin/check-pile-lib against the GitHub raw source.
+if [ -f "$DP_REPO/bin/lib.sh" ]; then
+  echo "[3b] vendored crypto core matches data-pile (no protocol drift)"
+  DP_LIB="$DP_REPO/bin/lib.sh" bin/check-pile-lib >/dev/null || fail "pile-lib.sh drifted from data-pile bin/lib.sh"
+  ok "bin/pile-lib.sh == data-pile bin/lib.sh"
+fi
+
 if [ -x "$DP_REPO/bin/verify" ]; then
   echo "[4] data-pile bin/verify accepts the produced chain"
   printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/tell.signers"
