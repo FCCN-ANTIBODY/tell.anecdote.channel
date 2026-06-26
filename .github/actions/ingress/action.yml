@@ -1,0 +1,102 @@
+name: "Tell ingress"
+description: >
+  The whole inbound loop a Tell runs over its workspace's Issues: collect + authorize
+  submissions, judge them against the delegated constitutions (pre-seal, no key), seal
+  the abiding ones into each pile's encrypted feed via the deliver action, then close
+  the mailbox. Tell writes only its own repo — no GitHub App, no cross-repo token, only
+  contents:write + issues:write on the calling repo (the built-in GITHUB_TOKEN).
+
+  Drop this into your own workflow to run ingestion on your fork/submodule of this Tell.
+  The triggers are yours to choose: the template workflow defaults to manual dispatch and
+  leaves a cron as a commented suggestion — edit it to the cadence your jurisdiction wants.
+
+inputs:
+  github-token:
+    description: "Token for reading/closing Issues (gh). Pass ${{ github.token }}."
+    required: true
+  qr-secret:
+    description: "TELL_QR_SECRET — verifies the QR authorization token on each submission. Pass a secret."
+    required: true
+  seed-identity:
+    description: "age identity for ratchet resume across runs (the deliver step). Pass a secret. Required."
+    required: true
+  signer-key:
+    description: "SSH private signing key (the Tell's delivery signer). Pass a secret. Blank => unsigned."
+    required: false
+    default: ""
+  registry:
+    description: "Path to the pile registry in this repo."
+    required: false
+    default: "_data/piles.yml"
+  only-id:
+    description: "Deliver to just this pile id (blank = every registered pile)."
+    required: false
+    default: ""
+  rollup:
+    description: "Override the digest rollup command (`<cmd> <id> <scope>`). Blank = this repo's ./bin/rollup."
+    required: false
+    default: ""
+  source-name:
+    description: "Feed source name written into each manifest entry."
+    required: false
+    default: "tell"
+  constitutions-dir:
+    description: "Where bin/govern reads the delegated per-poll constitutions."
+    required: false
+    default: "constitutions"
+  publish-report:
+    description: "Commit the govern transparency report (reports/govern-*.json) to the current branch."
+    required: false
+    default: "true"
+  install-age:
+    description: "Apt-install age on the runner for the deliver step (set false if already present)."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Collect + authorize submissions
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        TELL_QR_SECRET: ${{ inputs.qr-secret }}
+      run: bin/collect-submissions
+
+    - name: Judge staged submissions against delegated constitutions
+      shell: bash
+      env:
+        TELL_CONSTITUTIONS_DIR: ${{ inputs.constitutions-dir }}
+        PUBLISH_REPORT: ${{ inputs.publish-report }}
+      run: |
+        set -euo pipefail
+        # Attach each pile's delegated verdict to the staged plaintext (no key needed);
+        # bin/rollup (in the deliver step) seals it into the digest.
+        report="$(bin/govern)" || { echo "::warning::govern failed; sealing unjudged"; report=""; }
+        if [ -n "$report" ] && [ -f "$report" ]; then
+          { echo "## govern"; echo '```'; jq -c '.counts' "$report"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$PUBLISH_REPORT" = "true" ]; then
+            git config user.name  "tell-govern"
+            git config user.email "tell-govern@users.noreply.github.com"
+            git add "$report"
+            git commit -m "govern: transparency report" && git push || echo "nothing to publish"
+          fi
+        fi
+
+    - name: Seal authorized submissions into pile feeds
+      uses: ./.github/actions/deliver
+      with:
+        signer-key: ${{ inputs.signer-key }}
+        seed-identity: ${{ inputs.seed-identity }}
+        registry: ${{ inputs.registry }}
+        only-id: ${{ inputs.only-id }}
+        rollup: ${{ inputs.rollup }}
+        source-name: ${{ inputs.source-name }}
+        install-age: ${{ inputs.install-age }}
+
+    - name: Close the mailbox (ingested / rejected)
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: bin/finalize-submissions

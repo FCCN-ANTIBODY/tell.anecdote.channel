@@ -77,12 +77,14 @@ Tell-runner mints:
   `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
   {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,
   type/asker-aware rules (rate, dedup, geo, one-reply, sensor checks) plug in here.
-- **Ingest loop.** `ingest-submissions.yml`: `bin/collect-submissions` reads open Issues, runs
+- **Ingest loop.** The whole loop is the `ingress` composite action (`.github/actions/ingress`),
+  wired up by the thin `ingest-submissions.yml` template (manual dispatch by default; cron/issues are
+  commented suggestions an adopter edits). In order: `bin/collect-submissions` reads open Issues, runs
   `bin/authz`, and **stages** only the authorized ones (tagged with poll/type/asker/shown_guidance);
   `bin/govern` then judges each staged answer against the pile's delegated constitution and **attaches**
-  the verdict in place (pre-seal, on plaintext — no key); `bin/rollup` emits a `tell.digest/v1` block
-  whose records carry each answer's `poll`/`type`/`asker`/`shown_guidance` **and its `governed`
-  verdict** so the pile routes already-judged signals; the deliver action seals it; then
+  the verdict in place (pre-seal, on plaintext — no key); the bundled `deliver` action's `bin/rollup`
+  emits a `tell.digest/v1` block whose records carry each answer's `poll`/`type`/`asker`/`shown_guidance`
+  **and its `governed` verdict** so the pile routes already-judged signals, and seals it; then
   `bin/finalize-submissions` closes each Issue — `ingested` meaning *authorized and delivered* (not
   "kept"), `rejected` (with reason) for the unauthorized. Tell writes only its own repo.
 - **Authorize always; govern only when delegated, and never withhold.** Tell always decides what is

@@ -43,13 +43,21 @@ parameterized by target registry would unify them.
 - **Deferred because:** it refactors working PR-opening code that needs `gh` + live repos to
   exercise; not safe to change blind. Do it with a real integration check.
 
-## 4. Ingress loop as a composite action
+## 4. Ingress loop as a composite action — DONE, with a cross-repo caveat
 
-`deliver` is already a reusable composite action; the surrounding ingress (collect → govern →
-deliver → finalize) is still expressed as steps in `ingest-submissions.yml`. Each step is a
-one-line script/action call, so the workflow is thin, but the *loop* is not yet a single drop-in
-action a third repo could adopt wholesale.
+The whole ingress (collect → govern → deliver → finalize) is now the `ingress` composite
+action (`.github/actions/ingress`), composing the `deliver` action. `ingest-submissions.yml`
+is a thin template that wires it up and **defaults to manual dispatch** with cron/issues as
+commented, editable suggestions.
 
-- **Blocks:** a repo becoming a full Tell by adding one action (today it adopts `deliver` and
-  re-creates the ingress steps).
-- **Deferred because:** untestable here without Actions; low risk to leave, clear to extract later.
+What's **still open** is cross-repo adoption. The action composes cleanly when the *whole Tell
+tree* is present (the main repo, or a fork/submodule). But referenced cross-repo
+(`uses: OWNER/REPO/.github/actions/ingress@ref`), the steps and nested `deliver` use
+repo-root-relative paths, and `bin/authz` / `bin/collect-submissions` resolve `_data/piles.yml`
+relative to the bundled scripts — so a third repo would read *this* Tell's registry, not its own.
+
+- **Blocks:** adopting ingress cross-repo while keeping your own piles/constitutions.
+- **Sketch (unbuilt):** thread the consumer data paths (registry, constitutions, stage, reports)
+  through env so the bundled scripts read the *workspace* rather than their own checkout — i.e.
+  the same code-vs-data split the `deliver` action already makes for the registry. For now,
+  adopt the whole tree (fork/submodule).
