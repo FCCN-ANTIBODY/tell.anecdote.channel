@@ -17,9 +17,9 @@ name: deliver
 # or whatever the registry's piles want. Everything around it is production code.
 
 on:
-  # Manual re-delivery only. The scheduled ingress cadence lives in
-  # ingest-submissions.yml (collect -> deliver -> finalize); this workflow just
-  # dogfoods the deliver action against whatever bin/rollup currently stages.
+  # Manual re-delivery only. The full ingress loop (collect -> govern -> deliver ->
+  # finalize) is the `ingress` action, wired by ingest-submissions.yml; this workflow
+  # just dogfoods the deliver step against whatever bin/rollup currently stages.
   workflow_dispatch:
     inputs:
       only_id:
