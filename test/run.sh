@@ -93,10 +93,14 @@ sub() { jq -n --arg p "$1" --arg poll "$2" --arg r "$3" --arg t "$4" \
   '{pile:$p,poll:$poll,round:$r,type:"open",asker:"x",tok:$t}'; }
 tokB="$(bin/qr --pile cd04-q1 --poll budget --round 1 2>/dev/null | sed -n 's/.*[?&]tok=\([0-9a-f]*\).*/\1/p')"
 [ -n "$tokB" ] || fail "bin/qr emitted no token"
+# Flip the last hex char to a guaranteed-different value (deterministic tamper; "f"
+# unless the token already ends in "f", in which case "0"). A fixed "f" would be a
+# no-op ~1/16 of the time and falsely "accept a tamper".
+tamper="${tokB%?}f"; [ "${tokB: -1}" = f ] && tamper="${tokB%?}0"
 sub cd04-q1 budget 1 "$tokB"        | bin/authz 2>/dev/null || fail "authz rejected a valid token"
 sub cd04-q1 bikes  1 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted cross-poll" || true
 sub cd04-q1 budget 2 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted wrong round" || true
-sub cd04-q1 budget 1 "${tokB%?}f"   | bin/authz 2>/dev/null && fail "authz accepted a tamper"    || true
+sub cd04-q1 budget 1 "$tamper"      | bin/authz 2>/dev/null && fail "authz accepted a tamper"    || true
 sub ghost   budget 1 "$tokB"        | bin/authz 2>/dev/null && fail "authz accepted unknown pile" || true
 ok "valid tuple accepted; cross-poll / wrong-round / tamper / unknown-pile rejected"
 
