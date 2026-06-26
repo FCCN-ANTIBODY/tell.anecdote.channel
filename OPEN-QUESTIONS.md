@@ -41,11 +41,18 @@ The constellation registers by PR-as-consent at three tiers: a pile registers wi
 of the paradigm — and the one that also **signs the registrant's ownership** (`tell/<scope>/<id>`
 branch, signed commit, `signer` anchor).
 
+`bin/register` is also packaged as a **composite action** (`.github/actions/register`), so a forked
+Tell lists itself with `uses:` — the code ships with the action, the identity (`tell.yml`, `keys/tell.fpr`)
+is read from the *caller's* workspace (the code-vs-data split below, #4).
+
 - **Blocks:** nothing functional — all three flows work. The remaining debt is that the data-pile's two
   descendent forms still re-implement the gesture inline instead of calling a shared `register`.
-- **Deferred because:** folding them in refactors working PR-opening code that needs `gh` + live repos
-  to exercise; not safe to change blind. Do it with a real integration check. `bin/register`'s
-  `{entry|branch|pr}` seam is the shape they would adopt.
+- **Deferred because:** the descendents register *differently-shaped* entries into *different* registries
+  (`_data/piles.yml`: `id`/`scope`/`feed`/`age_recipient`; `_data/needs.yml`:
+  `id`/`asker_repo`/`scope`/`topic`/`terms`). Folding them onto `register` needs a **registry-agnostic
+  entry seam** (caller supplies the target registry + branch + a pre-built entry; `register` owns only
+  the signed-PR mechanics) — a real refactor of working PR-opening code that needs `gh` + live repos to
+  exercise. `bin/register`'s `{entry|branch|pr}` split is the shape they would adopt.
 
 ## 4. Ingress loop as a composite action — DONE, with a cross-repo caveat
 
@@ -63,8 +70,11 @@ relative to the bundled scripts — so a third repo would read *this* Tell's reg
 - **Blocks:** adopting ingress cross-repo while keeping your own piles/constitutions.
 - **Sketch (unbuilt):** thread the consumer data paths (registry, constitutions, stage, reports)
   through env so the bundled scripts read the *workspace* rather than their own checkout — i.e.
-  the same code-vs-data split the `deliver` action already makes for the registry. For now,
-  adopt the whole tree (fork/submodule).
+  the same code-vs-data split the `deliver` action already makes for the registry. The newer
+  `register` action (`.github/actions/register`) is a worked example: `bin/register` reads identity
+  from `TELL_YML`/`TELL_FPR_FILE` (workspace-relative, fail-closed) while its code ships with the
+  action — ingress's bundled scripts want the same treatment. For now, adopt the whole tree
+  (fork/submodule).
 
 ## 5. Geolocation adherence in the judge, before public exposure
 

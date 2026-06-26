@@ -199,5 +199,13 @@ printf '%s' "$entry" | REGFPR="$regfpr" ruby -ryaml -e '
   abort "signer not anchored to keys/tell.fpr" unless e["signer"] == ENV["REGFPR"]
 ' || fail "register entry malformed or signer not anchored to the published fingerprint"
 ok "entry carries id/name/url/scope/signer/reports; signer = published fpr; branch tell/<scope>/<id> signs ownership"
+# Action-ready: identity resolves to a workspace path (TELL_YML), and register fails closed
+# without one rather than registering the wrong Tell (the .github/actions/register contract).
+cp tell.yml "$work/other.yml"; sed -i 's/^scope:.*/scope: larimer/' "$work/other.yml"
+ob="$(TELL_YML="$work/other.yml" TELL_FPR_FILE="$work/tell.fpr" bin/register branch)"
+[ "$ob" = "tell/larimer/$tid" ] || fail "TELL_YML override not honored (got '$ob')"
+( cd "$work" && TELL_FPR_FILE="$work/tell.fpr" "$root/bin/register" entry >/dev/null 2>&1 ) \
+  && fail "register did not fail closed without a workspace tell.yml" || true
+ok "TELL_YML override honored; register fails closed without a workspace identity"
 
 echo "ALL TESTS PASSED"

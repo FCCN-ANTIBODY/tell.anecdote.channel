@@ -72,9 +72,21 @@ bin/register branch    # the ownership-signing branch: tell/<scope>/<id>
 bin/register pr        # open the signed PR to an Atlas  (the register-atlas.yml workflow runs this)
 ```
 
-`register-atlas.yml` materializes `TELL_SIGNER_KEY` to sign the commit and uses `ATLAS_PR_TOKEN`
-(Contents+PR write on the Atlas) to open the PR; with neither, `bin/register` prints the entry to paste
-by hand. No write access to this Tell is ever requested — trust runs one way.
+`register-atlas.yml` dogfoods the reusable **`register` composite action**
+(`.github/actions/register`), which any jurisdiction drops into its own Tell to list itself on an Atlas:
+the action reads *its* `tell.yml` + `keys/tell.fpr` from the calling repo's workspace and signs with
+*its* `TELL_SIGNER_KEY` — never the template's (the same code-vs-data split the `deliver` action makes).
+It uses `ATLAS_PR_TOKEN` (Contents+PR write on the Atlas) to open the PR; without it, `bin/register`
+prints the entry to paste by hand.
+
+**This reach across repos is the consent gesture, not a privilege.** Registration is the handshake of a
+consent-driven discovery network: a Tell *offers* itself, an Atlas *accepts* by merging, and the piles
+behind a Tell keep the right to *leave* — to take their mailbox to another Tell if they dislike the
+Atlas this one keeps company with (a pile registers by PR and is revocable by leaving; the pile is the
+principal). Unlike a decision made over your head that can compel you to move a physical home, here
+consent is present in **every** outcome — including the ones in conflict. So the only token this gesture
+needs is write on the **Atlas**, to *offer*; it asks for **no** write access to this Tell, and none over
+any pile.
 
 Discoverability is not free. To be listed is to accept — and an Atlas guarantees in return (see
 [`atlas.anecdote.channel/CONSTITUTION.md`](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/CONSTITUTION.md)):

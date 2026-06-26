@@ -1,0 +1,58 @@
+name: "Tell register"
+description: >
+  Register the CALLING repo's Tell with an Atlas directory: open a consent PR that appends
+  this Tell's entry to the Atlas's _data/tells.yml, on a tell/<scope>/<id> branch whose
+  commit is signed with the Tell's delivery-signer key. The bundled bin/register is the
+  CODE; the identity (tell.yml) and published fingerprint (keys/tell.fpr) are read from the
+  CALLING repo's workspace — so any repo that drops this in registers ITS OWN Tell, signed
+  with ITS OWN key, never the template's.
+
+  This gesture reaches another repo by design: registration is the consent handshake of a
+  discovery network. A Tell OFFERS itself; the Atlas ACCEPTS by merging; and the piles
+  behind a Tell keep the right to leave it for an Atlas they don't like (see CONTRACT.md ->
+  "Registering with an Atlas"). So it needs a token with write on the ATLAS (pr-token);
+  that is the consent reach, not a privilege over anyone's data.
+
+inputs:
+  atlas:
+    description: "Atlas repo to register with (owner/name)."
+    required: false
+    default: "FCCN-ANTIBODY/atlas.anecdote.channel"
+  pr-token:
+    description: "Token with Contents+PR write on the ATLAS (ATLAS_PR_TOKEN). Blank => print the entry to paste by hand."
+    required: false
+    default: ""
+  signer-key:
+    description: "SSH private delivery-signer key — the ownership proof. Pass a secret. Blank => unsigned (the claim won't verify)."
+    required: false
+    default: ""
+  identity:
+    description: "Path in the CALLING repo to this Tell's identity file."
+    required: false
+    default: "tell.yml"
+  fingerprint:
+    description: "Path in the CALLING repo to the published signer fingerprint."
+    required: false
+    default: "keys/tell.fpr"
+  install-gh:
+    description: "Apt-install gh on the runner (set false if already present)."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install gh
+      if: ${{ inputs.install-gh == 'true' }}
+      shell: bash
+      run: command -v gh >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y gh; }
+
+    - name: Open the signed registration PR on the Atlas
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.pr-token }}
+        TELL_SIGNER_KEY: ${{ inputs.signer-key }}
+        ATLAS_REPO: ${{ inputs.atlas }}
+        TELL_YML: ${{ inputs.identity }}
+        TELL_FPR_FILE: ${{ inputs.fingerprint }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

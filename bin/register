@@ -30,14 +30,17 @@
 #   GH_TOKEN             token with Contents+PR write on the Atlas (for `pr`). Without it,
 #                        `pr` prints the entry + branch to paste by hand.
 set -euo pipefail
-here="$(cd "$(dirname "$0")" && pwd)"
-repo="$(cd "$here/.." && pwd)"
-cd "$repo"
 
+# DATA (this Tell's identity + published fingerprint) resolves to the CURRENT directory —
+# the workspace — never to this script's own checkout. That code-vs-data split (the same
+# one the deliver action makes for the pile registry) lets this script be loaded as a
+# composite action over a CONSUMER's repo: it registers THEIR Tell, signed with THEIR key,
+# not the template's. Both paths are overridable; run from the Tell repo root for CLI use.
 die() { echo "register: $*" >&2; exit 1; }
 
-[ -f tell.yml ] || die "no tell.yml (this Tell's public identity) at repo root"
+tell_yml="${TELL_YML:-tell.yml}"
 fpr_file="${TELL_FPR_FILE:-keys/tell.fpr}"
+[ -f "$tell_yml" ] || die "no Tell identity at $tell_yml (set TELL_YML, or run from the Tell repo root) — never register another Tell's identity"
 [ -f "$fpr_file" ] || die "no signer fingerprint at $fpr_file — run bin/tell-bootstrap to publish the signer first"
 
 # Minimal flat-YAML scalar reader: `ty KEY` -> value. Handles a quoted scalar (takes
@@ -45,7 +48,7 @@ fpr_file="${TELL_FPR_FILE:-keys/tell.fpr}"
 # `# inline comment` (a `#` starts a comment only after whitespace, per YAML), rstripped.
 ty() {
   local v
-  v="$(sed -n "s/^$1:[[:space:]]*//p" tell.yml | head -1)"
+  v="$(sed -n "s/^$1:[[:space:]]*//p" "$tell_yml" | head -1)"
   if [ "${v#\"}" != "$v" ]; then
     v="${v#\"}"; v="${v%%\"*}"
   else
