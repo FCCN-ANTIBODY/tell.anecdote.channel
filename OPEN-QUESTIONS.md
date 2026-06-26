@@ -61,3 +61,40 @@ relative to the bundled scripts — so a third repo would read *this* Tell's reg
   through env so the bundled scripts read the *workspace* rather than their own checkout — i.e.
   the same code-vs-data split the `deliver` action already makes for the registry. For now,
   adopt the whole tree (fork/submodule).
+
+## 5. Geolocation adherence in the judge, before public exposure
+
+The judge (`bin/govern`) runs today *after* a reply is already a public Issue. Phase 1
+(`ROADMAP.md`) requires authorization/judging to enforce **geolocation adherence** — a reply
+counts only within its constituency's bounds — **before** anything is public. This is the gate
+that lets a non-operator run a Tell without spilling unvetted plaintext.
+
+- **Blocks:** distributed collection (others running their own Tell); pre-public sealing;
+  retiring the public-Issue mailbox.
+- **Sketch (unbuilt):** the `bin/authz` "type/asker-aware rules (rate, dedup, geo, …)" seam is the
+  home; needs a source of constituency bounds and a trusted-enough location signal that does not
+  drag respondent identity into the core (the tension in #2).
+
+## 6. Direct-transfer collector (phone tool + daily-cron agent)
+
+The Phase-1 ingress: a tool on the operator's phone web browser **buffers collected responses
+locally** until the known window opens, and a **daily-cron agent** submits the legitimate batch
+directly — instead of one GitHub Action per submission.
+
+- **Blocks:** ingestion that scales with *legitimate* answers rather than with traffic/spam;
+  windowed pickup; the move off public Issues.
+- **Sketch (unbuilt):** local storage in the browser tool; a batch-submission format the ingress
+  can authorize as a unit; the agent's cron *is* the legitimate-only pickup (contrast the current
+  per-Issue trigger). Ties to #1 (window/expiry) and #5 (pre-public judging).
+
+## 7. The Atlas reporting-law contract
+
+`CONTRACT.md` → "The Atlas relationship" pins the *intent*: an Atlas requires the Tells it lists to
+describe their transparency reports, and aggregates them into constituency/jurisdiction reports.
+The concrete contract is unwritten because no Atlas repo is in scope.
+
+- **Blocks:** a Tell knowing exactly what report shape to commit to; cross-Tell aggregation;
+  scheduled constituency/jurisdiction reporting.
+- **Sketch (unbuilt):** an Atlas `CONSTITUTION` clause naming the required `reports/govern-…` fields
+  and cadence, plus a Tell-side declaration (already begun in `CONSTITUTION.md`) of the reports it
+  publishes that an Atlas can validate. Lands when `atlas.anecdote.channel` is in scope.

@@ -49,6 +49,31 @@ data-pile `handshake` workflow does this): `id`, `scope`, `feed/<scope>/<id>`, a
 layer yet. The pile separately pins this Tell's published signer fingerprint (`keys/tell.fpr`). No
 write access to the pile is ever requested.
 
+## The Atlas relationship (intended)
+
+> Forward intent. No Atlas repo is in scope yet; this pins the shape Tell builds toward, so the
+> reporting hooks already here (`reports/govern-…`, the Issue labels) aren't mistaken for decoration.
+
+[Atlas](https://atlas.anecdote.channel) is the **index** that makes a Tell discoverable. A pile is
+not discoverable on its own — it has no address without a Tell to receive for it — so what Atlas lists
+and addresses is a **whole Tell node**. Registering with an Atlas is the same PR-as-consent gesture a
+pile makes with a Tell, one tier up.
+
+Discoverability is not free. To be listed is to accept:
+
+- **Addressability.** A listed Tell is reachable at a stable address and answers for the piles it fronts.
+- **Reporting in a required shape.** An Atlas guarantees **aggregation** — it rolls the Tells it lists
+  into constituency/jurisdiction reports on a schedule — so it needs their reports uniform. The chain is
+  constitutional: **Tell's `CONSTITUTION` describes its transparency reports** (the `reports/govern-…`
+  it already publishes), and an **Atlas's `CONSTITUTION` can require** those descriptions to be present
+  and take a particular form — carving out exactly what that Atlas will aggregate. An Atlas may promise
+  no aggregation at all; that is simply a different Atlas constitution, and not the model this
+  constellation builds for.
+
+So Tell's transparency reports are not only an audit surface for the pile — they are the raw material an
+Atlas aggregates upward. Keep them well-described (`CONSTITUTION.md` → "I describe the transparency
+reports I publish").
+
 ## Ingress: QR → authorized Issue → digest
 
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
@@ -97,6 +122,11 @@ Tell-runner mints:
   operator serve many piles; the authority is the pile's, lent and revocable.
 - **Exposure, named.** A raw answer is world-readable in its Issue between posting and sealing, so
   this channel is for **coarse, consented answers, not secrets** (see CONSTITUTION.md).
+- **Transitional by intent.** This public-Issue mailbox is how replies enter *today* (Phase 0). The
+  direction is to judge before anything is public and seal at pickup, replacing it with a
+  **direct-transfer** collector — a windowed, agent-batched submission — so unmoderated plaintext never
+  waits in the open. The `bin/authz` "rate, dedup, geo, …" seam is where that pre-public judging lands.
+  See [`ROADMAP.md`](ROADMAP.md).
 
 ## The rollup seam (what each block carries)
 
