@@ -145,3 +145,9 @@ fronting it. Only ownership/consent (the merge) is checked.
   Atlas-side handle for "this is a legitimate judgement request" does not exist a tier down. How a
   pile-tier judge request identifies and authorizes itself is its own unsettled question (cf. atlas #5's
   authorization bullet).
+- **Elective, from the pile's side.** The pile is the spender most likely to *opt in* — it may want its
+  own boundary governed (the pile-side governor in closed
+  [data-pile #6](https://github.com/FCCN-ANTIBODY/data-pile/pull/6) is the historical record of that
+  want). Whether it pays with its **own** judge credentials or **timeshares** the Tell's capacity is the
+  elective-judgement question, tracked in full at
+  [atlas `OPEN-QUESTIONS.md` #5](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/OPEN-QUESTIONS.md).
