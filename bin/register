@@ -90,10 +90,27 @@ case "${1:-entry}" in
     gh repo clone "$atlas_repo" atlas -- --depth 1
     cd atlas
     git switch -c "$branch"
-    cat "$entryf" >> _data/tells.yml
+    # Idempotent by id: update this Tell's entry in place if it's already listed (or if a
+    # placeholder seed carries the same id), else append. Re-registering — or registering
+    # over a seeded entry, e.g. a workspace that is its own Atlas listing its own Tell — must
+    # not duplicate the entry. The id is the stable per-Tell slug (the <id> of the branch),
+    # so matching on it is matching the Tell. The header comment and other Tells are kept.
+    reg="_data/tells.yml"
+    if [ -f "$reg" ] && grep -qE "^- id: ${id}([[:space:]]|\$)" "$reg"; then
+      awk -v id="$id" '
+        /^- id: / { drop = ($0 == "- id: " id) || ($0 ~ ("^- id: " id "[[:space:]]")) }
+        !drop
+      ' "$reg" > "$reg.tmp" && mv "$reg.tmp" "$reg"
+    fi
+    cat "$entryf" >> "$reg"
     git config user.name  "tell-register"
     git config user.email "tell-register@users.noreply.github.com"
-    git add _data/tells.yml
+    git add "$reg"
+    # Already listed identically (e.g. a re-run): nothing to register, no empty PR.
+    if git diff --cached --quiet; then
+      echo "register: ${id} (${scope}) already listed identically in ${atlas_repo}/_data/tells.yml — nothing to do" >&2
+      exit 0
+    fi
     if [ -n "${TELL_SIGNER_KEY_FILE:-}" ] && [ -f "$TELL_SIGNER_KEY_FILE" ]; then
       git -c gpg.format=ssh -c user.signingkey="$TELL_SIGNER_KEY_FILE" \
           commit -S -q -m "register tell ${id} (${scope})"
