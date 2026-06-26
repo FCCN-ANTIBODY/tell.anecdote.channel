@@ -53,6 +53,13 @@ is read from the *caller's* workspace (the code-vs-data split below, #4).
   entry seam** (caller supplies the target registry + branch + a pre-built entry; `register` owns only
   the signed-PR mechanics) — a real refactor of working PR-opening code that needs `gh` + live repos to
   exercise. `bin/register`'s `{entry|branch|pr}` split is the shape they would adopt.
+- **Coupled to a judgement gate — do not ship the seam without it.** A registry-agnostic `register`
+  widens what one signed PR can carry from "list *me*" (identity, which the signature proves) to "commit
+  *this bucket, backed by this logic*" (content, which it does not). That is safe **only if a fitness
+  judgement is rendered** on the registrant's constitution at the consent junction
+  ([atlas `OPEN-QUESTIONS.md` #5](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/OPEN-QUESTIONS.md));
+  unattended, it steals base on consent and leaves the parent's operator to discover abuse of their own
+  signature. The generalization and the judge are one decision, not two.
 
 ## 4. Ingress loop as a composite action — DONE, with a cross-repo caveat
 
@@ -116,3 +123,25 @@ What's still open is the **field-level** report contract and the aggregator that
   [atlas `OPEN-QUESTIONS.md` #2](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/OPEN-QUESTIONS.md)).
   The Tell-side declaration (`CONSTITUTION.md` → "I describe the transparency reports I publish") is the
   surface that contract validates.
+
+## 8. No constitutional judge at the pile→Tell consent junction
+
+The summonable judge is becoming a strong idiom anywhere constitutions are compared, and the Tell→Atlas
+tier has it contemplated in full
+([atlas `OPEN-QUESTIONS.md` #5](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/OPEN-QUESTIONS.md)):
+three consent intakes (PR / judge / unattended), the judge as a *junction* that degrades to the human
+merge when it is unavailable (busy, rate-limited, out of budget, switched off, or uncertain), and a
+fixed-bucket workload constraint so a judgement backlog can't masquerade as an outage. The **same junction
+exists one tier down, and is just as unbuilt here**: a pile registers with this Tell by a signed-PR
+handshake (`data-pile/handshake.yml` → `_data/piles.yml`), accepted by a human merge, and the Tell — the
+**parent** at this tier — renders no *fitness* judgement on a registering pile's constitution before
+fronting it. Only ownership/consent (the merge) is checked.
+
+- **Blocks:** a Tell that wants to attest the piles it fronts cohere with its own constitution before
+  listing them; the judge-when-it-can / human-when-it-can't junction at the pile tier; and — the live
+  trigger — gating `bin/govern`'s delegated judging, which the pile hands the Tell, behind the same
+  available/not-available junction rather than assuming the judge is always there.
+- **Open here specifically:** authorization differs from Atlas — a Tell has **no `needs/` board**, so the
+  Atlas-side handle for "this is a legitimate judgement request" does not exist a tier down. How a
+  pile-tier judge request identifies and authorizes itself is its own unsettled question (cf. atlas #5's
+  authorization bullet).
