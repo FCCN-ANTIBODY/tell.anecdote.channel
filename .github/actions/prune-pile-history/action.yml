@@ -1,0 +1,54 @@
+name: "Tell prune pile history"
+description: >-
+  Bound the live size of append-only feed branches while preserving their signed
+  history. Branches whose newest commit is older than keep-days are archived intact to
+  <archive-prefix><branch>@<date> and their live ref is reset to a single fresh
+  snapshot of the current tree. Signatures are never invalidated — the authentic
+  pile-signed chain lives on in the archive ref (see prune.sh header).
+
+  This is the reusable form of Tell's own prune-pile-history.yml: a workspace that
+  mounts tell at tell/ and holds its own feed/** branches can `uses:
+  ./tell/.github/actions/prune-pile-history` to run the same custody over its own
+  namespace (the same submodule-path convention the civic-node workspace already uses
+  for ./tell/.github/actions/advance-engine). Needs contents:write and a full-history
+  checkout (fetch-depth: 0).
+
+inputs:
+  keep-days:
+    description: "Archive+reset branches whose history is older than N days."
+    required: false
+    default: "60"
+  branch-pattern:
+    description: "Ref glob (under the remote) of the append-only namespace to prune."
+    required: false
+    default: "feed/*"
+  archive-prefix:
+    description: "Prefix for the preserved archive refs."
+    required: false
+    default: "archive/"
+  remote:
+    description: "Remote the feed branches live on."
+    required: false
+    default: "origin"
+  git-user-name:
+    description: "Commit author name for the snapshot commits."
+    required: false
+    default: "tell-prune"
+  git-user-email:
+    description: "Commit author email for the snapshot commits."
+    required: false
+    default: "tell-prune@users.noreply.github.com"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Archive old history and reset live feed branches
+      shell: bash
+      env:
+        KEEP_DAYS: ${{ inputs.keep-days }}
+        BRANCH_PATTERN: ${{ inputs.branch-pattern }}
+        ARCHIVE_PREFIX: ${{ inputs.archive-prefix }}
+        REMOTE: ${{ inputs.remote }}
+        GIT_USER_NAME: ${{ inputs.git-user-name }}
+        GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+      run: bash "$GITHUB_ACTION_PATH/prune.sh"

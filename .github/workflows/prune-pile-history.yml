@@ -1,15 +1,17 @@
 name: Prune pile history
 
-# Housekeeping for the "retain + periodic prune" custody choice. Pile branches
-# are append-only signed-commit logs; left alone they grow forever. This job
-# bounds the LIVE ref while preserving the signed audit trail elsewhere.
+# Housekeeping for the "retain + periodic prune" custody choice, as a TEMPLATE. Feed
+# branches are append-only signed-commit logs (one per fronted pile); left alone they
+# grow forever. The whole of the work — archive the intact pile-signed history to
+# archive/<branch>@<date>, then reset the live ref to a single fresh snapshot — lives in
+# the reusable `prune-pile-history` composite action (.github/actions/prune-pile-history),
+# which never invalidates a signature (see that action's prune.sh header).
 #
-# IMPORTANT (signatures): do NOT rebase/truncate a live branch in place — rewriting
-# an ancestor changes descendant commit hashes and invalidates their signatures.
-# Instead we ARCHIVE the intact pile-signed history to archive/<branch>@<date>,
-# then reset the live branch to a single fresh snapshot of the current artifact.
-# (Post-prune snapshot is signed by this workflow's key; subsequent placements are
-# pile-signed again. The authentic pile-signed chain lives on, in the archive ref.)
+# This workflow just wires it up against this Tell's own feed/** namespace. A workspace
+# that mounts tell at tell/ and holds its own feed branches can `uses:
+# ./tell/.github/actions/prune-pile-history` the same way and point
+# branch-pattern/archive-prefix/identity at its own custody. Triggers are yours: the
+# monthly cron below is this Tell's cadence — change or drop it.
 
 on:
   schedule:
@@ -34,34 +36,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Archive old history and reset live pile branches
-        env:
-          KEEP_DAYS: ${{ github.event.inputs.keep_days || '60' }}
-        run: |
-          set -euo pipefail
-          git config user.name  "tell-prune"
-          git config user.email "tell-prune@users.noreply.github.com"
-          stamp="$(date -u +%Y%m%dT%H%M%SZ)"
-          cutoff="$(date -u -d "-${KEEP_DAYS} days" +%s)"
-
-          # Each feed/** branch is an independent, non-merging append-only signed
-          # namespace (one per fronted pile). Bound the live ref, keep the chain.
-          for ref in $(git for-each-ref --format='%(refname:short)' \
-                         'refs/remotes/origin/feed/*'); do
-            branch="${ref#origin/}"
-            root_epoch="$(git log -1 --format=%ct "$ref")"
-            # Only touch branches whose newest commit predates the cutoff window;
-            # actively-updated slices are left untouched.
-            if [ "$root_epoch" -gt "$cutoff" ]; then
-              echo "skip $branch (fresh)"; continue
-            fi
-            echo "prune $branch -> archive/$branch@$stamp"
-            # 1) Preserve the intact signed chain.
-            git push origin "$ref:refs/heads/archive/$branch@$stamp"
-            # 2) Reset the live ref to a lean snapshot of the current tree.
-            git checkout --quiet "$ref" -- . 2>/dev/null || true
-            tree="$(git rev-parse "$ref^{tree}")"
-            new="$(printf 'prune: snapshot %s at %s\n' "$branch" "$stamp" | git commit-tree "$tree")"
-            git push --force origin "$new:refs/heads/$branch"
-          done
+      - uses: ./.github/actions/prune-pile-history
+        with:
+          keep-days: ${{ github.event.inputs.keep_days || '60' }}
