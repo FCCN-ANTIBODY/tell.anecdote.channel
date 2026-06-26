@@ -1,0 +1,27 @@
+# Public identity of this Tell — the entry it registers into an Atlas's _data/tells.yml.
+# This is the public face of the Tell; no secrets live here. (Mirror of data-pile's
+# pile.yml, one tier up: a pile registers with a Tell; a Tell registers with an Atlas.)
+#
+# bin/register reads this to assemble the registration entry, and reads the `signer`
+# fingerprint LIVE from keys/tell.fpr — never copied here — so the published signer and
+# the registered ownership anchor cannot drift.
+
+# Stable slug for this Tell. Also the <id> segment of the tell/<scope>/<id> branch the
+# registration PR is opened on.
+id: tell                       # e.g. tell, fortcollins-tell, …
+
+# Human-readable label shown in Atlas's directory.
+name: "Tell (reference hub)"
+
+# This Tell's own domain — where it fronts its piles. A listed Tell must be addressable
+# here (see CONTRACT.md -> "Registering with an Atlas").
+url: "https://tell.anecdote.channel"
+
+# The jurisdiction / namespace this Tell speaks for. Also the <scope> segment of the
+# tell/<scope>/<id> registration branch.
+scope: colorado
+
+# Where this Tell publishes the transparency reports an Atlas aggregates. The shape is
+# described in CONSTITUTION.md ("I describe the transparency reports I publish"); an
+# Atlas requires that description to list this Tell.
+reports: "reports/govern-*"

@@ -1,0 +1,51 @@
+name: register-atlas
+
+# Owner-initiated registration of THIS Tell with an Atlas directory. Opens a PR on the
+# Atlas adding this Tell's entry to _data/tells.yml — the consent gesture, one tier up
+# from a pile's handshake with a Tell. The PR is opened on a `tell/<scope>/<id>` branch
+# (the branch NAME claims this Tell's identity) and its commit is SIGNED with the Tell's
+# delivery-signer key (the same TELL_SIGNER_KEY that signs digest manifests, fingerprint
+# published at keys/tell.fpr) — so the signature PROVES ownership and the entry's `signer`
+# field anchors it. See CONTRACT.md -> "Registering with an Atlas".
+#
+# Trust runs one way: NO write access to this Tell is requested. The Atlas PR needs a
+# fine-grained PAT (ATLAS_PR_TOKEN) with Contents+PR write on the Atlas repo; without it,
+# bin/register prints the entry to paste by hand. TELL_SIGNER_KEY is the same secret
+# deliver.yml already uses; without it the commit is unsigned and the claim won't verify.
+
+on:
+  workflow_dispatch:
+    inputs:
+      atlas:
+        description: "Atlas repo to register with (owner/name)"
+        required: false
+        default: FCCN-ANTIBODY/atlas.anecdote.channel
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open signed registration PR on the Atlas (or print to paste)
+        env:
+          GH_TOKEN: ${{ secrets.ATLAS_PR_TOKEN }}
+          TELL_SIGNER_KEY: ${{ secrets.TELL_SIGNER_KEY }}
+          ATLAS_REPO: ${{ inputs.atlas }}
+        run: |
+          set -euo pipefail
+          command -v gh >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y gh; }
+          # Materialize the delivery signer (umask 077, shredded on exit) so bin/register
+          # can SSH-sign the registration commit — the proof of ownership.
+          if [ -n "${TELL_SIGNER_KEY:-}" ]; then
+            umask 077
+            keyf="$(mktemp)"
+            printf '%s\n' "$TELL_SIGNER_KEY" > "$keyf"
+            trap 'shred -u "$keyf" 2>/dev/null || rm -f "$keyf"' EXIT
+            export TELL_SIGNER_KEY_FILE="$keyf"
+          else
+            echo "::warning::No TELL_SIGNER_KEY secret — the registration commit can't be signed."
+          fi
+          bin/register pr

@@ -182,4 +182,22 @@ else
   echo "[12] SKIPPED — node not available for the landing test"
 fi
 
+echo "[13] bin/register emits this Tell's signed registration entry for an Atlas"
+# keys/tell.fpr is operator-set (bin/tell-bootstrap); stand in the test signer's REAL
+# fingerprint as the published anchor, via the TELL_FPR_FILE seam.
+regfpr="$(ssh-keygen -lf "$work/sign.pub" | awk '{print $2}')"
+echo "$regfpr" > "$work/tell.fpr"
+entry="$(TELL_FPR_FILE="$work/tell.fpr" bin/register entry)"
+branch="$(TELL_FPR_FILE="$work/tell.fpr" bin/register branch)"
+# Expected identity comes from tell.yml itself, so a copied/edited template still checks out.
+tid="$(ruby -ryaml -e 'print YAML.load_file("tell.yml")["id"]')"
+tscope="$(ruby -ryaml -e 'print YAML.load_file("tell.yml")["scope"]')"
+[ "$branch" = "tell/$tscope/$tid" ] || fail "register branch != tell/<scope>/<id> (got '$branch')"
+printf '%s' "$entry" | REGFPR="$regfpr" ruby -ryaml -e '
+  e = (YAML.load($stdin.read) || []).first or abort "register entry is not a YAML list"
+  %w[id name url scope signer reports].each { |k| (e[k] && e[k].to_s != "") or abort "entry missing #{k}" }
+  abort "signer not anchored to keys/tell.fpr" unless e["signer"] == ENV["REGFPR"]
+' || fail "register entry malformed or signer not anchored to the published fingerprint"
+ok "entry carries id/name/url/scope/signer/reports; signer = published fpr; branch tell/<scope>/<id> signs ownership"
+
 echo "ALL TESTS PASSED"

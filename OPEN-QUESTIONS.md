@@ -32,16 +32,20 @@ authenticates the POST*:
 - **Status:** the QR now *addresses* the correct jurisdiction Tell (`&repo=OWNER/NAME`, validated
   in `index.md`); the **identity** of the POST is unchanged and still deferred.
 
-## 3. Registration idiom unification (`bin/register`)
+## 3. Registration idiom unification (`bin/register`) — canonical landed; descendents not folded in
 
-A pile registers with a Tell by a PR appending to `_data/piles.yml` (`data-pile/handshake.yml`);
-a need registers with an Atlas by a PR appending to `_data/needs.yml` (`data-pile/bin/need` +
-`need.yml`). Same shape, implemented twice. A single `bin/register` + one PR-opening workflow
-parameterized by target registry would unify them.
+The constellation registers by PR-as-consent at three tiers: a pile registers with a Tell
+(`data-pile/handshake.yml` → `_data/piles.yml`); a need registers with an Atlas (`data-pile/bin/need`
++ `need.yml` → `_data/needs.yml`); and **a Tell registers with an Atlas** (`bin/register` +
+`register-atlas.yml` → `_data/tells.yml`). The last is the **cleanest** version and the canonical home
+of the paradigm — and the one that also **signs the registrant's ownership** (`tell/<scope>/<id>`
+branch, signed commit, `signer` anchor).
 
-- **Blocks:** nothing functional — both flows work. This is idiom debt.
-- **Deferred because:** it refactors working PR-opening code that needs `gh` + live repos to
-  exercise; not safe to change blind. Do it with a real integration check.
+- **Blocks:** nothing functional — all three flows work. The remaining debt is that the data-pile's two
+  descendent forms still re-implement the gesture inline instead of calling a shared `register`.
+- **Deferred because:** folding them in refactors working PR-opening code that needs `gh` + live repos
+  to exercise; not safe to change blind. Do it with a real integration check. `bin/register`'s
+  `{entry|branch|pr}` seam is the shape they would adopt.
 
 ## 4. Ingress loop as a composite action — DONE, with a cross-repo caveat
 
@@ -87,14 +91,18 @@ directly — instead of one GitHub Action per submission.
   can authorize as a unit; the agent's cron *is* the legitimate-only pickup (contrast the current
   per-Issue trigger). Ties to #1 (window/expiry) and #5 (pre-public judging).
 
-## 7. The Atlas reporting-law contract
+## 7. The Atlas reporting-law contract — registration written; aggregation field-schema open
 
-`CONTRACT.md` → "The Atlas relationship" pins the *intent*: an Atlas requires the Tells it lists to
-describe their transparency reports, and aggregates them into constituency/jurisdiction reports.
-The concrete contract is unwritten because no Atlas repo is in scope.
+`atlas.anecdote.channel` is now in scope. The **registration** half is written: a Tell lists itself by
+a signed PR (`bin/register`; `CONTRACT.md` → "Registering with an Atlas"), its entry carries a `reports`
+pointer, and Atlas's `CONSTITUTION` now attests it requires that report description, **escalates
+affirmatively** into all constituency aggregations, and keeps an **open line** (no strictness gate).
+What's still open is the **field-level** report contract and the aggregator that consumes it.
 
-- **Blocks:** a Tell knowing exactly what report shape to commit to; cross-Tell aggregation;
-  scheduled constituency/jurisdiction reporting.
-- **Sketch (unbuilt):** an Atlas `CONSTITUTION` clause naming the required `reports/govern-…` fields
-  and cadence, plus a Tell-side declaration (already begun in `CONSTITUTION.md`) of the reports it
-  publishes that an Atlas can validate. Lands when `atlas.anecdote.channel` is in scope.
+- **Blocks:** a Tell knowing the exact `reports/govern-…` fields/cadence an Atlas validates; cross-Tell
+  aggregation; scheduled constituency/jurisdiction reports.
+- **Sketch (unbuilt):** an Atlas clause naming the required report fields + cadence, plus the Atlas-side
+  job that pulls each listed Tell's `reports` and rolls them up (tracked in
+  [atlas `OPEN-QUESTIONS.md` #2](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/OPEN-QUESTIONS.md)).
+  The Tell-side declaration (`CONSTITUTION.md` → "I describe the transparency reports I publish") is the
+  surface that contract validates.
