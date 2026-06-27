@@ -75,4 +75,5 @@ composes cleanly in-repo and in a fork.
 > while keeping your own piles/constitutions is not wired yet: `bin/authz` and
 > `bin/collect-submissions` still resolve `_data/piles.yml` relative to the bundled
 > scripts, so they'd read this Tell's registry, not yours. Threading those data paths is a
-> tracked follow-up (see `OPEN-QUESTIONS.md`). For now, adopt the whole tree.
+> tracked follow-up (see [`OPEN-QUESTIONS.md` → "F. Tell"](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md#f-tell-public-mailbox-to-pre-public-pickup)).
+> For now, adopt the whole tree.

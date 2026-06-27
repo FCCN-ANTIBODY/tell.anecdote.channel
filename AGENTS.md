@@ -70,4 +70,7 @@ underneath that the others won't lead with.
   named edges on a path (`ROADMAP.md`), not load-bearing assumptions. A change should *shrink*
   the exposure window, never deepen reliance on it.
 - **Read the law, then the spec.** `CONSTITUTION.md` binds what Tell does; `CONTRACT.md` pins the
-  wire; `OPEN-QUESTIONS.md` holds what's deferred; `ROADMAP.md` holds where this is going.
+  wire; `ROADMAP.md` holds where this is going. What's deferred for the whole constellation lives in
+  one place, the workspace's
+  [`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md) —
+  record a deferral there rather than threading a caveat through the law or the spec.
