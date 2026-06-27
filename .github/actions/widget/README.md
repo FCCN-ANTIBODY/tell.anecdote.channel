@@ -43,13 +43,16 @@ build that includes it:
         with:
           submodules: recursive
       - name: Render this node's Tell widget
-        uses: ./tell/.github/actions/widget   # reads atlas.yml -> _includes/widgets/tell.html
+        uses: ./tell/.github/actions/widget   # reads atlas.yml -> widget/tell.html
       - name: Build
         uses: ./journal/.github/actions/build
 ```
 
-Then embed it from the homepage with `{% include widgets/tell.html %}`, or serve the bare
-fragment at a URL by adding a front-matter page that includes it.
+The fragment is written as a **self-contained static file** served at `/widget/tell.html` —
+it stays out of the engine-managed `_includes/`, so the node build never couples to the
+engine's include resolution. A host embeds it the way the baseline is meant to be embedded:
+load it in an `<iframe>` (the dormant `anecdote:widget:` postMessage API exists exactly for
+that cross-frame handshake) or include the served file verbatim into a host page.
 
 ## Inputs
 
@@ -60,7 +63,7 @@ fragment at a URL by adding a front-matter page that includes it.
 | `tell` | `tell` | the `<tell>` host label |
 | `identity` | `atlas.yml` | path in the calling workspace to the node's Atlas identity (provides `id` + `scope`) |
 | `hub` | `https://tell.anecdote.channel` | shared hub the locator targets |
-| `out` | `_includes/widgets/tell.html` | path in the calling workspace to write the fragment to |
+| `out` | `widget/tell.html` | path in the calling workspace to write the fragment to (a self-contained static file, served at that path) |
 | `install-qrencode` | `true` | apt-install qrencode (set `false` if already present) |
 
 It **fails closed**: with no identity file and no explicit `atlas`/`scope` it refuses rather

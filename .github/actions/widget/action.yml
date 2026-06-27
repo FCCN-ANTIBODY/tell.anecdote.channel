@@ -35,9 +35,13 @@ inputs:
     required: false
     default: "https://tell.anecdote.channel"
   out:
-    description: "Path in the CALLING workspace to write the rendered fragment to."
+    description: >-
+      Path in the CALLING workspace to write the fragment to. The default is a
+      self-contained static file (no Jekyll front matter, no include) served at
+      /widget/tell.html — it deliberately does NOT live under the engine-managed
+      _includes/, so the node build never couples to the engine's include resolution.
     required: false
-    default: "_includes/widgets/tell.html"
+    default: "widget/tell.html"
   install-qrencode:
     description: "Apt-install qrencode on the runner (set false if already present). Without it the fragment degrades to a text link."
     required: false

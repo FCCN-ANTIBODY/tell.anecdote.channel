@@ -36,7 +36,7 @@ fi
 
 tell="${TELL_MONIKER:-tell}"
 hub="${HUB:-https://tell.anecdote.channel}"
-out="${OUT:-_includes/widgets/tell.html}"
+out="${OUT:-widget/tell.html}"
 
 bash "$widget" --atlas "$atlas" --scope "$scope" --tell "$tell" --hub "$hub" --out "$out"
 echo "widget: rendered $tell.$atlas.$scope into $out" >&2
