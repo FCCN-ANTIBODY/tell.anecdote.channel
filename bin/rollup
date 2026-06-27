@@ -24,20 +24,42 @@ ls "$stage"/*.json >/dev/null 2>&1 || exit 0
 # its type/asker, so the owner's pile can route the mixed signals (a budget question, a
 # bike-lane poll, a sensor dropbox) to the right poll's handling — plus the issue number
 # that carried it, a literal ingress→egress custody trail. When bin/govern has run, each
-# staged file also carries its delegated verdict (governed/govern_reason/constitution_sha);
-# we seal that into the record so the pile receives the answer already judged.
+# staged file also carries its delegated verdict (governed/govern_reason/constitution_sha)
+# and its full `voucher`; we seal both into the record so the pile receives the answer
+# already judged and already measured. The full voucher (with any exact location value)
+# stays inside this block, which deliver encrypts to the owner.
 records="$(jq -s '[.[] | {issue: .number, poll: .poll, type: .type, asker: .asker, shown_guidance: .shown_guidance, round: .round, answer: .answer, ts: .ts}
-  + (if .governed then {governed: .governed, govern_reason: .govern_reason, constitution_sha: .constitution_sha} else {} end)]' "$stage"/*.json)"
+  + (if .governed then {governed: .governed, govern_reason: .govern_reason, constitution_sha: .constitution_sha} else {} end)
+  + (if .voucher then {voucher: .voucher} else {} end)]' "$stage"/*.json)"
+
+# The COARSE, non-identifying voucher summary for this block — gradient histograms and
+# confidence ranges, NEVER a location value. deliver promotes this (and only this) into the
+# clear, signed manifest head, where an edge or an Atlas can read it to tag/police a pickup
+# without decrypting. Defaults to "unmeasured" (confidence 0) when bin/govern did not run.
+vouch="$(jq -s '
+  { schema: "tell.voucher.summary/v1",
+    count: length,
+    location: {
+      gradients: ([.[].voucher.location.gradient | select(. != null)] | group_by(.) | map({key: .[0], value: length}) | from_entries),
+      min_confidence: ([.[].voucher.location.confidence // 0] | min),
+      max_confidence: ([.[].voucher.location.confidence // 0] | max) },
+    source: {
+      kinds: ([.[].voucher.source.kind // "asserted"] | group_by(.) | map({key: .[0], value: length}) | from_entries),
+      min_confidence: ([.[].voucher.source.confidence // 0] | min),
+      max_confidence: ([.[].voucher.source.confidence // 0] | max) } }' "$stage"/*.json)"
+
 jq -n \
   --arg id "$id" \
   --arg scope "$scope" \
   --arg at "$(date -u +%FT%TZ)" \
-  --argjson records "$records" '
+  --argjson records "$records" \
+  --argjson vouch "$vouch" '
   {
     schema: "tell.digest/v1",
     pile: $id,
     scope: $scope,
     window_end: $at,
     count: ($records | length),
+    vouch: $vouch,
     records: $records
   }'

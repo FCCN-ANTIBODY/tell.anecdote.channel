@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# The pluggable VOUCHER factorizer — isolated to one seam (mirrors the judge/rollup/authz
+# hooks). bin/govern calls it for every staged submission, pre-seal, against the plaintext
+# the respondent posted — so no decrypt key is involved. It produces a `tell.voucher/v1`:
+# Tell's measurement of HOW STRONGLY the submission's location and source claims are real.
+# It does not block or pass — it factorizes what it can and TAGS the record; whether that
+# measurement is "good enough" is a policy a Tell or an Atlas applies downstream.
+#
+# Contract: read ONE submission JSON object on stdin (the staged record).
+#   exit 0 always; print a voucher JSON: tell.voucher/v1
+#     { location: { gradient, value, confidence }, source: { kind, confidence }, basis: [...] }
+#   gradient ∈ null | country | state | county | neighborhood   (coarse → fine)
+#   kind     ∈ asserted | upload | sensor
+#   confidence ∈ 0.0 … 1.0   (0 = a claim we carry but have NOT independently measured)
+#
+# Default policy is deliberately HONEST, not faked (like bin/judge): with only the
+# self-asserted submission fields and no independent location/sensor signal yet, it records
+# the claim and MEASURES IT AT 0 — "you made the claim, but no one has voucher metadata for
+# it." `basis` names what was actually factorized; an empty basis is an honest "nothing
+# independent." Override with TELL_VOUCH_CMD to plug a real signal (IP-coarse geo, EXIF,
+# an attested sensor) that raises confidence and fills `basis`.
+set -euo pipefail
+in="$(cat)"
+
+# The full voucher (including any exact location value) is sealed into the encrypted block
+# for the owner; only a coarse, non-identifying projection (see bin/rollup) ever rides in
+# the clear, signed manifest head. So `value` may be exact here — it never leaves the seal.
+jq -n '
+  { schema: "tell.voucher/v1",
+    location: { gradient: null, value: null, confidence: 0 },
+    source:   { kind: "asserted", confidence: 0 },
+    basis:    [] }'
