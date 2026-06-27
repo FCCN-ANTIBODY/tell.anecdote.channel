@@ -11,6 +11,11 @@
 # re-judge at its own boundary). It also emits a public transparency report tying each
 # verdict to the rule in force and the Issue that carried it.
 #
+# Alongside the verdict it attaches a `voucher` (bin/vouch, or $TELL_VOUCH_CMD) — Tell's
+# measurement of how strongly the record's location/source claims are real. The FULL
+# voucher rides sealed with the record (bin/rollup → bin/deliver); the public report carries
+# only a coarse, non-identifying projection (gradient/confidence/source-kind, never value).
+#
 # Multichoice option-matches are accepted mechanically; everything else goes to the judge
 # (bin/judge, or $TELL_JUDGE_CMD). A poll with no constitution is `held` (delivered unjudged).
 #
@@ -25,6 +30,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/pile-lib.sh"
 repo="$(cd "$here/.." && pwd)"
 judge="${TELL_JUDGE_CMD:-$here/judge}"
+vouch="${TELL_VOUCH_CMD:-$here/vouch}"
 
 stage="${TELL_SUBMISSIONS_DIR:-$repo/.submissions}"
 cons="${TELL_CONSTITUTIONS_DIR:-$repo/constitutions}"
@@ -68,15 +74,25 @@ for f in "$stage"/*/*.json; do
     fi
   fi
 
-  # Attach the verdict to the staged record so rollup seals it into the digest.
-  printf '%s' "$rec" | jq --arg v "$verdict" --arg r "$reason" --arg csha "$csha" \
-    '. + {governed:$v, govern_reason:$r, constitution_sha:$csha}' > "$f.tmp" && mv "$f.tmp" "$f"
+  # Factorize the location/source claims into a voucher (honest 0-confidence by default).
+  voucher="$(printf '%s' "$rec" | "$vouch")"
 
+  # Attach the verdict AND the full voucher to the staged record so rollup seals both.
+  printf '%s' "$rec" | jq --arg v "$verdict" --arg r "$reason" --arg csha "$csha" --argjson voucher "$voucher" \
+    '. + {governed:$v, govern_reason:$r, constitution_sha:$csha, voucher:$voucher}' > "$f.tmp" && mv "$f.tmp" "$f"
+
+  # The public report carries the verdict and a COARSE voucher projection — gradient,
+  # confidence and source-kind only, never the (possibly exact) location value.
   entries="$(printf '%s' "$entries" | jq \
-    --argjson rec "$rec" --arg v "$verdict" --arg r "$reason" --arg rule "$rule" --arg csha "$csha" '
+    --argjson rec "$rec" --arg v "$verdict" --arg r "$reason" --arg rule "$rule" --arg csha "$csha" \
+    --argjson voucher "$voucher" '
     . + [{ issue: $rec.number, pile: $rec.pile, poll: $rec.poll, asker: $rec.asker,
            answer: $rec.answer, shown_guidance: $rec.shown_guidance,
-           verdict: $v, reason: $r, rule: $rule, constitution_sha: $csha }]')"
+           verdict: $v, reason: $r, rule: $rule, constitution_sha: $csha,
+           vouch: { loc_gradient: $voucher.location.gradient,
+                    loc_confidence: $voucher.location.confidence,
+                    source_kind: $voucher.source.kind,
+                    source_confidence: $voucher.source.confidence } }]')"
 done
 
 # Nothing staged this window → no verdicts, no report (keeps the published record churn-free).

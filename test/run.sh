@@ -129,7 +129,13 @@ rep="$(TELL_SUBMISSIONS_DIR="$work/stage" TELL_REPORTS_DIR="$work/reports" bin/g
 [ "$(jq -r '.counts.accept' "$rep")" = 2 ] || fail "govern did not accept the two listed-option answers"
 for f in "$work"/stage/cd04-q1/*.json; do
   [ "$(jq -r '.governed' "$f")" = accept ] || fail "govern did not annotate staged record with its verdict"
+  [ "$(jq -r '.voucher.schema' "$f")" = tell.voucher/v1 ] || fail "govern did not attach a voucher"
+  [ "$(jq -r '.voucher.location.confidence' "$f")" = 0 ] || fail "default voucher must measure 0 (honest, not faked)"
 done
+# The public report surfaces a COARSE voucher projection (gradient/confidence/source-kind)
+# and never a location value.
+[ "$(jq -r '.records[0].vouch.source_kind' "$rep")" = asserted ] || fail "report missing coarse voucher source-kind"
+jq -e '.records[] | .vouch | has("value") | not' "$rep" >/dev/null || fail "public report leaked a location value"
 # Synthetic varied stage covers every verdict path against the example constitutions.
 gs="$work/gstage/cd04-q1"; mkdir -p "$gs"
 mk() { jq -n --argjson n "$1" --arg poll "$2" --arg a "$3" \
@@ -159,16 +165,74 @@ TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"
 [ "$(jq -r '[.records[].poll]|sort|join(",")' "$rb")" = "bikes,budget" ] || fail "rollup did not tag records by poll"
 [ "$(jq -r '[.records[].shown_guidance]|sort|join(",")' "$rb")" = "g-bikes,g-budget" ] || fail "rollup dropped shown_guidance"
 [ "$(jq -r '[.records[].governed]|unique|join(",")' "$rb")" = "accept" ] || fail "rollup did not seal the delegated verdict"
+# rollup carries the full per-record voucher (sealed) AND a coarse top-level summary (promoted
+# to the clear head). The summary location object is gradient-histogram + ranges only — no value.
+[ "$(jq -r '.vouch.schema' "$rb")" = tell.voucher.summary/v1 ] || fail "rollup did not emit a coarse voucher summary"
+[ "$(jq -r '.vouch.source.kinds.asserted' "$rb")" = 2 ] || fail "summary should class both records asserted"
+[ "$(jq -r '[.records[].voucher.schema]|unique|join(",")' "$rb")" = tell.voucher/v1 ] || fail "rollup dropped the per-record voucher"
+[ "$(jq -r '.vouch.location|keys|sort|join(",")' "$rb")" = "gradients,max_confidence,min_confidence" ] || fail "coarse summary carries more than gradient+ranges"
 bin/deliver --dir "$work/rfeed" --recipient "$recip" --signkey "$work/sign" --block "$rb" >/dev/null \
   || fail "deliver could not seal rollup output"
+# deliver promoted the coarse summary into the CLEAR head entry (covered by head.sig); raw
+# (non-digest) genesis blocks from [1] carry no vouch at all (byte-identical to pre-feature).
+[ "$(jq -r '.entries[-1].vouch.schema' "$work/rfeed/inbox/manifest.json")" = tell.voucher.summary/v1 ] || fail "deliver did not promote vouch into the signed head"
+[ "$(jq -r 'any(.entries[]; has("vouch"))' "$feed/inbox/manifest.json")" = false ] || fail "raw blocks must carry no vouch in the head"
 if [ -x "$DP_REPO/bin/verify" ]; then
   printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/qr.signers"
   "$DP_REPO/bin/verify" --dir "$work/rfeed" --source tell --signers "$work/qr.signers" >/dev/null \
-    || fail "consumer rejected the sealed submissions"
-  ok "accepted batch sealed + verified end to end"
+    || fail "consumer rejected the sealed submissions (signature must cover entries[].vouch)"
+  ok "accepted batch sealed + verified end to end (coarse vouch signed into the head)"
 else
   ok "accepted batch sealed (consumer verify skipped — no \$DP_REPO)"
 fi
+
+echo "[10b] TELL_VOUCH_CMD plugs a measured signal: value stays sealed, coarse gradient signed into the head"
+vs="$work/vstage/cd04-q1"; mkdir -p "$vs"
+jq -n '{number:1,pile:"cd04-q1",poll:"budget",type:"open",asker:"a",shown_guidance:"g",round:"1",answer:"Cut",ts:"t"}' > "$vs/1.json"
+printf '#!/usr/bin/env bash\njq -n %s\n' \
+  "'{schema:\"tell.voucher/v1\",location:{gradient:\"state\",value:\"CO\",confidence:0.6},source:{kind:\"sensor\",confidence:0.7},basis:[\"ip-coarse\"]}'" \
+  > "$work/vcmd"; chmod +x "$work/vcmd"
+vrep="$(TELL_VOUCH_CMD="$work/vcmd" TELL_SUBMISSIONS_DIR="$work/vstage" TELL_REPORTS_DIR="$work/reports" bin/govern)"
+[ "$(jq -r '.voucher.location.gradient' "$vs/1.json")" = state ] || fail "TELL_VOUCH_CMD voucher not attached"
+[ "$(jq -r '.voucher.location.value' "$vs/1.json")" = CO ] || fail "full voucher must keep the value (it stays sealed)"
+[ "$(jq -r '.records[0].vouch.loc_gradient' "$vrep")" = state ] || fail "report should carry the coarse gradient"
+jq -e '.records[] | .vouch | has("value") | not' "$vrep" >/dev/null || fail "report leaked a location value"
+vb="$work/vrollup.block"
+TELL_SUBMISSIONS_DIR="$work/vstage" bin/rollup cd04-q1 colorado > "$vb"
+[ "$(jq -r '.vouch.location.gradients.state' "$vb")" = 1 ] || fail "summary did not histogram the state gradient"
+[ "$(jq -r '.records[0].voucher.location.value' "$vb")" = CO ] || fail "sealed record should keep the value"
+jq -e '.vouch.location | has("value") | not' "$vb" >/dev/null || fail "coarse summary leaked a value"
+bin/deliver --dir "$work/vfeed" --recipient "$recip" --signkey "$work/sign" --block "$vb" >/dev/null \
+  || fail "deliver failed on a vouched block"
+[ "$(jq -r '.entries[-1].vouch.location.gradients.state' "$work/vfeed/inbox/manifest.json")" = 1 ] || fail "deliver did not promote the coarse gradient into the signed head"
+jq -e '.entries[-1].vouch.location | has("value") | not' "$work/vfeed/inbox/manifest.json" >/dev/null || fail "signed head leaked a location value"
+if [ -x "$DP_REPO/bin/verify" ]; then
+  printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/v.signers"
+  "$DP_REPO/bin/verify" --dir "$work/vfeed" --source tell --signers "$work/v.signers" >/dev/null \
+    || fail "consumer rejected a vouched chain (signature must cover entries[].vouch)"
+  ok "measured voucher: value kept private, coarse gradient signed into the head, consumer verifies"
+else
+  ok "measured voucher sealed + promoted (consumer verify skipped — no \$DP_REPO)"
+fi
+
+echo "[10c] head.sig covers entries[].vouch (vendored-core stand-in for the consumer)"
+# Even without a data-pile checkout, prove the promoted vouch is INSIDE what the head signs:
+# recompute the signed digest with our vendored dp_entries_digest (byte-identical to the
+# consumer's, guarded by [3b]) and check the ssh signature over it — then confirm a tampered
+# vouch breaks that signature, i.e. an edge/Atlas reading entries[].vouch reads signed data.
+vman="$work/vfeed/inbox/manifest.json"
+jq -e '.entries[-1] | has("vouch")' "$vman" >/dev/null || fail "vouch missing from the signed head"
+vdig="$(dp_entries_digest "$vman")"
+[ "$vdig" = "$(jq -r '.head.digest' "$vman")" ] || fail "recomputed entries digest != head.digest"
+jq -r '.head.sig' "$vman" | base64 -d > "$work/v.sig"
+printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/v.allowed"
+printf '%s' "$vdig" | ssh-keygen -Y verify -f "$work/v.allowed" -I tell -n data-pile -s "$work/v.sig" >/dev/null 2>&1 \
+  || fail "head.sig did not verify over the digest that includes entries[].vouch"
+jq '.entries[-1].vouch.location.min_confidence = 0.99' "$vman" > "$work/v.tamper.json"
+tdig="$(dp_entries_digest "$work/v.tamper.json")"
+printf '%s' "$tdig" | ssh-keygen -Y verify -f "$work/v.allowed" -I tell -n data-pile -s "$work/v.sig" >/dev/null 2>&1 \
+  && fail "a tampered vouch still verified — the field is not actually signed" || true
+ok "promoted vouch is inside the signed digest; signature verifies and rejects a tampered vouch"
 
 echo "[11] empty stage => rollup emits nothing (deliver would skip)"
 [ -z "$(TELL_SUBMISSIONS_DIR="$work/empty" bin/rollup cd04-q1 colorado)" ] || fail "rollup emitted on empty stage"

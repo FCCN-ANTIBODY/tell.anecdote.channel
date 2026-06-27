@@ -171,9 +171,41 @@ output means "nothing new this window" and the pile is skipped. The default `bin
 batch of accepted answers, stamped with the Issue number that carried each (a literal ingress→egress
 custody record). Everything downstream — encrypt, chain, sign, publish — is fixed production code.
 
+## Vouching: factorize and tag, don't block or pass
+
+When Tell introduces a record it **attests to what it can measure** about it — not that a respondent is
+truthful, but **how strongly the record's own claims are real**. A reply that says it is in-jurisdiction
+but offers only "uploaded photo" as backing made a claim no one can vouch for; Tell's job is to make that
+*assessable*, not to dictate what is good enough. So Tell never silently blocks or passes on this basis:
+it **factorizes what it knows with what it has, attaches the measurement, and lets policy decide weight**
+(the same stance as the delegated verdict — `CONSTITUTION.md`: "I attach, I do not withhold").
+
+- **Factorize (ingress).** `bin/govern` runs `bin/vouch` (or `$TELL_VOUCH_CMD`) per record, pre-seal,
+  and attaches a **`tell.voucher/v1`** — `{ location:{gradient,value,confidence}, source:{kind,confidence},
+  basis:[…] }`. `gradient` is the coarse→fine tier (`country|state|county|neighborhood`); `kind` is
+  `asserted|upload|sensor`; `confidence ∈ 0…1`. The default is deliberately **honest, not faked**: with
+  only the self-asserted submission fields it records the claim and measures it at **0** with an empty
+  `basis`. A real signal (IP-coarse geo, EXIF, an attested sensor) plugs into the same seam and raises
+  confidence — "the runtime generates what later builds use." This is where Phase-1 **geolocation
+  adherence** lands (`OPEN-QUESTIONS.md` #5): the gate is the *measurement*, applied by policy.
+- **Seal the full voucher; project a coarse one.** The **full** voucher (including any exact location
+  `value`) travels **sealed inside the encrypted block** — owner/pile only, identity stays out of the
+  core. `bin/rollup` also emits a **`tell.voucher.summary/v1`** for the block — gradient *histograms* and
+  confidence *ranges*, **never a value** — and `bin/deliver` promotes that summary into the **clear
+  manifest entry** (`entries[].vouch`), where `head.sig` covers it (the digest hashes the whole entries
+  array). So the coarse measurement is **signed and attestable wherever the bytes are served** — raw
+  GitHub, the gateway Worker, or a future edge.
+- **Tag at the edge, optionally police.** The kept feed-gateway Worker reads that signed summary off the
+  head and stamps **`X-Tell-Vouch`** (a convenience projection a static cache rule could also set). A
+  *strict* Tell **may** turn it into a gate (404 an unvouched pickup); the default **serves-and-tags**.
+  The voucher is signed data in the artifact — the edge enforces a policy expressed there, it is never
+  the source of truth, so this capability is architectural and not tied to any one host.
+
 ## What Tell guarantees a pile
 
 Each delivery on `feed/<scope>/<id>` MUST: `age`-encrypt every block to the pile's registered
 `age_recipient`; hash every block into the signed `manifest.json` chain with a `ratchet_pub`
 commitment; sign the manifest head with the key whose fingerprint the pile pinned; and stay reachable
-at `/piles/<id>/feed/*`. The pile's `bin/verify` rejects anything else and fails closed.
+at `/piles/<id>/feed/*`. The pile's `bin/verify` rejects anything else and fails closed. The coarse
+`entries[].vouch` summary (when present) rides **inside** that signed head, so it is covered by the same
+signature the pile already checks — no new verification surface, and unknown to a pile that ignores it.

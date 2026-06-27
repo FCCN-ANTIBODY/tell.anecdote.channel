@@ -83,10 +83,20 @@ for plain in "${blocks[@]}"; do
   dp_enc "$kk" "$plain" "$inbox/$seqp.enc"
   this="sha256:$(dp_sha256_file "$inbox/$seqp.enc")"
   rpub="sha256:$(dp_ratchet_pub "$kk")"
+
+  # PROMOTE the block's coarse voucher summary (if any) into the CLEAR manifest entry, where
+  # head.sig covers it (dp_entries_digest hashes the whole entries array) so an edge/Atlas can
+  # read it without decrypting. deliver stays schema-agnostic: it lifts one designated top-level
+  # `.vouch` field and never touches the encrypted records. A non-JSON block, or one with no
+  # `.vouch`, yields an entry byte-identical to before (no churn, signature unchanged).
+  bvouch="$(jq -c '.vouch // empty' "$plain" 2>/dev/null || true)"
+
   entries="$(printf '%s' "$entries" | jq \
     --argjson seq "$seq" --arg ca "$(date -u +%FT%TZ)" --arg src "$source" \
     --arg block "$seqp.enc" --arg th "$this" --argjson ph "$prev" --arg rp "$rpub" \
-    '. + [{seq:$seq, created_at:$ca, source:$src, block:$block, this_hash:$th, prev_hash:$ph, ratchet_pub:$rp}]')"
+    --argjson vouch "${bvouch:-null}" '
+    . + [{seq:$seq, created_at:$ca, source:$src, block:$block, this_hash:$th, prev_hash:$ph, ratchet_pub:$rp}
+         + (if $vouch == null then {} else {vouch:$vouch} end)]')"
   prev="\"$this\""
   kk="$(dp_ratchet_next "$kk")"
   seq=$((seq+1))
