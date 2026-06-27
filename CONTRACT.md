@@ -56,7 +56,7 @@ not discoverable on its own — it has no address without a Tell to receive for 
 and addresses is a **whole Tell node**, and piles group up behind it. Registering with an Atlas is the
 same PR-as-consent gesture a pile makes with a Tell, one tier up — and the **cleanest** form of that
 gesture lives here, in `bin/register` (the data-pile carries the descendent forms; see
-`OPEN-QUESTIONS.md` #3).
+[`OPEN-QUESTIONS.md` → "B. Registration"](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md#b-registration-validation-and-idiom-unification)).
 
 **The registration signs this Tell's ownership of its own instance.** `bin/register` opens a PR that
 appends this Tell's entry to the Atlas's `_data/tells.yml`, on a branch named **`tell/<scope>/<id>`**
@@ -187,7 +187,8 @@ it **factorizes what it knows with what it has, attaches the measurement, and le
   only the self-asserted submission fields it records the claim and measures it at **0** with an empty
   `basis`. A real signal (IP-coarse geo, EXIF, an attested sensor) plugs into the same seam and raises
   confidence — "the runtime generates what later builds use." This is where Phase-1 **geolocation
-  adherence** lands (`OPEN-QUESTIONS.md` #5): the gate is the *measurement*, applied by policy.
+  adherence** lands ([`OPEN-QUESTIONS.md` → "F. Tell"](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md#f-tell-public-mailbox-to-pre-public-pickup)):
+  the gate is the *measurement*, applied by policy.
 - **Seal the full voucher; project a coarse one.** The **full** voucher (including any exact location
   `value`) travels **sealed inside the encrypted block** — owner/pile only, identity stays out of the
   core. `bin/rollup` also emits a **`tell.voucher.summary/v1`** for the block — gradient *histograms* and

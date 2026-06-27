@@ -3,7 +3,8 @@
 Where this is going, and why today's shape is a way-station. `CONSTITUTION.md` binds what Tell
 does *now*; this file is the direction, so an agent reading the code doesn't mistake a
 transitional edge for the destination. The unsolved mechanisms each phase depends on are tracked
-in `OPEN-QUESTIONS.md`.
+in the workspace's
+[`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md).
 
 ## The principle: narrow the exposure window
 
@@ -46,6 +47,9 @@ scales with traffic and with spam instead of with legitimate answers.
 
 ## Open mechanisms
 
-Tracked in `OPEN-QUESTIONS.md`: geolocation adherence in the judge (#5), the direct-transfer
-collector tool + agent cron (#6), and the Atlas reporting-law contract (#7) — plus the QR
-expiry (#1) and POST-identity (#2) questions, which both bear on closing the exposure window.
+Tracked in the workspace's
+[`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md): the
+Phase-0 → Phase-1 transition — geolocation adherence in the judge, the direct-transfer collector tool +
+agent cron, and the QR-expiry and POST-identity questions that bear on closing the exposure window —
+is gathered under "F. Tell: public mailbox to pre-public pickup"; the Atlas reporting-law contract is
+under "C. Aggregation, reporting-law, and standing".

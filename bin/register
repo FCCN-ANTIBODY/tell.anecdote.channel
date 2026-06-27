@@ -13,7 +13,8 @@
 #
 # This is the CLEANEST version of the PR-as-consent paradigm; the data-pile carries it in
 # descendent forms (a pile registering with a Tell: handshake.yml; a need registering with
-# an Atlas: bin/need + need.yml). See OPEN-QUESTIONS.md #3.
+# an Atlas: bin/need + need.yml). See "B. Registration validation and idiom unification" in
+# civic-node's OPEN-QUESTIONS.md.
 #
 #   bin/register entry     # print this Tell's _data/tells.yml entry (offline, pure)
 #   bin/register branch    # print the ownership-signing branch: tell/<scope>/<id>
