@@ -1,0 +1,67 @@
+name: "Tell widget"
+description: >-
+  Render the DATA-FILLED Tell widget fragment from the CALLING node's own identity, into
+  the node's workspace. The counterpart to the baked BASELINE at widget/public.html: that
+  one is a static, dataless shell a node picks up by bumping this submodule's pin; this one
+  is rendered FROM the node's on-disk identity at build time, so it carries the node's own
+  geo-stamped locator QR. The bundled bin/widget is the CODE; the node's atlas.yml is the
+  DATA, read from the calling workspace (overridable) — so any node that drops this in
+  renders ITS OWN node's QR, never the template's.
+
+  Runs in the WORKSPACE context, where tell is mounted at tell/ and the node carries its
+  identity at the repo root — the same submodule-path convention civic-node already uses for
+  ./tell/.github/actions/advance-engine. It only writes a fragment into the workspace; it
+  never deploys (the node's own site build serves it) and never reaches another repo.
+
+inputs:
+  atlas:
+    description: "Atlas moniker (the <atlas> host label). Blank => read `id` from the identity file."
+    required: false
+    default: ""
+  scope:
+    description: "Home state/jurisdiction (the geo the hub fills). Blank => read `scope` from the identity file."
+    required: false
+    default: ""
+  tell:
+    description: "Tell moniker (the <tell> host label)."
+    required: false
+    default: "tell"
+  identity:
+    description: "Path in the CALLING workspace to the node's Atlas identity file (provides id + scope)."
+    required: false
+    default: "atlas.yml"
+  hub:
+    description: "Shared hub the locator QR targets; it fills geo state and redirects."
+    required: false
+    default: "https://tell.anecdote.channel"
+  out:
+    description: >-
+      Path in the CALLING workspace to write the fragment to. The default is a
+      self-contained static file (no Jekyll front matter, no include) served at
+      /widget/tell.html — it deliberately does NOT live under the engine-managed
+      _includes/, so the node build never couples to the engine's include resolution.
+    required: false
+    default: "widget/tell.html"
+  install-qrencode:
+    description: "Apt-install qrencode on the runner (set false if already present). Without it the fragment degrades to a text link."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install qrencode
+      if: ${{ inputs.install-qrencode == 'true' }}
+      shell: bash
+      run: command -v qrencode >/dev/null 2>&1 || { sudo apt-get update && sudo apt-get install -y qrencode; }
+
+    - name: Render the data-filled Tell widget fragment
+      shell: bash
+      env:
+        ATLAS_MONIKER: ${{ inputs.atlas }}
+        SCOPE: ${{ inputs.scope }}
+        TELL_MONIKER: ${{ inputs.tell }}
+        ATLAS_YML: ${{ inputs.identity }}
+        HUB: ${{ inputs.hub }}
+        OUT: ${{ inputs.out }}
+      run: bash "$GITHUB_ACTION_PATH/run.sh"

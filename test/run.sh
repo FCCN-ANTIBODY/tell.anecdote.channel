@@ -208,4 +208,29 @@ ob="$(TELL_YML="$work/other.yml" TELL_FPR_FILE="$work/tell.fpr" bin/register bra
   && fail "register did not fail closed without a workspace tell.yml" || true
 ok "TELL_YML override honored; register fails closed without a workspace identity"
 
+echo "[14] bin/widget renders the data-filled fragment with this node's geo-stamped locator"
+frag="$(bin/widget --atlas antibody --scope colorado --tell tell)"
+# Same fragment contract as the baked baseline: an anecdote-widget section carrying the
+# tell name and the dormant postMessage handle.
+printf '%s' "$frag" | grep -q 'data-widget="tell"'      || fail "widget: not an anecdote-widget tell fragment"
+printf '%s' "$frag" | grep -q 'data-node="tell.antibody.colorado.anecdote.channel"' \
+  || fail "widget: resolved node host wrong"
+printf '%s' "$frag" | grep -q 'NAME = "tell"'           || fail "widget: dormant postMessage handle missing"
+# The geo-LESS stem goes to the hub; the home state rides alongside as a param. The home
+# state must NOT be baked into the QR's host stem — that is what the hub fills at scan time.
+printf '%s' "$frag" | grep -q 'tell.anecdote.channel/?node=tell.antibody&amp;home=colorado' \
+  || fail "widget: locator does not hand the geo-less stem (+home) to the hub"
+printf '%s' "$frag" | grep -q 'node=tell.antibody.colorado' \
+  && fail "widget: locator baked the home state into the stem (hub must fill geo)" || true
+# qrencode bakes inline SVG when present; otherwise the fragment degrades to a text link.
+# Either is a pass — assert the build never emits an empty/broken QR slot.
+if command -v qrencode >/dev/null 2>&1; then
+  printf '%s' "$frag" | grep -q '<svg'                  || fail "widget: qrencode present but no inline SVG baked"
+else
+  printf '%s' "$frag" | grep -q 'QR omitted'            || fail "widget: no SVG and no text fallback"
+fi
+# A moniker can only ever be a DNS label — it must not be able to smuggle path/query.
+bin/widget --atlas 'a/b' --scope colorado >/dev/null 2>&1 && fail "widget: accepted a non-DNS-label moniker" || true
+ok "data-filled fragment: tell contract preserved, geo-less locator handed to the hub, label-guarded"
+
 echo "ALL TESTS PASSED"
