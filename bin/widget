@@ -1,0 +1,173 @@
+#!/usr/bin/env bash
+# Render the DATA-FILLED Tell widget fragment from a civic node's own identity.
+#
+# Counterpart to widget/public.html — which is the baked BASELINE (a static shell with
+# a DORMANT postMessage API and NO data, refreshed only by bumping this submodule's
+# pin). This build is meant to run from the WORKSPACE root, where a civic node carries
+# its identity as files, and emit the SAME anecdote-widget fragment — same classes,
+# same `anecdote:widget:` postMessage contract, so a host can't tell which build it
+# received — but populated with THIS node's geo-stamped locator QR.
+#
+#   bin/widget --atlas MONIKER --scope STATE [--tell MONIKER] \
+#              [--hub https://tell.anecdote.channel] [--out -|PATH] [--updated YYYY-MM-DD]
+#
+# The QR carries a STATELESS LOCATOR — no token, no poll. Contrast bin/qr, which mints
+# a poll-scoped token bound to {pile,poll,round}: there the token IS the authorization.
+# Here the code only hands the node's geo-LESS stem
+#       <tell>.<atlas>
+# to the hub, which fills the SCANNER's geo state and redirects to
+#       <tell>.<atlas>.<state>.anecdote.channel
+# Scanned in the node's home state (--scope) it resolves; scanned elsewhere the hub
+# returns not-found unless the idea has gone portable. qrencode bakes the QR as inline
+# SVG (no runtime JS, no external request); absent qrencode the fragment degrades to a
+# plain text link so a node build never breaks on a missing tool.
+set -euo pipefail
+
+tell="tell"; atlas=""; scope=""; hub="https://tell.anecdote.channel"; out="-"; updated=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --tell) tell="$2"; shift 2;;
+    --atlas) atlas="$2"; shift 2;;
+    --scope) scope="$2"; shift 2;;
+    --hub) hub="$2"; shift 2;;
+    --out) out="$2"; shift 2;;
+    --updated) updated="$2"; shift 2;;
+    *) echo "bin/widget: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+[ -n "$atlas" ] && [ -n "$scope" ] || {
+  echo "usage: bin/widget --atlas MONIKER --scope STATE [--tell MONIKER] [--hub URL] [--out PATH] [--updated DATE]" >&2
+  exit 1
+}
+
+# Each moniker becomes a DNS label in the resolved host, so constrain it to the DNS
+# label charset — a moniker can then only ever form a hostname segment, never inject
+# extra path/query (mirrors bin/qr's --repo sanitize guard).
+for pair in "tell:$tell" "atlas:$atlas" "scope:$scope"; do
+  name="${pair%%:*}"; val="${pair#*:}"
+  printf '%s' "$val" | grep -Eq '^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?$' \
+    || { echo "bin/widget: --$name must be a DNS label [A-Za-z0-9-] (got: $val)" >&2; exit 1; }
+done
+
+: "${updated:=$(date -u +%Y-%m-%d)}"
+
+stem="${tell}.${atlas}"
+host="${stem}.${scope}.anecdote.channel"
+hub_host="${hub#http://}"; hub_host="${hub_host#https://}"; hub_host="${hub_host%/}"
+locator="${hub%/}/?node=${stem}&home=${scope}"
+locator_attr="${locator//&/&amp;}"   # &-escape for an HTML attribute
+
+# Bake the QR as inline SVG: drop the XML prolog, the generator comment, and the fixed
+# cm sizing (the panel sizes it via CSS). Degrade to a text link without qrencode.
+qr_block() {
+  if command -v qrencode >/dev/null 2>&1; then
+    printf '<figure class="anecdote-widget__qr" role="img" aria-label="QR code linking to this node'"'"'s Tell">\n'
+    qrencode -t SVG -m 1 -o - "$locator" \
+      | sed -e '/<?xml/d' -e '/<!-- Created with qrencode/d' -e 's/ width="[0-9.]*cm" height="[0-9.]*cm"//'
+    printf '<figcaption><a href="%s">%s</a></figcaption>\n' "$locator_attr" "$host"
+    printf '</figure>\n'
+  else
+    printf '<p class="anecdote-widget__note">QR omitted (qrencode unavailable at build). Open <a href="%s">%s</a>.</p>\n' "$locator_attr" "$host"
+  fi
+}
+
+render() {
+cat <<HTML
+<!-- anecdote.channel widget — DATA-FILLED build for "tell", rendered from a civic node's
+     own identity by tell/bin/widget run from the workspace root. Counterpart to the baked
+     BASELINE in widget/public.html: same fragment contract (classes + anecdote:widget:
+     postMessage API), but populated with this node's geo-stamped locator QR. Regenerated
+     by the node's build — do not hand-edit; change tell/bin/widget instead. -->
+<section class="anecdote-widget" data-widget="tell" data-updated="${updated}" data-node="${host}">
+  <header class="anecdote-widget__head">
+    <h2 class="anecdote-widget__title">Tell</h2>
+    <span class="anecdote-widget__tag">respond</span>
+  </header>
+  <div class="anecdote-widget__body">
+    <p class="anecdote-widget__lede">Scan to reach this node from where you stand.</p>
+$(qr_block | sed 's/^/    /')
+    <p class="anecdote-widget__note">
+      The code carries this node's geo-less stem to <code>${hub_host}</code>, which fills your
+      state and redirects. In ${scope} it resolves; elsewhere it is not-found until the idea
+      travels.
+    </p>
+  </div>
+
+  <style>
+    .anecdote-widget {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      height: 100%;
+      box-sizing: border-box;
+      padding: 1rem 1.1rem;
+      border: 1px solid #d9d9e0;
+      border-radius: 10px;
+      background: #fff;
+      color: #1d1d22;
+      font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    }
+    .anecdote-widget__head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: .5rem;
+      border-bottom: 1px solid #ececf1;
+      padding-bottom: .4rem;
+    }
+    .anecdote-widget__title { margin: 0; font-size: 1.15rem; font-weight: 650; }
+    .anecdote-widget__tag {
+      font-size: .72rem;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      color: #6b6b78;
+    }
+    .anecdote-widget__body { margin: 0; }
+    .anecdote-widget__lede { margin: 0 0 .5rem; }
+    .anecdote-widget__qr { margin: 0 0 .5rem; text-align: center; }
+    .anecdote-widget__qr svg { width: 168px; height: 168px; image-rendering: pixelated; }
+    .anecdote-widget__qr figcaption { margin-top: .3rem; font-size: .8rem; word-break: break-all; }
+    .anecdote-widget__qr a { color: inherit; }
+    .anecdote-widget__note { margin: 0; font-size: .82rem; color: #6b6b78; }
+  </style>
+
+  <script>
+  (function () {
+    "use strict";
+    var NAME = "tell";
+    var FLAG = "__anecdoteWidget_" + NAME;
+    if (window[FLAG]) return;          // guard double-init when panels share one document
+    window[FLAG] = true;
+
+    var PROTO = "anecdote:widget:";
+    function post(target, msg) { try { target.postMessage(msg, "*"); } catch (e) {} }
+
+    // Announce readiness exactly once. No timer, no polling — the widget is otherwise inert.
+    var ready = { type: PROTO + "ready", widget: NAME };
+    if (window.parent && window.parent !== window) post(window.parent, ready);
+    post(window, ready);
+
+    // Dormant: only RESPOND to host-initiated messages addressed to this widget. The widget
+    // never changes behaviour on its own; the host opts in by sending a message.
+    window.addEventListener("message", function (ev) {
+      var data = ev && ev.data;
+      if (!data || typeof data !== "object") return;
+      if (data.widget && data.widget !== NAME) return;     // not addressed to us
+      if (data.type === PROTO + "ping") {
+        var reply = { type: PROTO + "pong", widget: NAME };
+        if (ev.source) post(ev.source, reply); else post(window, reply);
+      }
+    });
+  })();
+  </script>
+</section>
+HTML
+}
+
+if [ "$out" = "-" ]; then
+  render
+else
+  mkdir -p "$(dirname "$out")"
+  render > "$out"
+  echo "bin/widget: wrote $out ($host)" >&2
+fi
