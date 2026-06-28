@@ -1,9 +1,0 @@
-{
-  "pile": "cd04-q1",
-  "poll": "bikes",
-  "type": "multichoice",
-  "text": "Expand bike lanes?",
-  "options": ["Yes", "No", "Study"],
-  "accept_writein": false,
-  "guidance": "One of the listed options. Write-ins are not counted for this poll."
-}

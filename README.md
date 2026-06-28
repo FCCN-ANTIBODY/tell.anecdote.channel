@@ -51,4 +51,4 @@ Logic lives in `bin/` and local composite actions (`ingress`, `deliver`, `regist
 thin. `ingest-submissions.yml` is a manual-dispatch template whose cron/issues triggers are commented
 suggestions an adopter edits — cron is a knob, not a default. One-time signer/seed/QR-secret bootstrap is
 in [`keys/README.md`](keys/README.md); the per-poll delegated rules are described in
-[`constitutions/README.md`](constitutions/README.md).
+[`_data/constitutions/README.md`](_data/constitutions/README.md).

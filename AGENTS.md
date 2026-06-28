@@ -46,7 +46,7 @@ underneath that the others won't lead with.
 ## The constellation (pile ↔ Tell ↔ Atlas)
 
 - **The pile is the principal; Tell is its agent.** The per-poll constitution lives here
-  (`constitutions/<pile>/<poll>.json`), but the pile *delegated* it and revokes it by leaving.
+  (`_data/constitutions/<pile>/<poll>.json`), but the pile *delegated* it and revokes it by leaving.
   Tell attaches a verdict before sealing; it never decides what the pile keeps, and it withholds
   nothing it authorized.
 - **Atlas is the reporting-law layer.** An Atlas lists Tells to make them discoverable, and

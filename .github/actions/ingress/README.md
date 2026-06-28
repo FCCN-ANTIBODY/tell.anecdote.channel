@@ -60,14 +60,14 @@ jobs:
 | `only-id` | `""` | Ingest/deliver to just one pile id. |
 | `rollup` | `""` | Rollup command override; default is your `./bin/rollup`, else the bundled reference. |
 | `source-name` | `tell` | Feed source name written into each manifest entry. |
-| `constitutions-dir` | `constitutions` | Where `bin/govern` reads the delegated per-poll constitutions. |
+| `constitutions-dir` | `_data/constitutions` | Where `bin/govern` reads the delegated per-poll constitutions. |
 | `publish-report` | `true` | Commit the govern transparency report to the current branch. |
 | `install-age` | `true` | Apt-install `age` on the runner (for the deliver step). |
 
 ## Adoption model
 
 Built for adopting the **whole Tell tree** — fork it, or submodule it into your workspace
-so `bin/`, `.github/actions/`, `constitutions/`, and `_data/piles.yml` sit where the steps
+so `bin/`, `.github/actions/`, `_data/constitutions/`, and `_data/piles.yml` sit where the steps
 expect them. The steps and the nested `deliver` use repo-root-relative paths, so this
 composes cleanly in-repo and in a fork.
 

@@ -43,7 +43,7 @@ inputs:
   constitutions-dir:
     description: "Where bin/govern reads the delegated per-poll constitutions."
     required: false
-    default: "constitutions"
+    default: "_data/constitutions"
   publish-report:
     description: "Commit the govern transparency report (reports/govern-*.json) to the current branch."
     required: false

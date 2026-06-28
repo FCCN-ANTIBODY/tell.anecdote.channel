@@ -1,9 +1,0 @@
-{
-  "pile": "cd04-q1",
-  "poll": "dog-photo",
-  "type": "open",
-  "text": "Can I have a picture of your dog?",
-  "options": [],
-  "accept_writein": true,
-  "guidance": "A jpg or png image of a dog. Reframe requests as questions. Joke answers, non-dog images, and links that are not images do not pass."
-}

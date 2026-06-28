@@ -1,0 +1,10 @@
+{
+  "pile": "cd04-q1",
+  "poll": "budget",
+  "type": "multichoice",
+  "text": "Cut or keep the library budget?",
+  "options": ["Cut", "Keep"],
+  "accept_writein": false,
+  "guidance": "One of the listed options. Write-ins are not counted for this poll.",
+  "lifecycle": { "round": 1, "opens_at": "2026-01-01T00:00:00Z", "closes_at": "2026-12-31T00:00:00Z", "one_per": "respondent" }
+}
