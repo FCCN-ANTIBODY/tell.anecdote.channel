@@ -8,12 +8,12 @@ attaches a verdict to the record. Because the submission is still the public Iss
 plaintext at this point, **no decryption key is involved**: Tell judges what it can already
 read.
 
-These files live under `_data/` so they are *one* source of truth with two consumers: the
-judge (`bin/govern`, server-side) and the **published projection** the build renders to
-`/polls.json` (a public, cacheable subset of every poll's config — question, type, options,
-`accept_writein`, guidance, and `lifecycle`). A poll's landing page can fetch that projection
-instead of trusting render hints carried in the QR, so what a respondent is *shown* and what
-the Tell *governs* come from the same place. See `docs/per-poll-registry.md`.
+These files live under `_data/` so the build can render a **transparency projection** of them
+to `/polls.json` — a public, cacheable list of which polls this Tell governs and by what rule
+(question, type, options, `accept_writein`, guidance, `lifecycle`). That list is judge-side
+legibility (and a future seam for cross-node discovery); it is **not** in the respondent path.
+A poll is self-contained in its (signed) QR and is intentionally unbacked — the landing renders
+from the QR, not from here. See `docs/per-poll-registry.md`.
 
 This is the **delegated** half of the seam. A pile opts into this Tell (its handshake PR in
 `_data/piles.yml`); the Tell operator curates the constitutions here, and a few good ones
