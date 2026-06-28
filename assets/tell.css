@@ -44,7 +44,37 @@ main a { color: var(--accent); }
 }
 .tell-empty { margin: 0; color: var(--muted); }
 .tell-loaded { margin: 0 0 .6rem; font-weight: 600; }
+.tell-q { margin: .2rem 0 .4rem; font-size: 1.15rem; font-weight: 600; }
+.tell-guidance { margin: 0 0 .8rem; color: var(--muted); font-size: .95rem; }
+.tell-fineprint { margin: .8rem 0 0; color: var(--muted); font-size: .8rem; }
 .tell-grid { display: grid; gap: .35rem; }
+
+.tell-opt {
+  display: inline-block;
+  padding: .5rem .85rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.tell-opt:hover { border-color: var(--accent); }
+
+.tell-writein { margin-top: .75rem; display: grid; gap: .4rem; }
+.tell-writein-label { font-size: .9rem; color: var(--muted); }
+.tell-textarea {
+  width: 100%;
+  font: inherit;
+  padding: .55rem .65rem;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  background: #fff;
+  resize: vertical;
+}
+.tell-textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.tell-submit { justify-self: start; }
+.tell-submit[aria-disabled="true"] { opacity: .5; pointer-events: none; }
 .tell-row { display: flex; gap: .75rem; font-size: .95rem; }
 .tell-k { min-width: 7rem; color: var(--muted); }
 .tell-v { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }

@@ -16,7 +16,7 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
 </section>
 
 <p class="tell-note">
-  Your reply posts as a public GitHub issue carrying only your chosen option (plus the poll's token).
+  Your reply posts as a public GitHub issue carrying only your chosen option or typed answer (plus the poll's token).
   Tell encrypts it to the pile owner and closes the issue; don't put anything private in a reply.
 </p>
 
@@ -49,8 +49,14 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
   }
 
   var question = cfg.q || ("Reply to " + cfg.pile + " / " + cfg.poll);
-  var opts = (cfg.opts ? String(cfg.opts).split(",") : ["Yes", "No"]).map(function (s) { return s.trim(); }).filter(Boolean);
+  var opts = (cfg.opts ? String(cfg.opts).split(",") : []).map(function (s) { return s.trim(); }).filter(Boolean);
   var repo = (cfg.repo && /^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(cfg.repo)) ? cfg.repo : CANONICAL_REPO;
+  // A poll takes a typed answer when it is open (the default type), when it explicitly opts a
+  // write-in alongside fixed options (&writein=1), or when it offers no options at all — so we
+  // never fabricate a yes/no the poll never asked. multichoice without write-in shows links only.
+  var allowWritein = (cfg.type || "open") !== "multichoice"
+    || /^(1|true|yes)$/i.test(cfg.writein || "")
+    || opts.length === 0;
 
   // Build a pre-filled issues/new link for the chosen option. Exposed for tests.
   // The token binds pile+poll+round; type+asker ride along so the pile can route.
@@ -75,11 +81,44 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
     return '<a class="tell-opt" rel="nofollow noopener" target="_blank" href="' + esc(issueUrl(o)) + '">' + esc(o) + "</a>";
   }).join("");
 
+  // Open polls (and any poll with no fixed options) get a text field, so a respondent can give
+  // the answer the poll is actually asking for. The page still only *builds a link*: typing
+  // updates the compose link's href, and the click that opens the prefilled issue is yours.
+  var writein = allowWritein
+    ? '<div class="tell-writein">' +
+        '<label class="tell-writein-label" for="tell-answer">' +
+          (opts.length ? "Or write your own answer:" : "Your answer:") + "</label>" +
+        '<textarea id="tell-answer" class="tell-textarea" rows="3" placeholder="Type your reply…"></textarea>' +
+        '<a id="tell-submit" class="tell-opt tell-submit" rel="nofollow noopener" target="_blank" aria-disabled="true" href="#">Compose reply</a>' +
+      "</div>"
+    : "";
+
   mount.innerHTML =
     '<p class="tell-loaded">Poll <code>' + esc(cfg.poll) + "</code> on <code>" + esc(cfg.pile) + "</code> (round " + esc(cfg.round) + "):</p>" +
     '<p class="tell-q">' + esc(question) + "</p>" +
     (cfg.guidance ? '<p class="tell-guidance">' + esc(cfg.guidance) + "</p>" : "") +
-    '<div class="tell-grid">' + rows + "</div>" +
-    '<p class="tell-fineprint">Choosing an option opens a pre-filled GitHub issue. Review it, then submit to reply.</p>';
+    (rows ? '<div class="tell-grid">' + rows + "</div>" : "") +
+    writein +
+    '<p class="tell-fineprint">' +
+      (allowWritein ? "Typing an answer" + (opts.length ? " or choosing an option" : "") : "Choosing an option") +
+      " opens a pre-filled GitHub issue. Review it, then submit to reply.</p>";
+
+  // Wire the write-in field in a real browser; the test stub has no event API, so feature-detect.
+  if (allowWritein) {
+    var ta = document.getElementById("tell-answer");
+    var go = document.getElementById("tell-submit");
+    if (ta && go && ta.addEventListener) {
+      var sync = function () {
+        var v = (ta.value || "").trim();
+        go.setAttribute("href", v ? issueUrl(v) : "#");
+        go.setAttribute("aria-disabled", v ? "false" : "true");
+      };
+      ta.addEventListener("input", sync);
+      go.addEventListener("click", function (e) {
+        if (go.getAttribute("aria-disabled") === "true") e.preventDefault();
+      });
+      sync();
+    }
+  }
 })();
 </script>
