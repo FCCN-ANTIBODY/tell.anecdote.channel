@@ -1,4 +1,4 @@
-name: Prune pile history
+name: "Maintain · prune feed history"
 
 # Housekeeping for the "retain + periodic prune" custody choice, as a TEMPLATE. Feed
 # branches are append-only signed-commit logs (one per fronted pile); left alone they
