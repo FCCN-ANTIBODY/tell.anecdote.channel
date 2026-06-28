@@ -33,3 +33,21 @@ tl_verify() { # MASTER ID POLL ROUND TOK
   printf '%s' "$5" | grep -Eq '^[0-9a-f]{64}$' || return 1
   tl_eq "$(tl_token "$1" "$2" "$3" "$4")" "$5"
 }
+
+# --- QR provenance (asymmetric signature over the exact poll payload) -----------------
+# The token above is symmetric authorization — it admits a reply into THIS Tell's mailbox
+# and only this Tell can verify it. The signature is the orthogonal half: it proves a QR's
+# ORIGIN and INTEGRITY to anyone holding the signer's public key, registry-free, so a
+# shared/foreign poll can be judged "worth processing at all" off-node. bin/qr signs and a
+# verifier (bin/authz/bin/verify) checks the SAME asymmetric primitive bin/deliver uses
+# (ssh-keygen -Y), under this distinct namespace so a delivery signature can never be
+# replayed as a poll one. See docs/qr-provenance.md.
+TL_QR_SIG_NS="tell-poll"
+
+# Canonical signing preimage. Reads the QR's payload as "key=value" lines on stdin (values
+# URL-encoded exactly as they ride in the URL — robust to newlines / & / =), drops the
+# signature metadata (`sig`, `kid` are never self-signed), and emits them sorted by key so
+# signer and verifier agree regardless of URL param order. Both sides pipe through this.
+tl_qr_canon() {
+  grep -vE '^(sig|kid)=' | LC_ALL=C sort
+}

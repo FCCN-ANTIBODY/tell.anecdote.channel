@@ -5,7 +5,7 @@
 # The landing the URL opens carries the poll config + the token bin/authz verifies.
 #
 #   bin/qr --pile ID --poll POLL [--round 1] [--type open] [--asker ADDR] \
-#          [--question Q] [--opts CSV] [--repo OWNER/NAME]
+#          [--question Q] [--opts CSV] [--repo OWNER/NAME] [--signkey PATH]
 #
 #     --round    bump to expire/rotate an outstanding QR for this poll
 #     --type     poll type (carried, not bound) — routing hint for the pile/runner
@@ -17,14 +17,21 @@
 #                tell.anecdote.channel domain can thus address YOUR Tell
 #                (tell.antibody.fort-collins.colorado.anecdote.channel -> its repo). It is
 #                unbound metadata: a foreign Tell rejects a token it did not mint.
+#     --signkey  ssh signing key (path, or pass key material via TELL_SIGNER_KEY) to add a
+#                PROVENANCE signature over the exact payload — `sig` (+ signer id `kid`).
+#                The token authorizes a reply into THIS Tell's mailbox; the signature proves
+#                the QR's origin + integrity to ANYONE with the signer's public key,
+#                registry-free (the "worth processing at all" gate). Omit => unsigned QR.
+#                Same ssh-keygen -Y primitive bin/deliver uses; see docs/qr-provenance.md.
 #
-# Needs TELL_QR_SECRET (the master secret; bin/tell-bootstrap generates it).
-# With qrencode present, also writes a PNG.
+# Needs TELL_QR_SECRET (the master secret; bin/tell-bootstrap generates it). The signature
+# is optional and additive. With qrencode present, also writes a PNG.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
 pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
+signkey_arg=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -36,6 +43,7 @@ while [ $# -gt 0 ]; do
     --opts) opts="$2"; shift 2;;
     --guidance) guidance="$2"; shift 2;;
     --repo) repo="$2"; shift 2;;
+    --signkey) signkey_arg="$2"; shift 2;;
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
@@ -43,21 +51,55 @@ done
 if [ -n "$repo" ] && ! printf '%s' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
   echo "bin/qr: --repo must be OWNER/NAME (got: $repo)" >&2; exit 1
 fi
-[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT]" >&2; exit 1; }
+[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT] [--signkey PATH]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
 : "${TELL_DOMAIN:=https://tell.anecdote.channel}"
 
 tok="$(tl_token "$TELL_QR_SECRET" "$pile" "$poll" "$round")"
 
 enc() { jq -rn --arg s "$1" '$s|@uri'; }   # URL-encode
-# Bound fields first, then the unbound routing/render metadata.
-url="${TELL_DOMAIN}/?pile=$(enc "$pile")&poll=$(enc "$poll")&round=$(enc "$round")&tok=${tok}"
-url="${url}&type=$(enc "$type")"
-[ -n "$asker" ]    && url="${url}&asker=$(enc "$asker")"
-[ -n "$question" ] && url="${url}&q=$(enc "$question")"
-[ -n "$opts" ]     && url="${url}&opts=$(enc "$opts")"
-[ -n "$guidance" ] && url="${url}&guidance=$(enc "$guidance")"
-[ -n "$repo" ]     && url="${url}&repo=$(enc "$repo")"
+
+# Collect the payload as key=value pairs (values URL-encoded, exactly as they ride in the
+# URL). Bound fields first, then unbound routing/render metadata. This same set, run
+# through tl_qr_canon, is the preimage the provenance signature covers.
+pairs=( "pile=$(enc "$pile")" "poll=$(enc "$poll")" "round=$(enc "$round")" "tok=${tok}" "type=$(enc "$type")" )
+[ -n "$asker" ]    && pairs+=( "asker=$(enc "$asker")" )
+[ -n "$question" ] && pairs+=( "q=$(enc "$question")" )
+[ -n "$opts" ]     && pairs+=( "opts=$(enc "$opts")" )
+[ -n "$guidance" ] && pairs+=( "guidance=$(enc "$guidance")" )
+[ -n "$repo" ]     && pairs+=( "repo=$(enc "$repo")" )
+
+# Provenance signature (optional, additive). Sign the canonical preimage with the Tell's
+# delivery signer — the same ssh-keygen -Y primitive bin/deliver uses, under TL_QR_SIG_NS
+# so a manifest signature can never be replayed as a poll one. Key from --signkey (a path)
+# or TELL_SIGNER_KEY (a path, or the CI secret's key material). See docs/qr-provenance.md.
+signkey="${signkey_arg:-${TELL_SIGNER_KEY:-}}"
+sig=""; kid=""
+if [ -n "$signkey" ]; then
+  if command -v ssh-keygen >/dev/null 2>&1; then
+    keyfile="$signkey"; tmpkey=""
+    if [ ! -f "$keyfile" ]; then                 # not a path => treat as key material
+      tmpkey="$(mktemp)"; printf '%s\n' "$signkey" > "$tmpkey"; keyfile="$tmpkey"  # mktemp is 0600
+    fi
+    sigtmp="$(mktemp)"
+    if printf '%s\n' "${pairs[@]}" | tl_qr_canon | ssh-keygen -Y sign -n "$TL_QR_SIG_NS" -f "$keyfile" >"$sigtmp" 2>/dev/null; then
+      sig="$(base64 -w0 < "$sigtmp")"
+      kid="$(ssh-keygen -lf "$keyfile" 2>/dev/null | awk '{print $2}' || true)"
+      [ -n "$kid" ] || kid="$(ssh-keygen -y -f "$keyfile" 2>/dev/null | ssh-keygen -lf - 2>/dev/null | awk '{print $2}' || true)"
+    else
+      echo "bin/qr: WARN signing failed (bad --signkey/TELL_SIGNER_KEY?); emitting unsigned QR" >&2
+    fi
+    rm -f "$sigtmp"; [ -n "$tmpkey" ] && rm -f "$tmpkey"
+  else
+    echo "bin/qr: WARN ssh-keygen not found; emitting unsigned QR (no provenance)" >&2
+  fi
+else
+  echo "bin/qr: note — no --signkey/TELL_SIGNER_KEY; QR carries no provenance signature" >&2
+fi
+[ -n "$sig" ] && pairs+=( "sig=$(enc "$sig")" "kid=$(enc "$kid")" )
+
+# Assemble the URL from the (possibly signed) pairs, preserving order.
+url="${TELL_DOMAIN}/?$(IFS='&'; printf '%s' "${pairs[*]}")"
 
 echo "$url"
 if command -v qrencode >/dev/null 2>&1; then
