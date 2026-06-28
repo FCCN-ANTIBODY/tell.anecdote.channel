@@ -1,6 +1,6 @@
 name: Advance tell pin
 description: >-
-  Rolls the calling workspace's tell/ submodule pin forward to the latest tell
+  Rolls the calling workspace's .tell-engine submodule pin forward to the latest tell
   HEAD — but only when that latest HEAD still builds the tell site cleanly.
   Fetches the current tell tip, checks it out in the submodule, and builds the
   tell site; on a clean build the new pin is committed and pushed, on a failed
@@ -10,7 +10,7 @@ description: >-
   kept in this repo so a workspace can `uses:` the naturally pinned source
   version over its submodule path and a fork can drop tell by deleting one job.
 
-  Runs in the *workspace* context, where tell is mounted at tell/ — not in tell's
+  Runs in the *workspace* context, where tell is mounted at .tell-engine — not in tell's
   own repo. tell self-deploys via its own deploy.yml, so the build here only
   gates the pin advance: it never deploys and never writes a fallback notice (the
   workspace tracks tell's pin, it does not publish the tell site). That is why
@@ -21,17 +21,17 @@ runs:
   using: composite
   steps:
     - name: Record last-known-good tell SHA
-      run: echo "TELL_LKG_SHA=$(git -C tell rev-parse HEAD)" >> $GITHUB_ENV
+      run: echo "TELL_LKG_SHA=$(git -C .tell-enginerev-parse HEAD)" >> $GITHUB_ENV
       shell: bash
 
     - name: Fetch latest tell tip
       run: |
-        git -C tell fetch origin main
-        echo "TELL_LATEST_SHA=$(git -C tell rev-parse FETCH_HEAD)" >> $GITHUB_ENV
+        git -C .tell-enginefetch origin main
+        echo "TELL_LATEST_SHA=$(git -C .tell-enginerev-parse FETCH_HEAD)" >> $GITHUB_ENV
       shell: bash
 
     - name: Advance tell to latest
-      run: git -C tell checkout "$TELL_LATEST_SHA"
+      run: git -C .tell-enginecheckout "$TELL_LATEST_SHA"
       shell: bash
 
     - name: Setup Ruby
@@ -39,20 +39,20 @@ runs:
       with:
         ruby-version: "3.3"
         bundler-cache: true
-        working-directory: tell
+        working-directory: .tell-engine
 
     - name: Build tell at latest (gate)
       id: build
       # Committed binstub, same invocation as tell's own deploy.yml: bare
       # `bundle exec jekyll` fails to resolve under the pinned Bundler.
       run: bin/jekyll build --trace
-      working-directory: tell
+      working-directory: .tell-engine
       continue-on-error: true
       shell: bash
 
     - name: Revert tell to last-known-good on build failure
       if: steps.build.outcome == 'failure'
-      run: git -C tell checkout "$TELL_LKG_SHA"
+      run: git -C .tell-enginecheckout "$TELL_LKG_SHA"
       shell: bash
 
     - name: Roll tell pin forward (only on a clean latest build)
@@ -60,8 +60,8 @@ runs:
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git diff --quiet tell || {
-          git add tell
+        git diff --quiet .tell-engine || {
+          git add .tell-engine
           git commit -m "ci: roll tell forward to $TELL_LATEST_SHA [skip ci]"
           # Race-safe push: the workspace updater advances journal/atlas/tell
           # pins in parallel jobs that all push to main. Each job stages only its
