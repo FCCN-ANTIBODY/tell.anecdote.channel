@@ -83,8 +83,10 @@ its own later thread; this note only fixes that the signature is over the *compl
 
 ## Slice plan
 
-1. **Canonical preimage + sign in `bin/qr`** — define the deterministic serialization; `bin/qr`
-   emits `sig` (+ signer id) beside `tok`. Pure, offline, testable.
+1. **Canonical preimage + sign in `bin/qr`** *(done)* — `tl_qr_canon` defines the deterministic
+   serialization (payload params, `sig`/`kid` excluded, sorted by key); `bin/qr --signkey` (or
+   `TELL_SIGNER_KEY`) emits `sig` (+ signer id `kid`) beside `tok`, via `ssh-keygen -Y sign` under the
+   `tell-poll` namespace. Additive — an unsigned QR still mints. Verified end-to-end in `test/run.sh`.
 2. **Verify as a worth-processing gate** — a `bin/verify`-style check (or `bin/authz` extension) that
    confirms `sig` against the accepted-signers set; submission block carries `sig`.
 3. **Accepted-signers config** — local trust set (the `keys/tell.signers` idiom), and the foreign-QR

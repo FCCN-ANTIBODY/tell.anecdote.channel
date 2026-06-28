@@ -122,6 +122,34 @@ TELL_ISSUES_JSON="$work/issues.json" TELL_SUBMISSIONS_DIR="$work/stage" bin/coll
 [ "$(wc -l < "$work/stage/.rejected.tsv")" = 2 ] || fail "expected 2 rejected (cross-poll token + unknown pile)"
 ok "2 polls staged, cross-poll forgery + unknown pile rejected, no-block ignored"
 
+echo "[8b] bin/qr adds a provenance signature over the canonical payload; it verifies, tamper fails"
+. "$root/bin/tell-lib.sh"   # tl_qr_canon (same preimage the signer used)
+# Accepted-signers line, principal "tell" (mirrors keys/tell.signers).
+printf 'tell %s\n' "$(cat "$work/sign.pub")" > "$work/qr.signers"
+surl="$(bin/qr --pile cd04-q1 --poll bikes --round 1 --question "Expand bike lanes?" \
+  --opts "Yes,No,Study" --signkey "$work/sign" 2>/dev/null)"
+echo "$surl" | grep -q '[?&]sig='        || fail "bin/qr emitted no provenance signature"
+echo "$surl" | grep -q '[?&]kid=SHA256'  || fail "bin/qr emitted no signer id (kid)"
+# Token still mints alongside the signature.
+echo "$surl" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "signed QR lost its authorization token"
+# Recover the armored signature (URL-decode, then base64 -d) and the payload params.
+urldec() { printf '%b' "${1//%/\\x}"; }
+params="$(printf '%s' "${surl#*\?}" | tr '&' '\n')"
+urldec "$(printf '%s\n' "$params" | sed -n 's/^sig=//p')" | base64 -d > "$work/qr.sig"
+# Rebuild the exact preimage (params minus sig/kid, canonicalized) and verify it.
+printf '%s\n' "$params" | tl_qr_canon | \
+  ssh-keygen -Y verify -n tell-poll -I tell -f "$work/qr.signers" -s "$work/qr.sig" >/dev/null 2>&1 \
+  || fail "QR provenance signature does not verify against the canonical payload"
+# Tamper a signed field => verification must fail.
+printf '%s\n' "$params" | sed 's/^poll=.*/poll=TAMPER/' | tl_qr_canon | \
+  ssh-keygen -Y verify -n tell-poll -I tell -f "$work/qr.signers" -s "$work/qr.sig" >/dev/null 2>&1 \
+  && fail "tampered payload still verified" || true
+# Wrong namespace must not verify (a delivery sig can't be replayed as a poll sig).
+printf '%s\n' "$params" | tl_qr_canon | \
+  ssh-keygen -Y verify -n data-pile -I tell -f "$work/qr.signers" -s "$work/qr.sig" >/dev/null 2>&1 \
+  && fail "signature verified under the wrong namespace" || true
+ok "signed QR keeps its token, carries a verifying namespace-separated provenance signature; tamper breaks it"
+
 echo "[9] govern judges staged answers against constitutions/<pile>/<poll>.json (pre-seal, no key)"
 # Real stage (budget=Cut, bikes=Yes — both listed options) gets accepted mechanically and
 # annotated in place, so the rollup below seals the verdict into the digest.
