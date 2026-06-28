@@ -60,9 +60,29 @@ and (2) that key is in the recipient's accepted set (or, for open intake, it ver
 recorded for a later trust decision).
 
 For the local node verifying its own QRs, the accepted set is its own key — trivial. For a **foreign**
-QR, *where the accepted set comes from* is the crux of this whole thread, and the most likely place it
-reconnects to **cross-node discovery** (the `/polls.json` transparency seam): a made-public list of
-who-signs-what that a recipient can pull and pin out of band.
+QR, that set is a **local friend list**, built out of band by a signed handshake the node merges by hand
+— the same shape the peer tier already uses (`_data/atlases.yml`, where a listed peer "may truthfully
+trigger this node's matcher", pinned by its `signer` fingerprint). There is no *global* registry of whom
+to trust; each node curates its own. The signature proves *who*; the friend list decides *whether to
+act*.
+
+### Authority: a verified friend triggers, it does not transfer
+
+The load-bearing rule (now stated in the workspace `VISION.md`): **a verified friend's payload is a
+trigger, never imported truth.** A foreign signed QR — or a peer's bill — does not hand the node data to
+believe; it hands it a *reason to search its own*. On a passing signature the node runs **its own**
+search over **its own** data and answers from what it authoritatively holds, importing nothing foreign.
+This is exactly the "one matcher, two triggers" shape the Atlas peering design (`OPEN-QUESTIONS.md` §D)
+already specs — internal search and a peer's request are one matcher, two callers. Trust roots and the
+bill are the same idea at two tiers.
+
+So the trust decision and the data authority are *always* local. **Cross-node discovery** — how friend
+lists get seeded and advertised (the `/polls.json` transparency seam is a natural surface: a made-public
+"here is who I am / what I sign" a recipient can pull and pin) — is the genuinely open part, but it only
+ever *proposes* a friend. The local merge disposes; authority never leaves the node.
+
+Open within this: is the QR-signer friend set the **same** as the peer-Atlas list (`_data/atlases.yml`),
+or a separate list? (i.e. "whose polls I will process" vs "which Atlases may trigger my matcher".)
 
 ## Where it is checked in the flow
 
@@ -92,15 +112,21 @@ its own later thread; this note only fixes that the signature is over the *compl
    (`TELL_SIGNERS`, default `keys/tell.signers`; principal `tell`, namespace `tell-poll`) and binds it
    to the submission by its token. Default verify-if-present; `TELL_REQUIRE_SIG=1` rejects unsigned.
    The token still gates mailbox acceptance; this gates whether the poll is worth processing.
-3. **Accepted-signers config** — local trust set (the `keys/tell.signers` idiom), and the foreign-QR
-   trust-root question handed to cross-node discovery.
+3. **Friend-list trust + local authority** — generalize the single accepted signer to a per-node
+   friend list (verify the QR's `kid` against multiple accepted signers), and on a pass **trigger
+   local-authoritative work** rather than ingesting the payload (the trigger-not-truth rule above).
+   Trust is established out of band (signed handshake); cross-node discovery (seeding/advertising the
+   list) is the open, separable part and never touches authority.
 4. **Matrix packet format** — chunk-aware tiling with a whole-payload signature. Its own thread.
 
 ## Open sub-questions
 
-- **Trust roots for foreign QRs** — the heart of it; ties to cross-node discovery.
+- **Cross-node discovery** — how friend lists get seeded and advertised (the `/polls.json` seam). The
+  trust *model* is settled (local friend list; trigger-not-truth); discovery is the open *mechanism*,
+  and it only proposes — authority stays local. Includes: one friend set or two (QR-signers vs peer
+  Atlases)?
 - **Raw-signature tooling** — emitting/verifying a compact Ed25519 signature over a preimage with the
   same key delivery signs with (vs. carrying the larger armored SSH blob).
-- **Does the submission echo the whole signed payload or just `sig`?** Enough must reach the Tell to
-  recompute the preimage and verify, without bloating the Issue body.
+- **Submission carries the whole signed payload** (decided in slice 2: the reply echoes the exact `qr`
+  verbatim so the Tell recomputes the preimage). Open only if Issue-body size becomes a real constraint.
 - **Revocation** — retiring a compromised signer from accepted sets, registry-less.
