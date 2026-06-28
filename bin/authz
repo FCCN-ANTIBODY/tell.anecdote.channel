@@ -11,6 +11,12 @@
 #
 # Needs TELL_QR_SECRET. Optional TELL_ALLOWED_ROUND pins a single open round globally
 # (coarse; per-poll expiry is a deferred registry concern).
+#
+# Provenance: if the submission carries the signed QR payload (`qr`), its signature is
+# verified against accepted signers (TELL_SIGNERS, default keys/tell.signers; principal
+# `tell`, namespace tell-poll) and bound to the submission by its token — the worth-
+# processing gate. TELL_REQUIRE_SIG=1 also rejects unsigned submissions. See
+# docs/qr-provenance.md.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
@@ -34,4 +40,30 @@ if [ -n "${TELL_ALLOWED_ROUND:-}" ] && [ "$TELL_ALLOWED_ROUND" != "$round" ]; th
 fi
 
 tl_verify "$TELL_QR_SECRET" "$pile" "$poll" "$round" "$tok" || reject "bad token"
-echo "authz: ok $pile/$poll round $round" >&2
+
+# Provenance gate. The token above authorizes a reply into THIS Tell's mailbox; if the
+# submission also carries the signed QR payload (`qr`), the poll's signature must verify
+# against an accepted signer before it is worth processing — proof of WHERE the poll came
+# from, registry-free (see docs/qr-provenance.md). Default: verify-if-present (an unsigned
+# submission still passes on the token alone). TELL_REQUIRE_SIG=1 also rejects unsigned ones.
+qr="$(get qr)"
+if [ -n "$qr" ]; then
+  command -v ssh-keygen >/dev/null 2>&1 || reject "cannot verify signature (no ssh-keygen)"
+  signers="${TELL_SIGNERS:-$repo/keys/tell.signers}"
+  [ -f "$signers" ] || reject "no accepted signers at ${signers##*/}"
+  qrlines="$(printf '%s' "$qr" | tr '&' '\n')"
+  sigenc="$(printf '%s\n' "$qrlines" | sed -n 's/^sig=//p')"
+  [ -n "$sigenc" ] || reject "qr carries no signature"
+  sigfile="$(mktemp)"; trap 'rm -f "$sigfile"' EXIT
+  printf '%b' "${sigenc//%/\\x}" | base64 -d > "$sigfile" 2>/dev/null || reject "bad signature encoding"
+  printf '%s\n' "$qrlines" | tl_qr_canon \
+    | ssh-keygen -Y verify -n "$TL_QR_SIG_NS" -I tell -f "$signers" -s "$sigfile" >/dev/null 2>&1 \
+    || reject "poll signature does not verify"
+  # Bind the signed payload to this submission: its token must be the one just verified.
+  qrtok="$(printf '%s\n' "$qrlines" | sed -n 's/^tok=//p')"
+  [ "$qrtok" = "$tok" ] || reject "signed payload token != submission token"
+elif [ -n "${TELL_REQUIRE_SIG:-}" ]; then
+  reject "unsigned submission (TELL_REQUIRE_SIG set)"
+fi
+
+echo "authz: ok $pile/$poll round $round${qr:+ (provenance ok)}" >&2

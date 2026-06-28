@@ -107,4 +107,20 @@ const bareHtml = render("?pile=p&poll=bare&round=1&tok=t");
 assert(/<textarea/.test(bareHtml), "bare poll should fall back to a write-in field");
 assert(!/>Yes<|>No</.test(bareHtml), "bare poll must not fabricate yes/no options");
 
+// --- Provenance: a signed QR carries its exact payload into the submission ------------
+const blockFor = (search, ans) => {
+  render(search);
+  return JSON.parse(
+    new URL(window.tellIssueUrl(ans)).searchParams.get("body").match(/```tell\n([\s\S]*?)\n```/)[1]
+  );
+};
+// A signed QR (cfg.sig present) carries the exact query verbatim as `qr`, so the Tell can
+// verify the poll's signature before processing.
+const signedSearch = "?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No&sig=SIGVAL&kid=SHA256%3Aabc";
+const sBlock = blockFor(signedSearch, "Yes");
+assert(sBlock.qr === signedSearch.slice(1), "signed QR not carried verbatim as qr: " + sBlock.qr);
+// An unsigned QR carries no qr field (keeps the body lean; nothing to verify).
+const uBlock = blockFor("?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No", "Yes");
+assert(!("qr" in uBlock), "unsigned submission must not carry a qr field");
+
 console.log("landing link-builder: OK");

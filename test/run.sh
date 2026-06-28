@@ -150,6 +150,30 @@ printf '%s\n' "$params" | tl_qr_canon | \
   && fail "signature verified under the wrong namespace" || true
 ok "signed QR keeps its token, carries a verifying namespace-separated provenance signature; tamper breaks it"
 
+echo "[8c] authz verifies the carried QR signature as a worth-processing gate"
+qrpayload="${surl#*\?}"                                  # what the landing carries as block.qr
+qrtok="$(printf '%s\n' "$params" | sed -n 's/^tok=//p')"
+qsub() { jq -n --arg p cd04-q1 --arg poll bikes --arg r 1 --arg t "$qrtok" --arg q "$1" \
+  '{schema:"tell.submission/v1",pile:$p,poll:$poll,round:$r,type:"open",tok:$t,answer:"Yes",qr:$q}'; }
+# A validly signed payload passes the gate.
+TELL_SIGNERS="$work/qr.signers" qsub "$qrpayload" | bin/authz 2>/dev/null \
+  || fail "authz rejected a validly signed submission"
+# Tamper a signed field inside qr => signature no longer verifies => rejected.
+TELL_SIGNERS="$work/qr.signers" qsub "$(printf '%s' "$qrpayload" | sed 's/poll=bikes/poll=budget/')" \
+  | bin/authz 2>/dev/null && fail "authz accepted a tampered signed payload" || true
+# Bind: a VALID token for a different poll (budget) attached to the bikes payload => the
+# HMAC check passes but the signed payload's token != the submission token => rejected.
+jq -n --arg t "$tokB" --arg q "$qrpayload" \
+  '{schema:"tell.submission/v1",pile:"cd04-q1",poll:"budget",round:"1",type:"open",tok:$t,answer:"Yes",qr:$q}' \
+  | TELL_SIGNERS="$work/qr.signers" bin/authz 2>/dev/null \
+  && fail "authz accepted a signed payload bound to another poll's token" || true
+# Strict mode rejects an unsigned submission (no qr).
+TELL_REQUIRE_SIG=1 sub cd04-q1 budget 1 "$tokB" | bin/authz 2>/dev/null \
+  && fail "TELL_REQUIRE_SIG accepted an unsigned submission" || true
+# Default (no strict) still accepts unsigned on the token alone — provenance is additive.
+sub cd04-q1 budget 1 "$tokB" | bin/authz 2>/dev/null || fail "default authz rejected a valid unsigned submission"
+ok "signed payload verified + bound; tamper / token-swap / (strict) unsigned rejected; unsigned still ok by default"
+
 echo "[9] govern judges staged answers against constitutions/<pile>/<poll>.json (pre-seal, no key)"
 # Real stage (budget=Cut, bikes=Yes — both listed options) gets accepted mechanically and
 # annotated in place, so the rollup below seals the verdict into the digest.
