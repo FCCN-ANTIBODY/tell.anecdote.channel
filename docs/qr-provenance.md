@@ -87,8 +87,11 @@ its own later thread; this note only fixes that the signature is over the *compl
    serialization (payload params, `sig`/`kid` excluded, sorted by key); `bin/qr --signkey` (or
    `TELL_SIGNER_KEY`) emits `sig` (+ signer id `kid`) beside `tok`, via `ssh-keygen -Y sign` under the
    `tell-poll` namespace. Additive — an unsigned QR still mints. Verified end-to-end in `test/run.sh`.
-2. **Verify as a worth-processing gate** — a `bin/verify`-style check (or `bin/authz` extension) that
-   confirms `sig` against the accepted-signers set; submission block carries `sig`.
+2. **Verify as a worth-processing gate** *(done)* — the landing carries the exact signed query as
+   `qr` in the submission; `bin/authz` verifies its signature against the accepted-signers set
+   (`TELL_SIGNERS`, default `keys/tell.signers`; principal `tell`, namespace `tell-poll`) and binds it
+   to the submission by its token. Default verify-if-present; `TELL_REQUIRE_SIG=1` rejects unsigned.
+   The token still gates mailbox acceptance; this gates whether the poll is worth processing.
 3. **Accepted-signers config** — local trust set (the `keys/tell.signers` idiom), and the foreign-QR
    trust-root question handed to cross-node discovery.
 4. **Matrix packet format** — chunk-aware tiling with a whole-payload signature. Its own thread.

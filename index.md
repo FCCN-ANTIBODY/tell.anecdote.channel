@@ -43,6 +43,10 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
   function esc(s) { return String(s).replace(/[<&>]/g, function (c) { return { "<": "&lt;", "&": "&amp;", ">": "&gt;" }[c]; }); }
 
   var cfg = params();
+  // The exact signed query, verbatim, so a signed poll's provenance travels into the reply
+  // (the Tell verifies cfg.sig over this; see docs/qr-provenance.md). Search is where bin/qr
+  // puts the params; fall back to the hash. Not decoded — the bytes must match what was signed.
+  var rawQuery = (location.search || "").replace(/^\?/, "") || (location.hash || "").replace(/^#/, "");
   if (!cfg.pile || !cfg.poll || !cfg.round || !cfg.tok) {
     mount.innerHTML = '<p class="tell-empty">No poll loaded — open Tell from a poll’s QR code.</p>';
     return;
@@ -68,6 +72,8 @@ your click, and the [Tell engine](CONTRACT.md) seals abiding replies into the pi
       shown_guidance: cfg.guidance || "",
       tok: cfg.tok, answer: answer, ts: new Date().toISOString()
     };
+    // Carry the signed poll payload so the Tell can verify provenance before processing.
+    if (cfg.sig) block.qr = rawQuery;
     var body = "Reply to **" + cfg.pile + "** / poll **" + cfg.poll + "** — option: **" + answer + "**\n\n" +
                "```tell\n" + JSON.stringify(block) + "\n```\n";
     var qs = "title=" + encodeURIComponent("tell submission " + cfg.pile + " / " + cfg.poll) +
