@@ -1,4 +1,4 @@
-name: register-atlas
+name: "Federate · register atlas"
 
 # Owner-initiated registration of THIS Tell with an Atlas directory. Opens a consent PR on
 # the Atlas adding this Tell's entry to _data/tells.yml, on a `tell/<scope>/<id>` branch

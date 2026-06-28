@@ -1,4 +1,4 @@
-name: Build & Deploy Tell
+name: "Publish · site"
 
 on:
   # Any branch push validates the build; only main / manual dispatch deploys.

@@ -1,4 +1,4 @@
-name: qr
+name: "Federate · mint QR"
 
 # Mint an authorized QR for a specific POLL on a pile this Tell fronts. The runtime
 # (this Action) derives the per-pile token from TELL_QR_SECRET so the landing the QR

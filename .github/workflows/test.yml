@@ -1,4 +1,4 @@
-name: test
+name: "Test · core"
 
 # Exercises the inbound-digest producer (bin/deliver) end to end, including the
 # append / ratchet-resume path, and cross-checks the produced chain with the REAL

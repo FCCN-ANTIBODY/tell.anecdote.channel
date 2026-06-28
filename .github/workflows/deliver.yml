@@ -1,4 +1,4 @@
-name: deliver
+name: "Federate · deliver"
 
 # Produce inbound encrypted digests and publish them on this Tell's OWN feed branches
 # (feed/<scope>/<id>). A pile PULLS its feed from the gateway (see CONTRACT.md); Tell

@@ -1,4 +1,4 @@
-name: ingest-submissions
+name: "Federate · ingest submissions"
 
 # The ingress loop, as a TEMPLATE. The whole of it — collect + authorize, judge against
 # the delegated constitutions, seal into each pile's encrypted feed, close the mailbox —
