@@ -24,8 +24,12 @@ eval(script);
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
 
 assert(/Expand bike lanes/.test(el.innerHTML), "question not rendered");
-const links = [...el.innerHTML.matchAll(/href="([^"]+)"/g)];
+// Option links carry real hrefs; the write-in "Compose reply" link starts at href="#", so
+// filter those out to count true option links.
+const links = [...el.innerHTML.matchAll(/href="([^"]+)"/g)].filter((h) => h[1] !== "#");
 assert(links.length === 3, "expected 3 option links, got " + links.length);
+// type=open also offers a write-in field alongside the suggested options.
+assert(/<textarea/.test(el.innerHTML), "open poll: expected a write-in textarea beside options");
 
 const u = new URL(window.tellIssueUrl("Study"));
 assert(u.pathname.endsWith("/issues/new"), "not an issues/new url: " + u.pathname);
@@ -64,4 +68,43 @@ for (const bad of ["evil.com/a/b", "a", "../../x", "https://evil/x"]) {
   assert(issueHostPath(base + "&repo=" + encodeURIComponent(bad)) ===
     "github.com/FCCN-ANTIBODY/tell.anecdote.channel/issues/new", "bad repo not rejected: " + bad);
 }
+
+// --- Write-in / custom-entry rendering -------------------------------------------------
+// Re-run the page under a fresh location and return the rendered HTML.
+function render(search) {
+  const e = { innerHTML: "" };
+  globalThis.document = { getElementById: () => e };
+  globalThis.location = { search, hash: "" };
+  globalThis.window = globalThis;
+  eval(script);
+  return e.innerHTML;
+}
+const realLinks = (html) => [...html.matchAll(/href="([^"]+)"/g)].filter((h) => h[1] !== "#");
+
+// Open poll with no fixed options → a write-in textarea, no option links, and the link-builder
+// still produces a valid issue URL carrying the typed answer.
+const openHtml = render("?pile=p&poll=open1&round=1&tok=t&type=open&q=" + encodeURIComponent("Why?"));
+assert(/<textarea/.test(openHtml), "open poll: no write-in textarea");
+assert(realLinks(openHtml).length === 0, "open poll with no opts should have no option links");
+const typed = JSON.parse(
+  new URL(window.tellIssueUrl("A free-form reply")).searchParams.get("body").match(/```tell\n([\s\S]*?)\n```/)[1]
+);
+assert(typed.answer === "A free-form reply" && typed.type === "open",
+  "typed answer block wrong: " + JSON.stringify(typed));
+
+// multichoice → option links only, no write-in field.
+const mcHtml = render("?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No");
+assert(!/<textarea/.test(mcHtml), "multichoice should not show a write-in textarea");
+assert(realLinks(mcHtml).length === 2, "multichoice should render 2 option links");
+
+// multichoice that opts into write-in → both option links and a textarea.
+const mcW = render("?pile=p&poll=mc&round=1&tok=t&type=multichoice&writein=1&opts=Yes,No");
+assert(/<textarea/.test(mcW), "multichoice+writein should show a textarea");
+assert(realLinks(mcW).length === 2, "multichoice+writein should still render 2 option links");
+
+// No type, no opts → still answerable: a write-in field, never a fabricated yes/no.
+const bareHtml = render("?pile=p&poll=bare&round=1&tok=t");
+assert(/<textarea/.test(bareHtml), "bare poll should fall back to a write-in field");
+assert(!/>Yes<|>No</.test(bareHtml), "bare poll must not fabricate yes/no options");
+
 console.log("landing link-builder: OK");

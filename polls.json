@@ -1,0 +1,28 @@
+---
+# Build-time projection of the per-poll registry (_data/constitutions/<pile>/<poll>.json).
+# Renders a small, cacheable, PUBLIC subset of every poll's config — the half a landing
+# page needs to render the question, plus the lifecycle window. The judge guidance is
+# included because Tell already shows it to respondents (shown_guidance); nothing private
+# lives here. No network IO at build. See docs/per-poll-registry.md.
+#
+# Shape: a flat array of poll objects, each keyed by {pile, poll}. A landing page fetches
+# this once and looks up its own {pile, poll} rather than trusting render hints in the QR.
+layout: null
+permalink: /polls.json
+---
+{%- comment -%}
+  site.data.constitutions is a hash {pile => {poll => config}} (Jekyll namespaces nested
+  _data dirs). Liquid has no array push and nested forloop.last is unreliable across two
+  levels, so we emit each object with a "|||" terminator, split, then join with commas —
+  Ruby's split drops the trailing empty, giving valid JSON with no dangling comma.
+{%- endcomment -%}
+{%- capture rows -%}
+{%- for pile in site.data.constitutions -%}
+{%- for poll in pile[1] -%}
+{%- assign c = poll[1] -%}
+{"pile":{{ c.pile | jsonify }},"poll":{{ c.poll | jsonify }},"type":{{ c.type | jsonify }},"text":{{ c.text | jsonify }},"options":{{ c.options | jsonify }},"accept_writein":{{ c.accept_writein | jsonify }},"guidance":{{ c.guidance | jsonify }}{% if c.lifecycle %},"lifecycle":{{ c.lifecycle | jsonify }}{% endif %}}|||
+{%- endfor -%}
+{%- endfor -%}
+{%- endcapture -%}
+{%- assign items = rows | split: "|||" -%}
+[{{ items | join: "," }}]

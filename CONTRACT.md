@@ -131,7 +131,7 @@ Tell-runner mints:
   `{schema:"tell.submission/v1", pile, poll, round, type, asker, shown_guidance, tok, answer}`. The
   page only builds a link — nothing phones home. `shown_guidance` is the guidance the respondent was
   *shown* — informational provenance, carried to the pile. What *governs* is the constitution the pile
-  delegated to Tell (`constitutions/<pile>/<poll>.json`), applied below before sealing.
+  delegated to Tell (`_data/constitutions/<pile>/<poll>.json`), applied below before sealing.
 - **The ejected check.** `bin/authz` reads the submission JSON on stdin (overridable via
   `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
   {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,
@@ -148,7 +148,7 @@ Tell-runner mints:
   "kept"), `rejected` (with reason) for the unauthorized. Tell writes only its own repo.
 - **Authorize always; govern only when delegated, and never withhold.** Tell always decides what is
   *authorized and delivered*. It *judges* only the polls a pile delegated to it
-  (`constitutions/<pile>/<poll>.json`), and even then it only **attaches** a verdict before sealing — it
+  (`_data/constitutions/<pile>/<poll>.json`), and even then it only **attaches** a verdict before sealing — it
   never drops or edits an authorized answer. Whether a reply is ultimately *kept* remains the
   **data-pile's** call: it receives every authorized record already carrying its `governed` verdict and
   the `constitution_sha`, and may re-judge at its boundary. A pile that delegates nothing gets its
