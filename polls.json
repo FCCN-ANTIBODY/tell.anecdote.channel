@@ -1,12 +1,15 @@
 ---
-# Build-time projection of the per-poll registry (_data/constitutions/<pile>/<poll>.json).
-# Renders a small, cacheable, PUBLIC subset of every poll's config — the half a landing
-# page needs to render the question, plus the lifecycle window. The judge guidance is
-# included because Tell already shows it to respondents (shown_guidance); nothing private
-# lives here. No network IO at build. See docs/per-poll-registry.md.
+# Build-time TRANSPARENCY projection of this Tell's judge-side per-poll registry
+# (_data/constitutions/<pile>/<poll>.json): a small, cacheable, PUBLIC list of which polls
+# this Tell governs and by what rule (question, type, options, accept_writein, guidance,
+# lifecycle). Nothing private lives here; guidance is already shown to respondents.
 #
-# Shape: a flat array of poll objects, each keyed by {pile, poll}. A landing page fetches
-# this once and looks up its own {pile, poll} rather than trusting render hints in the QR.
+# It is NOT in the respondent path. A poll is self-contained in its (signed) QR and is
+# intentionally unbacked — the landing renders from the QR, not from here (see
+# docs/per-poll-registry.md). This file exists to make a Tell's governance legible, and is
+# the natural seam for a later, made-public list used in cross-node discovery.
+#
+# No network IO at build. Shape: a flat array of poll objects, each keyed by {pile, poll}.
 layout: null
 permalink: /polls.json
 ---
