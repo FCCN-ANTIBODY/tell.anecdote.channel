@@ -186,3 +186,103 @@ signed claim; the world weighs it.
   / catchment / …). Controlled aids the bisect stack's "vertical list of concepts"; free-text avoids
   a central taxonomy authority. Tension with "no privileged attester" — a fixed vocabulary is itself
   a soft-power center.
+
+---
+
+# Live capture (session 2) — the user story, and "a pinned boundary is an anecdote"
+
+> Working note left **to notice when advantageous**, not to act on now. This is the design
+> conversation thinking-out-loud, recorded so the shape is here when we attack design +
+> implementation. Faithful to the framing offered, including the deliberate non-decisions.
+
+## The user story we'll attack this with
+
+> *I start a Tell server that I know I want to be about a **politically bounded object**. I'm the
+> kind of driven person who would supply a **map file of my own preparation** — and even though it's
+> GeoJSON, it may be **wholly prepared by me**, not handed down by some official authority. I'm
+> welcome to **sign where it came from** (how that signing works, we'll discuss another time). I just
+> want to provide a boundary I **know I want to talk about** — and maybe I'll host **more** boundaries
+> that **I endorse**. That might be the right **pausing place**: I'm not sure I need a single slot to
+> be "the official topic."*
+
+What this story pins down for the declaration design:
+
+- **Self-prepared is the *normal* origin, not the fallback.** The driven operator hand-draws the
+  shape; an official import is just one `basis[]` flavor among others. This is the merged model's
+  "government gets a Tell like anyone else and supplies its boundary *for what it's worth*" — but read
+  from the *author's* chair: the format must make a hand-drawn shape a **first-class, sign-able**
+  thing, never a second-class "unofficial" one.
+- **Provenance signing is wanted but deferred.** The operator *wants* to sign "where it came from";
+  we explicitly **table the mechanism** (it rhymes with the `keys/tell.fpr` ownership proof and the
+  optional per-file digest above — but don't force it now).
+- **Everything is fabricated, so we declare, we don't adjudicate.** "We see these objects as
+  **fabricated in every scenario**, so there needs to be **agreement eventually — but we're not going
+  to get there** [here]." This is the strongest statement yet of declaration-only: the Tell asserts a
+  shape it wants to talk about; convergence/agreement is someone else's later job, and we don't block
+  on it.
+- **Endorse-many is in scope; a designated primary is the open pause.** Hosting "more boundaries that
+  I endorse" confirms the **list-first** call. Whether one entry is flagged as **the** topic
+  (a single "official topic" slot) vs. a **flat endorsed set** is left open *on purpose* — see the
+  pause below. Lean (unenforced): a flat set, with at most a soft `primary:` hint, because a hard
+  single slot reintroduces a privileged-claim shape we keep trying to avoid.
+
+## The realization: a pinned boundary is just an *anecdote* the server holds up
+
+The format of the boundary a Tell "holds up as its opinion" (and which is presumably **tolerable to
+the people inside** that Tell) is **basically identical to what any member could just *say* as their
+own opinion.** So the server isn't declaring a truth — **it is pinning an opinion.** That collapses
+two things we were modeling separately:
+
+- **What gets routed *into* a Tell** = an **anecdote** — possibly **signed by an Atlas you know**, or
+  **arrived spontaneously** (someone let their contact info out on purpose), or a **response to a
+  private poll**.
+- **What a Tell *pins*** = **one of these anecdotes, in pure form.**
+
+So the boundary-declaration schema may not be its own thing at all: **a declared boundary is an
+anecdote whose content is a shape, that the server has chosen to pin.** Declaration = the server
+endorsing one anecdote out of the same class any constituent could utter. This is a satisfying
+unification — *Address, Qualification, Participation* and now the **anecdote** as the single quantum
+that flows, gets pinned, and gets weighed — but it has **reach well past this note**, so flag it:
+
+- **Next thing to design: the anecdote schema itself.** "What schema is an anecdote sent to a Tell
+  server?" is now the upstream question; boundary-declaration becomes a *profile* of it (an anecdote
+  carrying a polygon + `basis[]`). Worth its own note before we freeze any `tell.yml` `boundaries:`
+  shape, so the two don't drift.
+- **The voucher precedent likely *is* the anecdote envelope** (`tell.voucher/v1`: a claim + `basis[]`
+  + confidence). If a routed response, a pinned boundary, and a member opinion are all the same
+  envelope, the schema work is mostly *naming the union*, not inventing one.
+
+## The pause: do I need a single "official topic" slot?
+
+Recorded as an **open, deliberately-unresolved** fork (the operator "isn't sure"):
+
+- **Flat endorsed set** (lean): every boundary is a peer the server endorses; no anointed primary —
+  consistent with "no privileged attester," and with the consent ladder's *endorse vs. consent vs.
+  refrain* (the server's list is its **endorsements**).
+- **Single primary slot:** one boundary is "what this Tell is *about*." Cleaner for a directory card
+  and for "this Tell speaks for Fort Collins," but it re-creates a privileged-claim shape and forces a
+  choice the operator may not want to make. If wanted, prefer a **soft** `primary:` hint over a
+  structural single slot.
+
+## "First to say it" — cosmic-fringe credit (let simmer, mostly for the delight of it)
+
+For all that we **refuse leaderboards and authority-attribution**, it would be *funny and good* to
+know **who was first to say a thing** — and to finally credit people who'd otherwise never get any.
+Especially a word/claim that **only ever reached you via solicited Atlas servers** — "who you heard
+chatting about it" — because that path is **uncontrollable**: it's a cosmic-fringe accident of routing
+that no one can plan or game. That very un-gameability is what makes the credit *safe* (it can't
+become a power move) and *charming* (it honors the unhonored). Keep it **orthogonal to weight/authority**
+— first-utterance is a *story about provenance*, never a multiplier on a claim's standing. A natural
+home: an optional, append-only "first heard via …" trace on an anecdote, surfaced as flavor, never as
+rank.
+
+## Added to open threads
+
+- **Author the anecdote schema first** (boundary = a profile of it); decide whether `tell.voucher/v1`
+  is already the envelope. This likely **supersedes** the standalone "meta in YAML vs. GeoJSON
+  `properties`" thread above — the meta may just be anecdote fields.
+- **Single "official topic" slot vs. flat endorsed set** (with a possible soft `primary:` hint).
+- **"First to say it" provenance trace** — opt-in, un-gameable, orthogonal to weight; design the
+  Atlas-routed "who you heard it from" path so credit is possible without ever becoming rank.
+- **Provenance signing of a self-prepared shape** — wanted, deferred; reconcile with the
+  ownership-proof / per-file-digest options when we pick the signing story.
