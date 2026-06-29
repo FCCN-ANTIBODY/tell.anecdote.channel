@@ -250,6 +250,45 @@ without reintroducing a single map-maker. Two compatible truths:
 **Still open (where lens-relative becomes UX):** how a user **adds/removes lenses**, and whether
 even the first-contact default should be a choice rather than a shipped default.
 
+## The boundary is an invitation, not a fence (the enfranchisement floor)
+
+**Drawing a border is an act of address.** If you dare to box people, you have *addressed*
+them — and you **cannot choose which of them are in**. Geography chooses your constituents.
+The only gate is the **posted constitution**, and it gates on *qualification* (does the reply
+pass the rule), never on *identity* (who you are). This is the most thorough anti-owner-operator
+move in the design: an operator's defining power is choosing the room; here you may define the
+*territory*, but the room fills itself.
+
+**Boundaries become self-policing.** If drawing a box enfranchises everyone inside it, a
+malicious boundary *backfires* — you can't fence in only your allies, because you've handed a
+voice to exactly the people you wanted to exclude. A border drawn around people you don't
+control is **dangerous to the drawer, safe for the bounded.** The act of claiming territory is
+the act of giving it away.
+
+**Two-sided symmetry.** The drawer **can't exclude** anyone inside; the standee **can't be
+forced** to speak. Enfranchisement is automatic; voice is opt-in. That is an **optional
+constituency** — you are objectively *in* it by standing there, but activating the voice is
+yours alone. (Distinct from a **lens**: a lens is what you *see*; an optional constituency is
+what you can *act through*.)
+
+**Reconciled with "location never leaves the device":** a Tell does not locate you — **you
+present an inside-the-box membership vouch**, graded by basis (GPS strong, IP weak). The Tell
+addresses a *territory*; you answer by *proving you are of it*, without revealing where you
+stand. Spoofing an inside-claim is possible but weak stiction — low weight, adaptively
+counterable, never a hard gate.
+
+**What "constituency" formalizes — three independent layers, none owner-operated:**
+
+- **Address** — geometry. A boundary names who is *spoken to*. (This is the draggable map:
+  drag it, the centerpoint enumerates *every* box containing it, jokes included — the Address
+  layer made explorable. You don't *select* here; you *see what claims exist*.)
+- **Qualification** — the constitution. What *passes*.
+- **Participation** — individual will. Whether you *answer*.
+
+This is why **anecdote "worships" constituencies but does not hold them**: the territorial
+layer is **sovereign and external**; anecdote only indexes it and needs *you* to tell it your
+membership. It is an atlas of claims, never a claimant.
+
 ## Contested by construction — geometry vs. constitution, and choosing among siblings
 
 **Assume there is always more than one group claiming a boundary.** Divisions of thought about
