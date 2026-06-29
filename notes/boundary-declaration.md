@@ -351,149 +351,33 @@ among addresses is handled by overlap, not by promoting one address to law.
 
 ---
 
-# Live capture (session 4) — what a jurisdiction node *shows*: the page is the real-time democracy
+# Live captures 4–5 — transplanted to the Atlas
 
-> Continues the trail. This is the **view layer** falling out of mint + the phantom shape — what a
-> person actually sees at a political-jurisdiction node (a DNS-addressed page, civic-node up to a
-> state). Likely an Atlas/Apex concern more than a Tell one, recorded here for continuity; may move.
+> Sessions 4 and 5 of this trail were about **exposure** — what the public sees, how it is ordered, the
+> query language, the ternary — which is the **Atlas's** side ("Atlas is the side that does exposure of
+> what anything mints, for public view"). They have been **moved to and developed in**
+> [`atlas.anecdote.channel/notes/public-exposure.md`](https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel/blob/main/notes/public-exposure.md).
+> Kept here only as pointers, because they grow out of the Tell-side **mint** above.
 
-## The page *is* the aggregate, because no one owns the jurisdiction
+Transplanted there (see that note for the developed form):
 
-We already hold that **no civic-node or workspace is authoritative and *owns* a jurisdiction** — so
-whatever a jurisdiction node shows is **necessarily the aggregation the public Atlas provides** (the
-recorded "give up the view-from-nowhere — every aggregate is lens-relative" decision, now read as a
-*rendering* fact, not just a data one).
+- **The public jurisdiction page says *what they say*, not the data that moves.** Opinions are public by
+  nature; the data flowing on the network ("how we answer and talk to each other") stays behind the
+  scenes, **licensable consentfully** — the Atlas's existing "honor a pile's terms / publish coarse
+  standing, never raw per-respondent counts" law, read precisely.
+- **The page is the real-time democracy** — the live aggregate of minted anecdotes within the ownerless
+  phantom shape (the "state" is just the largest such shape); same render rule at every tier.
+- **Elevate without a trending algorithm** — the Atlas's own "reflect… *without flattering popularity*";
+  built from the defusing-the-default disciplines + the edge lens, never a ranking function.
+- **The establishment tier** — state-wide Tells, relevant by intent, acknowledged implicitly, not
+  shown-first, internally plural.
+- **Query an Atlas by the label structure it lists polls under** — a reductive, improvable, unified
+  language; a direction for this note's `concept`-vocabulary fork.
+- **Self-listed anecdotes; minting is social; the Atlas is the router** — you mint for an absent other,
+  agree to your Atlas's constitution to be there at all, and may leave by design.
+- **The ternary** (three voices, not two) and the **why-anecdote-exists thesis** — both anecdote-wide;
+  the thesis is flagged in the Atlas note for promotion to a top-level vision note.
 
-Minting closes the loop and makes the **state level** legible the same way as a neighborhood:
-
-- **Tells mint opinions** (their founding anecdotes — boundaries and the rest).
-- The **Atlas holds the phantom shape** that *contains* those Tells — and that phantom shape, owned by
-  no one and emergent from convergence, **is "your state."** The state was never a thing that speaks;
-  it is the **shape the speaking Tells fall inside.**
-- Therefore the **state's page should literally be the real-time democracy of what those Tells are
-  saying** — the live aggregate of the anecdotes minted within the phantom boundary, not a report
-  *about* the state from some owner of it.
-
-So a jurisdiction node, at any tier, renders the same thing: **the minted anecdotes addressed to the
-territory its boundary names, shown live.** "State" is just the largest phantom shape we've drawn so
-far; the render rule doesn't change with size.
-
-## The hard constraint: elevate **without** an algorithm telling us what's trending
-
-The load-bearing open worry, stated as a **firm no**: we do **not** want an opaque **trending
-algorithm** deciding what rises. How a page **elevates / orders / surfaces** what it shows is unsolved
-— and must stay un-solved by ranking-function.
-
-This is the *same* problem the **"Defusing the default"** section already wrestles with; its disciplines
-are the raw material here (and they deliberately avoid a ranking function):
-
-- credibility shown **as data** (a meter / attestation count / overlap %), never used to **anoint** a
-  default;
-- **perturb** position, don't **curve** it (list + occasional **on-device** order reversal — curving is
-  itself editorial);
-- **tier**, don't flatten (premium claims share the shuffled top; jokes/opt-in stay below the fold);
-- **no unmarked norm** (every claim marked by attester + attributes — never "official/normal/default").
-
-And the edge/lens machinery (the **bisect stack**, the **consent ladder**) is where ordering becomes the
-*user's* assembly rather than the page's verdict. The open design question is whether those disciplines
-are **enough** to render a satisfying "real-time democracy" view, or whether some non-algorithmic
-elevation primitive is still missing — but the constraint is fixed: **convergence shown as data, never a
-trending oracle.**
-
-## Added to open threads
-
-- **Jurisdiction-node view = live aggregate of minted anecdotes within the phantom (convergent)
-  boundary.** Same render rule at every tier (neighborhood → state). Its home is probably the
-  Atlas/Apex render, respecting the existing **neutral-geometry vs. edge-curation** split (the live
-  aggregate is geometry/substrate; elevation is curation = edge). Cross-ref the DNS angle
-  (`state-name.anecdote.channel` handing out a jurisdiction's view) and civic-node as the bootstrap.
-- **Elevation without a trending algorithm** — hard constraint (no opaque ranker). Draw on the
-  defusing-the-default disciplines + the bisect-stack/consent-ladder edge; open whether they suffice or
-  a missing non-algorithmic primitive is needed. Do **not** resolve this with a ranking function.
-
----
-
-# Live capture (session 5) — the establishment tier, the query language, and the ternary
-
-> Continues the trail. **Heads up: several threads here overflow this note** — the *ternary* and the
-> *why-anecdote-exists thesis* are anecdote-wide (vision / CONSTITUTION-adjacent), and the *Atlas query
-> language* is an Atlas concern. Captured together for trail continuity; **flag for promotion** to their
-> own note(s) when advantageous.
-
-## State-wide Tells — the establishment tier: relevant by intent, not shown first
-
-Some Tells are **implicitly Tells for the whole state** — servers specifically occupied with **what the
-state *should* say**, pointing at a jurisdiction shape all the way up to as big as Colorado. What they
-say is **specifically trying to be relevant**, and that intent is worth **acknowledging implicitly**
-(e.g. the Atlas can mark the Tells it points at a jurisdiction shape). But:
-
-- **Relevant-by-intent ≠ shown-first.** Even a Tell that was "first" only competes with what the **Atlas**
-  is saying — and the Atlas's own utterance is **definitely new** relative to what's already being said.
-- This tier is, more or less, **the establishment** — and **even amongst themselves they are plural** and
-  hold many opinions. **How to aggregate even them is open.**
-
-## Query an Atlas by the same label structure it lists its polls under
-
-We need to be able to **query the Atlases with the same label structure the Atlas uses to list its
-polls.** That keyword structure is meant to **cover all ideas** because it is **label-reducing** — it
-decomposes an idea into its components. So there is a **unified language everything renders under, even
-if that language gets better over time.**
-
-- This is a **direction for the earlier `concept`-vocabulary fork** (free-text vs. controlled set): a
-  **shared, reductive, evolving** label language — neither a free-for-all nor a frozen central taxonomy.
-  Recorded as the operator's direction; the merge is still theirs.
-
-## Atlases (and Tells) list their *own* anecdotes — minting is social, the Atlas is the router
-
-An Atlas or a Tell can also **list its own anecdotes** — **not** the ones it promoted from below, but the
-ones **it itself says** — and this **only really matters if they intend to be discovered through an
-Atlas.** From which:
-
-- **Minting an anecdote is a social behavior.** A minted anecdote is **meant for someone else who isn't
-  present**, so it needs a **router — and the router is the Atlas.** You mint in order to **socialize it
-  to others.**
-- **You can't control what your Atlas says, but you must agree to its constitution to be there at all —
-  and you can leave for one that says something you like better, by design.** (The existing consent/exit
-  gesture, one tier up: register by PR, the principal keeps the right to leave — CONTRACT.md.)
-
-## Enshrine the ternary — three voices, never two
-
-A principle to possibly **enshrine**: show a thing as a **ternary**, not a binary —
-
-1. what **anecdote** says,
-2. what **those trying to speak for it** say (the establishment Tells), and
-3. perhaps what **recognized government** says,
-
-— and that set may **scale with whose boundaries are in competition** at a contested spot. Why three
-beats two:
-
-- In a **binary they can hide**: a yes/no lets a position pass as the obvious one, and anyone who
-  collapses to binary is **"always sharing turf with someone else who flipped the same coin."**
-- With **three, you get the chance to care how you look next to something else** — a position becomes
-  legible **by contrast**, and can't masquerade as the default. (Same spirit as defusing-the-default's
-  "no unmarked norm," made structural: a third voice denies the binary its hiding place.)
-- **Open:** how the third voice (and the scaling-with-contestants) is chosen **without** re-introducing a
-  privileged slot; and how the internally-plural establishment collapses into a single "voice 2."
-
-## The thesis — why anecdote needs to exist (promote this)
-
-The ternary is, put to a point, **the whole approximate cause of anecdote needing to exist**: today there
-is **nothing for us to stand beside** — **not *us* alone, and not the governments that fail us by not
-listening well.** **Companies are capturing that public layer along with the governments**, and
-increasingly their **terms of service and privacy policies sell us out.** *"They don't even understand
-what the alternative is; they barely understand where they came from in a binary."* anecdote is the
-**third thing to stand beside.** → **Promote to a top-level vision note** (README / CONSTITUTION-adjacent);
-it is the mission, not a boundary detail.
-
-## Added to open threads
-
-- **Establishment tier (state-wide Tells):** acknowledge implicitly (mark the Tells an Atlas points at a
-  jurisdiction shape); not shown-first; **aggregating the internally-plural establishment into one voice
-  is open.**
-- **Unified Atlas query language = the poll label/keyword taxonomy** — reductive/componential, improvable
-  over time; a **partial direction** for the `concept`-vocabulary fork above.
-- **Self-listed (own, not promoted) anecdotes** on an Atlas/Tell; **minting-as-social**; **Atlas-as-
-  router**; constitution-to-enter + **exit-by-design** as the governing consent.
-- **Ternary as an enshrined display principle** — three voices, scaling with contestants; **choosing the
-  third neutrally is the open part.**
-- **Promote the why-anecdote-exists thesis** to its own top-level note — it is the mission statement.
+Tell-side kernel that stays here: a Tell **mints** its founding boundary (sessions 2–3 above); the Atlas
+only **exposes** it. The boundary-declaration mechanics (the `boundaries/` directory, the `boundaries:`
+list, signing, registration) are the subject of this note.
