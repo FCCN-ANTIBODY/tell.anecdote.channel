@@ -197,6 +197,59 @@ polygons, so authority has a spatial-agreement measure (area overlap / IoU). Tig
 a strong consensus boundary; scatter → contested, surface them all. The disagreement itself
 becomes visible civic data — you can *see* where a community doesn't agree on its own borders.
 
+## The Apex (anecdote.channel) — geometry vs. curation, and where the seed lives
+
+Two jobs of the Apex that must **never merge**:
+
+- **Geometry (neutral).** The Apex is a **static delivery server**: it ships the **bisect zone
+  list** — every boundary it holds, as plain polygons (civic down to neighborhood, "anything
+  boxable"). It blesses nothing. Because **boundaries are public claims and only *memberships*
+  are private**, it can serve the whole universe without leaking anything. This is also a cool
+  resource in its own right: a downloadable map of all geopolitical boundaries.
+- **Curation (opinionated).** *Which* boundaries matter is a **lens** applied on top — and per
+  the decision above, the lens lives at the **edge**, not the center.
+
+**Client-side bisection keeps the privacy promise.** The web app reads your location and
+**bisects locally** against the Apex-delivered polygons; only the resulting membership set
+leaves the device, graded by *how* you proved location (GPS = strong, IP-fallback = weak — the
+"dynamic range" of attestations: you can forgo one to give another, but the weaker one counts
+for less). The static server ships the map; your device folds you into it privately. The Apex
+never becomes a location-surveillance point — it stays a dumb file server.
+
+**No containment hierarchy.** Fort Collins does not need Colorado to co-sign its boundary; a
+shared climate zone is *bigger* and no more privileged. You belong to many **overlapping,
+non-nested** constituencies at once, so bisection is point-in-many-polygons, never
+tree-descent. State is merely the smallest unit we use to think of ourselves as separate — a
+*salience* fact, not a structural one.
+
+**An Atlas offers its claims by publishing a boundary directory** — exactly as it already lists
+the polls it runs. That directory *is just another attestation the Atlas makes*; adopting it =
+loading it as a lens. "**Premium labeling**" is then simply: boundaries a reputable Atlas
+vouches for are in the **default lens**; everything else is **opt-in**.
+
+**"Joke" is not a detected property — it is the absence of premium attestation.** The
+LA-bronies border isn't filtered because someone judged it a joke; it's just that no civic
+Atlas listed it, so it sits below the premium fold — discoverable if you go looking (the
+directory doubles as *advertisement*: discovery without imposition), never forced on you. And
+it's **lens-relative**: if a fandom Atlas lists it, then *within that lens* it's premium.
+Someone who has lived inside that polygon their whole life is still not conscripted into the
+constituency by default, because they never loaded that lens. No truth-oracle for jokes;
+per-community by construction.
+
+**Where the seed lives (honest bootstrap).** The default lens can't be the Apex's own fiat
+without reintroducing a single map-maker. Two compatible truths:
+- In principle the default is the **convergence of the Atlas directories the Apex knows**,
+  shipped as an explicit, overridable projection ("what it *considers* the list" — the phrasing
+  already disclaims it).
+- In practice, **the FCCN-ANTIBODY org will have to run the default/seed infrastructure** for
+  official boundaries that aren't reinforced elsewhere *yet* — **powerfully seeded**. This is
+  acceptable only as the glue-layer move at scale: a **seed that dilutes** as community/Atlas
+  attestation accumulates, not a permanent authority. The seed enters the same pile as everyone
+  else's and can be outweighed.
+
+**Still open (where lens-relative becomes UX):** how a user **adds/removes lenses**, and whether
+even the first-contact default should be a choice rather than a shipped default.
+
 ## Where this diverges from the three open PRs
 
 Agreements: per-record text shouldn't be a bulk public surface; reuse the seal-full /
