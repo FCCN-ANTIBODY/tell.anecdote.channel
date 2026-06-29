@@ -26,7 +26,7 @@ runs:
 
     - name: Fetch latest tell tip
       run: |
-        git -C .tell-enginefetch origin main
+        git -C .tell-engine fetch origin main
         echo "TELL_LATEST_SHA=$(git -C .tell-engine rev-parse FETCH_HEAD)" >> $GITHUB_ENV
       shell: bash
 
@@ -52,7 +52,7 @@ runs:
 
     - name: Revert tell to last-known-good on build failure
       if: steps.build.outcome == 'failure'
-      run: git -C .tell-enginecheckout "$TELL_LKG_SHA"
+      run: git -C .tell-engine checkout "$TELL_LKG_SHA"
       shell: bash
 
     - name: Roll tell pin forward (only on a clean latest build)
