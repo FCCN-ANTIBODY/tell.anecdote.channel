@@ -227,6 +227,9 @@ What this story pins down for the declaration design:
 
 ## The realization: a pinned boundary is just an *anecdote* the server holds up
 
+> Refined in **session 3** below: the Tell does not only *pin* a prior utterance — it **mints** its
+> founding anecdotes (the boundary among them). Read "pin" here as the weaker case of "mint."
+
 The format of the boundary a Tell "holds up as its opinion" (and which is presumably **tolerable to
 the people inside** that Tell) is **basically identical to what any member could just *say* as their
 own opinion.** So the server isn't declaring a truth — **it is pinning an opinion.** That collapses
@@ -286,3 +289,62 @@ rank.
   Atlas-routed "who you heard it from" path so credit is possible without ever becoming rank.
 - **Provenance signing of a self-prepared shape** — wanted, deferred; reconcile with the
   ownership-proof / per-file-digest options when we pick the signing story.
+
+---
+
+# Live capture (session 3) — the Tell *mints* its founding anecdotes; the Atlas recursion
+
+> Continues the trail. Refines session 2's framing and opens one new fork, held with the operator's
+> own reasoning attached. Still nothing decided.
+
+## From *pin* to *mint*
+
+The sharper version of the session-2 realization: the boundary (and the Tell's other opening claims)
+is less a **pinned** anecdote that some member said first, and more **the first anecdotes the Tell
+server itself mints.** The Tell is the **originator** of its founding anecdotes, not only the curator
+of a prior utterance. So "declare a boundary" = the Tell **mints a founding anecdote whose content is
+a shape** — same envelope as any anecdote, the distinguishing facts being *who minted it* and *that it
+was first for this node*. (The "first to say it" credit below still applies; minting just names the
+more important actor — the node standing up its own opening claim.)
+
+## The Atlas might mint too — and that opens a negotiation
+
+An **Atlas could do the same** — mint its own founding anecdotes. But an Atlas minting introduces a
+**negotiation a Tell needs in order to disagree**, and the crux is **what kind of thing the Atlas
+mints**:
+
+- **Constitutional** — the minted thing *binds*, the way an Atlas's constitution already binds the
+  Tells it lists (they must report in the shape it requires). To disagree is to fall **outside** the
+  constitution — expensive.
+- **Just anecdotes they offer** — the Atlas mints *offers*, not law. A Tell can take them, leave them,
+  or counter them like any anecdote.
+
+**Recorded reasoning (the operator's):** disagreeing **anecdotes** are *easier to resolve* than
+constitutional disagreement. Tell servers can **say whatever they want within the Atlas's
+constitution** — exactly as a Tell lets members say whatever the **Tell's** constitution allows, with
+**overlap** doing the reconciling. So the cheap-to-resolve path is: **the constitution sets the outer
+bound; minted anecdotes (the Atlas's and the Tells') are speech within it; overlap/competition
+resolves their disagreement — never constitutional fiat.**
+
+## The fractal this exposes
+
+Same shape, one tier up — worth naming because it keeps the whole stack consistent:
+
+- A **Tell** mints anecdotes; **members** say whatever the **Tell's** constitution allows; overlap
+  reconciles.
+- An **Atlas** mints anecdotes; **Tells** say whatever the **Atlas's** constitution allows; overlap
+  reconciles.
+
+Constitution = the boundary of permissible speech at each tier; minted anecdotes = speech inside it;
+overlap = the resolver. This is the geometry-vs-constitution decoupling read as a *speech* relation:
+the constitution gates qualification, the minted anecdotes are address-layer claims, and disagreement
+among addresses is handled by overlap, not by promoting one address to law.
+
+## Added to open threads
+
+- **Mint vs. pin.** The founding boundary is **minted** by the Tell (it originates), refining session
+  2's "pinned." Confirm the anecdote envelope can carry a *minter* + *first-for-this-node* fact,
+  distinct from the "first to say it" provenance trace.
+- **Does an Atlas mint — and if so, as constitution or as offered anecdotes?** Held with the operator's
+  reasoning attached: the *offered-anecdotes* path keeps disagreement cheap (resolved by overlap within
+  the Atlas's constitution); the *constitutional* path is the heavier alternative. Not yet decided.
