@@ -108,6 +108,19 @@ So Tell's transparency reports are not only an audit surface for the pile — th
 Atlas aggregates upward. Keep them well-described (`CONSTITUTION.md` → "I describe the transparency
 reports I publish").
 
+**Reporting direction (specified — see [`docs/reporting.md`](docs/reporting.md)).** A standalone Tell
+publishes **no** public report. Its *one compulsory artifact* is its **Atlas-facing delivery**, produced
+**only when it joins an Atlas** — de-identified, membership-tagged rows and their signed summaries (a
+`tell.poll.summary/v1`: `count`, coarse option tallies, verdict counts, the poll's topic; never answer
+text or `asker`). That summary is **promoted into the signed manifest head** (exactly as the coarse
+`tell.voucher.summary/v1` is, below), so it is **recomputable from the public manifests without
+decrypting** and the **pile backs it** via `bin/prove`. The crucial relocation: the **public aggregate
+and its small-N suppression live at the Atlas (the pool)**, where N is large across many Tells — never at
+each Tell, where N=2 either blanks or re-identifies. The per-answer **govern log is re-homed, not
+demoted**: sealed in the block (system of record), disclosed **one record at a time on a justified
+query** (an evidence locker — the identity tie is the Issue author), never a bulk public surface. Atlas
+roll-up (`OPEN-QUESTIONS.md` §C) is the consumer of those signed summaries.
+
 ## Ingress: QR → authorized Issue → digest
 
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
