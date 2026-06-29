@@ -21,13 +21,13 @@ runs:
   using: composite
   steps:
     - name: Record last-known-good tell SHA
-      run: echo "TELL_LKG_SHA=$(git -C .tell-enginerev-parse HEAD)" >> $GITHUB_ENV
+      run: echo "TELL_LKG_SHA=$(git -C .tell-engine rev-parse HEAD)" >> $GITHUB_ENV
       shell: bash
 
     - name: Fetch latest tell tip
       run: |
         git -C .tell-enginefetch origin main
-        echo "TELL_LATEST_SHA=$(git -C .tell-enginerev-parse FETCH_HEAD)" >> $GITHUB_ENV
+        echo "TELL_LATEST_SHA=$(git -C .tell-engine rev-parse FETCH_HEAD)" >> $GITHUB_ENV
       shell: bash
 
     - name: Advance tell to latest
