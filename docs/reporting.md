@@ -1,111 +1,115 @@
-# Reporting: the Tell's one compulsory artifact
+# Reporting: the Tell's compulsory artifact is its Atlas-facing delivery
 
-This note settles **who reports** in the constellation and **what the report is**. The decision:
+This note settles **who reports**. It supersedes an earlier draft that had each Tell self-publish a
+compulsory anonymous aggregate; the reporting-locus rethink
+([PR #27, `notes/reporting-locus-rethink.md`](https://github.com/FCCN-ANTIBODY/tell.anecdote.channel/pull/27))
+showed that aggregate sits on the wrong layer. The corrected decision:
 
-- **The Tell publishes one compulsory artifact — an anonymous, first-abstraction poll report.** It is
-  "a self-description of the topic(s), not a public set of labels." It serves the Tell's own
-  constituents — who otherwise cannot tell who is in the room beyond joined signatures — and it is
-  **not** a discoverable strict deliverable.
-- **The data-pile backs it in verifiable fact**, as discretionary *second-order raw proof*: the pile
-  holds the sealed per-record data, disclosed only at the gatherer's discretion
-  ([`data-pile/bin/prove`](https://github.com/FCCN-ANTIBODY/data-pile/blob/main/bin/prove),
-  [`data-pile/docs/lifecycle.md`](https://github.com/FCCN-ANTIBODY/data-pile/blob/main/docs/lifecycle.md)).
+- **A standalone Tell publishes no public report.** Reporting is an **Atlas-shaped obligation**, as the
+  Tell `CONSTITUTION` already frames it ("to be discoverable is to be addressable, and to report in a
+  fixed shape… the shape that Atlas's own constitution requires").
+- **The Tell's one compulsory artifact is its Atlas-facing delivery** — de-identified, membership-tagged
+  rows and their signed summaries — produced **only when the Tell is attached to an Atlas**. "Compulsory"
+  means *a condition of joining an Atlas*, not an always-on duty to publish to the world.
+- **The public aggregate, and its small-N suppression, live at the Atlas (the pool)** — never at each
+  Tell.
+- **The govern log is re-homed, not demoted**: it stays sealed (system of record) and is disclosed **one
+  record at a time, on a justified query** — an evidence locker, not a publication.
+- **The data-pile still backs it in verifiable fact** as second-order raw proof
+  ([`data-pile/docs/lifecycle.md`](https://github.com/FCCN-ANTIBODY/data-pile/blob/main/docs/lifecycle.md)).
 
-This is **doc-only** and introduces **no new cryptography and no new signing step**. It extends one
-mechanism the Tell already runs.
+This is **doc-only**, introduces **no new cryptography and no new signing step**, and keeps the
+seal-full / project-coarse mechanism the Tell already runs.
 
-## Why a *new* aggregate, not the govern report
+## Why the aggregate is on the Atlas, not the Tell
 
-Today's transparency report `reports/govern-…` carries **per-record** rows — the answer text and the
-`asker` ([`bin/govern`](../bin/govern); `CONSTITUTION.md` "I describe the transparency reports I
-publish"). That is closer to a public set of labels than to a self-description of topics. Under this
-decision the **per-record detail stops being a public artifact** — it rides **sealed to the pile**
-inside the `tell.digest/v1` block, exactly where it already lives — and the Tell's *public,
-compulsory* artifact becomes an **anonymous aggregate**: counts and a topic self-description, never
-rows.
+Small-N is decisive. On a two-person Tell every aggregate is N=2 — suppression either blanks everything
+(useless) or re-identifies the two people (a leak). There is **no `N_min` at which a tiny Tell publishing
+its own summary is both safe and useful**. Suppression only works where many Tells' arcs combine and N
+grows large, and that pooling layer is the **Atlas**. A per-Tell self-published summary also *feels* like
+every little server reporting everything its constituents say — which is not the report we want.
 
-## The mechanism — extend the voucher precedent one step
+So the Tell does not publish an aggregate. It **delivers** to the Atlas it has joined; the Atlas pools
+across Tells and produces the suppressed constituency aggregate (`OPEN-QUESTIONS.md` §C — the aggregator
+is where aggregation belongs).
 
-The voucher already demonstrates the exact pattern (`CONTRACT.md` → "Seal the full voucher; project a
-coarse one", lines ~192-198): `bin/rollup` emits a coarse `tell.voucher.summary/v1` (gradient
-*histograms* and confidence *ranges*, **never a value**), and `bin/deliver` **promotes** it into the
-**clear manifest entry** (`entries[].vouch`), where `head.sig` covers it — "signed and attestable
-wherever the bytes are served."
+## The mechanism — unchanged, but the consumer is the Atlas
 
-Add a sibling that does for the **tally** what the voucher summary does for **location**:
+The voucher already does *"seal the full, project a coarse one"* (`CONTRACT.md` §"Vouching", ~lines
+192-198): `bin/rollup` emits `tell.voucher.summary/v1` (histograms + ranges, **never a value**), and
+`bin/deliver` promotes it into the **signed manifest head** (`entries[].vouch`, covered by `head.sig`).
 
-**`tell.poll.summary/v1`** — emitted by `bin/rollup` per window, promoted by `bin/deliver` into
-`entries[].poll`, covered by the same `head.sig`:
+The reporting delivery rides the **same seam**: a per-window **`tell.poll.summary/v1`**
+(`count`, coarse option tallies, verdict counts, the poll's topic; **no answer text, no `asker`, no
+per-respondent rows**) promoted into `entries[].poll` under the same `head.sig`. The difference from the
+earlier draft is only **where it goes and who suppresses**:
 
-```json
-{
-  "schema": "tell.poll.summary/v1",
-  "poll": "<poll slug>",
-  "type": "multichoice | open",
-  "count": 23,                               // responses sealed this window
-  "options": { "Keep": 15, "Cut": 8 },       // multichoice only; omitted/suppressed otherwise
-  "writeins": 0,                             // count only, never the text
-  "verdicts": { "accept": 21, "held": 2 },   // anonymous verdict counts
-  "topic": "<the poll's question/guidance>", // self-description, already public in /polls.json
-  "constitution_sha": "sha256:…"             // which rule governed (ties to /polls.json)
-}
-```
+- It is **not** rolled into a per-Tell public `reports/poll-*.json`.
+- It is part of the **Atlas-facing delivery** the Atlas pulls when this Tell is listed.
+- **The Atlas applies small-N suppression at the pool** and publishes the constituency aggregate. The
+  per-Tell summary is an input to that pool, signed and recomputable from the Tell's manifests — never a
+  standalone public surface. A Tell with no Atlas produces these summaries for no one.
 
-It carries **no answer text, no `asker`, no per-respondent rows**. Open-type polls contribute
-`count` + `topic` + `verdicts` only — never answer content.
+## The govern log — sealed evidence locker, single-record disclosure
 
-### Anonymity floor (small-N suppression)
+The per-answer + judgment log (`bin/govern`'s rows: `answer`, verdict, `constitution_sha`, the Issue)
+is a powerful raw log. It is **kept, sealed, and re-homed** — not turned into a public artifact:
 
-Coarse only, echoing `OPEN-QUESTIONS.md` §C ("coarse only, never per-respondent"): an `options`
-breakdown is **omitted** when `count` is below a threshold `N_min` (a tally over one or two
-respondents re-identifies them). Below the floor the summary still carries `count`, `topic`, and
-`verdicts`; the option histogram is withheld until the floor is cleared. If any cell could single a
-respondent out, the granularity is too fine.
+- It stays **sealed** in the `tell.digest/v1` block where it already lives (system of record).
+- The Tell's job is **single-record disclosure on a justified query** — like a witness asked for one
+  record — **never a bulk dump**.
+- The real identity tie is **the Issue author**, not the `asker` field (the `asker` is usually the
+  solicitor — *you*). The Issue's GitHub author *is* the respondent. So one disclosed record names a
+  respondent: exactly what makes it a valid **harassment-complaint basis**, and exactly what is dangerous
+  as a bulk surface. Hence query-scoped, justified, one row at a time.
 
-## The compulsory report — a rollup of signed summaries
+**Moderation without an owner-operator** falls out of this and the existing constitution ("I do not drop
+the answer, edit it, or keep it back"): (1) govern the *future* by amending the per-poll constitution,
+not by reaching into the log; (2) a targeted constituent pulls the *one* record aimed at them as
+complaint basis; (3) a contested verdict gets an append-only recorded challenge, not an edit.
 
-The Tell's published artifact `reports/poll-*.json` is a **rollup of the `entries[].poll` summaries**
-across deliveries — per poll over time, plus a Tell-wide index of the poll universe (the "whole
-universe of inner chatter … in a first abstraction"). It is the Tell's only compulsory centralized
-output; keeping it to a first abstraction is what preserves the no-scaling story.
+## The pile backs it — unchanged
 
-The report **need not be signed**, because its figures are already signed:
+The figures the Atlas pools are committed in **Tell-signed manifest heads** the pile holds, so they are
+recomputable without decryption; the pile's `bin/prove` discloses raw blocks on demand to substantiate
+any figure (and single-record disclosure above is the per-row form of the same proof). Per-record detail
+never becomes a public surface; the pile is the system of record, the Atlas pool the first public
+abstraction.
 
-- **Manifest-committed.** Every summary rides in a **signed manifest head** (`head.sig` over the
-  entries digest, [`bin/deliver`](../bin/deliver)). Anyone can **recompute `reports/poll-*.json` from
-  the public manifests without decrypting** and confirm it matches. The report is a convenience
-  projection of signed material — "never a new source of truth," the same stance as the feed-gateway
-  `X-Tell-Vouch` header.
-- **Provable raw (the pile backs it).** The sealed blocks hold the actual records. At the gatherer's
-  discretion, `data-pile/bin/prove` discloses a ratchet checkpoint; a verifier then decrypts from
-  there, confirms each plaintext hashes to the **Tell-signed** manifest, *and* confirms the records
-  aggregate to the published summary. The anonymous report is thus falsifiable against the raw without
-  the raw ever being public — second-order proof, on demand.
+## Forward seeds (recorded, not specified here)
 
-## Discoverability — Tell-local first, Atlas deferred
+The rethink opens a larger arc; capture it, don't spec it yet:
 
-The compulsory report is published on the Tell's **own** surface and serves the Tell's constituents.
-It is **not** a discoverable strict deliverable. Atlas roll-up (`OPEN-QUESTIONS.md` §C) remains the
-**deferred, opt-in escalation**: when a Tell lists on an Atlas, the *same* signed `entries[].poll`
-summaries are the raw material that aggregator consumes. So the Tell-side artifact is concrete and
-compulsory **whether or not** Atlas is built — which eases §C's circular deadlock (each tier had been
-deferring to the other until a real listed Tell published reports).
+- **Device-side vouch.** Move the vouch from the server (`$TELL_VOUCH_CMD`) to the **device**, and change
+  its payload from a coordinate-gradient to a **signed district-membership set + `basis[]`**, computed
+  locally against Atlas-published boundary polygons — so **raw geography never leaves the device**. This
+  dissolves the "is shipping constituency membership too much?" worry: there is no coordinate at the Tell
+  to suppress, because the row never carried one. Same promotion seam, evolved payload.
+- **Atlas as a registry of bounded concepts.** A district = label + submitted boundary polygon +
+  authority attestations; "has a boundary" *is* the test for "a physical-world concern" (generalizes past
+  electoral districts — watershed, park, catchment).
+- **Stiction** — per-row self-attested metadata that lets an anonymous claim carry weight without naming a
+  person; the vouch *is* the stiction.
+- **Gradable, not trusted anti-Sybil.** `basis[]` makes a claim *weighable* (bare assertion = weak;
+  GPS/sensor/tokenized-district = strong) rather than pass/fail. No eternal "what is a human" gate; measure
+  the behavioral water level and mint new gradable assertions as the cat-and-mouse moves.
+- **Label-authority may equal report-credibility** — ranking competing boundary claims by authority looks
+  like the same "open line, weight accumulates" mechanism §C raises for report credibility; suspect one
+  attestation mechanism wearing two hats.
 
 ## What does not change
 
-- Per-record answers, `asker`, and the full `tell.voucher/v1` stay **sealed for the pile** in the
-  `tell.digest/v1` block — the pile is the system of record; the report is the first abstraction.
-- The pile remains the principal: it may re-judge at its boundary; the report summarizes what the Tell
-  *witnessed and sealed*, not what the pile ultimately keeps.
-- No new key, no new signature: `tell.poll.summary/v1` rides under the existing `head.sig` exactly as
-  `tell.voucher.summary/v1` does.
+- No new key, no new signature: `tell.poll.summary/v1` rides under the existing `head.sig`, exactly as
+  `tell.voucher.summary/v1`.
+- Per-record answers, `asker`, and the full `tell.voucher/v1` stay sealed in the `tell.digest/v1` block.
+- The pile remains the principal and the backing; the Atlas remains the aggregator.
 
 ## Build surface (when this is implemented)
 
 | Piece | Reuses |
 | --- | --- |
-| `bin/rollup` — also emit `tell.poll.summary/v1` per window | the same staged records it already rolls up; `bin/govern` verdicts |
-| `bin/deliver` — promote the summary into `entries[].poll` | the existing `entries[].vouch` promotion path; `head.sig` covers it |
-| `bin/poll-report` — roll `entries[].poll` across deliveries into `reports/poll-*.json` | the signed manifests on `feed/<scope>/<id>`; `/polls.json` topics |
-| ingress wiring — run `bin/poll-report` after `bin/deliver` | the `ingress` composite action |
-| `data-pile/bin/report` — read `reports/poll-*` as the backing-side aggregation | `bin/prove`, verified `state/<source>/manifest.json` |
+| `bin/rollup` — also emit `tell.poll.summary/v1` per window | the staged records it already rolls up; `bin/govern` verdicts |
+| `bin/deliver` — promote the summary into `entries[].poll` | the existing `entries[].vouch` promotion path; `head.sig` |
+| Atlas-side aggregator — pull listed Tells' summaries, suppress at the pool, publish constituency report | `OPEN-QUESTIONS.md` §C; the `reports` registry pointer |
+| govern-log disclosure — single-record, justified-query | `bin/prove` single-block disclosure; the Issue-author tie |
+| `data-pile/bin/report` / `bin/prove` — back any figure on demand | verified `state/<source>/manifest.json` |

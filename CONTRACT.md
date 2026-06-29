@@ -108,15 +108,18 @@ So Tell's transparency reports are not only an audit surface for the pile — th
 Atlas aggregates upward. Keep them well-described (`CONSTITUTION.md` → "I describe the transparency
 reports I publish").
 
-**Reporting direction (specified — see [`docs/reporting.md`](docs/reporting.md)).** The Tell's *one
-compulsory public artifact* is becoming an **anonymous aggregate** — a per-poll self-description
-(`count`, coarse option tallies, verdict counts, the poll's topic), never per-record answer text or
-`asker`. It rides as a `tell.poll.summary/v1` **promoted into the signed manifest head** (exactly as
-the coarse `tell.voucher.summary/v1` is, below), so the published `reports/poll-*.json` is
-**recomputable from the public manifests without decrypting** — manifest-committed, not separately
-signed — and the **pile backs it** with `bin/prove` raw disclosure on demand. Per-record detail stays
-**sealed in the pile**, no longer a public surface; Atlas roll-up (`OPEN-QUESTIONS.md` §C) consumes the
-*same* signed summaries as the deferred opt-in escalation.
+**Reporting direction (specified — see [`docs/reporting.md`](docs/reporting.md)).** A standalone Tell
+publishes **no** public report. Its *one compulsory artifact* is its **Atlas-facing delivery**, produced
+**only when it joins an Atlas** — de-identified, membership-tagged rows and their signed summaries (a
+`tell.poll.summary/v1`: `count`, coarse option tallies, verdict counts, the poll's topic; never answer
+text or `asker`). That summary is **promoted into the signed manifest head** (exactly as the coarse
+`tell.voucher.summary/v1` is, below), so it is **recomputable from the public manifests without
+decrypting** and the **pile backs it** via `bin/prove`. The crucial relocation: the **public aggregate
+and its small-N suppression live at the Atlas (the pool)**, where N is large across many Tells — never at
+each Tell, where N=2 either blanks or re-identifies. The per-answer **govern log is re-homed, not
+demoted**: sealed in the block (system of record), disclosed **one record at a time on a justified
+query** (an evidence locker — the identity tie is the Issue author), never a bulk public surface. Atlas
+roll-up (`OPEN-QUESTIONS.md` §C) is the consumer of those signed summaries.
 
 ## Ingress: QR → authorized Issue → digest
 
