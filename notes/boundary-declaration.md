@@ -348,3 +348,65 @@ among addresses is handled by overlap, not by promoting one address to law.
 - **Does an Atlas mint — and if so, as constitution or as offered anecdotes?** Held with the operator's
   reasoning attached: the *offered-anecdotes* path keeps disagreement cheap (resolved by overlap within
   the Atlas's constitution); the *constitutional* path is the heavier alternative. Not yet decided.
+
+---
+
+# Live capture (session 4) — what a jurisdiction node *shows*: the page is the real-time democracy
+
+> Continues the trail. This is the **view layer** falling out of mint + the phantom shape — what a
+> person actually sees at a political-jurisdiction node (a DNS-addressed page, civic-node up to a
+> state). Likely an Atlas/Apex concern more than a Tell one, recorded here for continuity; may move.
+
+## The page *is* the aggregate, because no one owns the jurisdiction
+
+We already hold that **no civic-node or workspace is authoritative and *owns* a jurisdiction** — so
+whatever a jurisdiction node shows is **necessarily the aggregation the public Atlas provides** (the
+recorded "give up the view-from-nowhere — every aggregate is lens-relative" decision, now read as a
+*rendering* fact, not just a data one).
+
+Minting closes the loop and makes the **state level** legible the same way as a neighborhood:
+
+- **Tells mint opinions** (their founding anecdotes — boundaries and the rest).
+- The **Atlas holds the phantom shape** that *contains* those Tells — and that phantom shape, owned by
+  no one and emergent from convergence, **is "your state."** The state was never a thing that speaks;
+  it is the **shape the speaking Tells fall inside.**
+- Therefore the **state's page should literally be the real-time democracy of what those Tells are
+  saying** — the live aggregate of the anecdotes minted within the phantom boundary, not a report
+  *about* the state from some owner of it.
+
+So a jurisdiction node, at any tier, renders the same thing: **the minted anecdotes addressed to the
+territory its boundary names, shown live.** "State" is just the largest phantom shape we've drawn so
+far; the render rule doesn't change with size.
+
+## The hard constraint: elevate **without** an algorithm telling us what's trending
+
+The load-bearing open worry, stated as a **firm no**: we do **not** want an opaque **trending
+algorithm** deciding what rises. How a page **elevates / orders / surfaces** what it shows is unsolved
+— and must stay un-solved by ranking-function.
+
+This is the *same* problem the **"Defusing the default"** section already wrestles with; its disciplines
+are the raw material here (and they deliberately avoid a ranking function):
+
+- credibility shown **as data** (a meter / attestation count / overlap %), never used to **anoint** a
+  default;
+- **perturb** position, don't **curve** it (list + occasional **on-device** order reversal — curving is
+  itself editorial);
+- **tier**, don't flatten (premium claims share the shuffled top; jokes/opt-in stay below the fold);
+- **no unmarked norm** (every claim marked by attester + attributes — never "official/normal/default").
+
+And the edge/lens machinery (the **bisect stack**, the **consent ladder**) is where ordering becomes the
+*user's* assembly rather than the page's verdict. The open design question is whether those disciplines
+are **enough** to render a satisfying "real-time democracy" view, or whether some non-algorithmic
+elevation primitive is still missing — but the constraint is fixed: **convergence shown as data, never a
+trending oracle.**
+
+## Added to open threads
+
+- **Jurisdiction-node view = live aggregate of minted anecdotes within the phantom (convergent)
+  boundary.** Same render rule at every tier (neighborhood → state). Its home is probably the
+  Atlas/Apex render, respecting the existing **neutral-geometry vs. edge-curation** split (the live
+  aggregate is geometry/substrate; elevation is curation = edge). Cross-ref the DNS angle
+  (`state-name.anecdote.channel` handing out a jurisdiction's view) and civic-node as the bootstrap.
+- **Elevation without a trending algorithm** — hard constraint (no opaque ranker). Draw on the
+  defusing-the-default disciplines + the bisect-stack/consent-ladder edge; open whether they suffice or
+  a missing non-algorithmic primitive is needed. Do **not** resolve this with a ranking function.
