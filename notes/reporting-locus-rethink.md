@@ -250,6 +250,76 @@ without reintroducing a single map-maker. Two compatible truths:
 **Still open (where lens-relative becomes UX):** how a user **adds/removes lenses**, and whether
 even the first-contact default should be a choice rather than a shipped default.
 
+## Contested by construction — geometry vs. constitution, and choosing among siblings
+
+**Assume there is always more than one group claiming a boundary.** Divisions of thought about
+a place arise no matter what; the count is unbounded (could be 80 over weird internal splits).
+The unlock is to **decouple two things that were being treated as one**:
+
+- **Geometry** — the shape ("this polygon *is* Fort Collins").
+- **Constitution** — the rule ("this is who/what qualifies").
+
+Groups **converge on geometry but fork on constitution** — often writing constitutions
+*specifically to exclude each other*. Larimer County Democrats might be of two minds: they
+**agree on the boundary** and **differ on the rule**. So:
+
+- **Sibling geometries** = claims about the *same referent*, drawn slightly differently.
+- The "80 clubs" case = ~one shape hosting 80 constitutions.
+
+This splits authority cleanly: **shape-authority is spatial convergence** (the area-overlap
+measure from the merged model); **governance is personal, local choice** among the
+constitutions claiming that shape. Posting a boundary is therefore also a **(proportional)
+downvote** — a Tell that goes out of its way to assert a shape is *countering* divergent
+sibling claims, not just picking one to have one. Attestation is competitive, not only
+additive; weight scales with divergence (near-identical siblings barely counter each other).
+
+### The bisect stack — this *is* the lens mechanism (closes the prior open thread)
+
+Hold your finger on your location and anecdote enumerates the **concepts** containing you
+(Fort Collins, the county, a school district, a watershed…) as a **vertical list**; each row is
+a **horizontal carousel of the competing claims** for that concept. You **assemble the stack
+you prefer to bisect against** — pick (or rank) one claim per concept. anecdote may
+default-render the **statistically-top** claim, but you can override per row. Your assembled
+stack **is your lens** — private, local, yours — filtered at minimum by *which constitutions
+would actually pass you*. (The default-render metric is a soft power: keep it transparent and
+overridable, same discipline as the seed lens.)
+
+### Discoverability backoff — declaring a boundary ≠ going public
+
+Walking back "any Tell that declares a boundary is public." Instead: **a Tell becomes
+discoverable by attaching to an Atlas** — then its boundary claim is sent to the Atlas
+directory. Private Tells with boundaries stay private. This is the **spam fix**: a zillion
+counter-groups don't get into a *reputable* Atlas directory, so they fall outside premium
+labeling (joke = absence of premium attestation, again). The Tells we want **joinable by
+spontaneous strangers are exactly the primary core constituencies** a civic Atlas lists.
+Concrete seed: **civic-node is the bootstrap Atlas** — the Fort Collins Civic node repo
+**claims Fort Collins** (scoped small to prove the model, not the whole state/country).
+
+### Join rule — containment required, agreement optional
+
+To answer a Tell, **your location must satisfy their polygon** (hard minimum — you must
+actually be addressed by their geometry). But **your own boundary belief may differ**: the
+**Venn overlap of your boundary and theirs is supporting metadata on the join, not a gate.**
+You can participate in a constituency whose exact borders you would draw differently — you're
+not excluded for disagreeing about the line, only required to be inside it.
+
+### Voluntary preference-signing — salting your own handshake
+
+Users may **optionally** attach signed attestations of their boundary/constituency agreements
+(which claims they respect or reject) to what they submit. **Never forced** — it leaks
+preference data and that would be the surveillance move. Offered only because it **strengthens
+the signer's own claim**: the more contemporaneous, specific preference a user is willing to
+attest, the harder their standing is to spoof — they're *salting their own handshake*. It's a
+**self-serving stiction amplifier, not a report to anyone**; that discipline (opt-in, and only
+ever fortifying the signer) is what keeps it from becoming the thing we route around. A user
+can choose to be **more legible in order to be more credible** — their call, gradable, never a
+gate.
+
+> Still open from the prior section: **Qualification can still gatekeep** — a constitution
+> written to exclude in practice ("answer in iambic pentameter") looks open but isn't. Whether
+> "open to anyone the constitution passes" needs a *floor* on exclusionary constitutions, or
+> whether posted + contestable + amendable is enough, is unresolved.
+
 ## Where this diverges from the three open PRs
 
 Agreements: per-record text shouldn't be a bulk public surface; reuse the seal-full /
