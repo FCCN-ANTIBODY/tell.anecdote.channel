@@ -31,7 +31,7 @@ runs:
       shell: bash
 
     - name: Advance tell to latest
-      run: git -C .tell-enginecheckout "$TELL_LATEST_SHA"
+      run: git -C .tell-engine checkout "$TELL_LATEST_SHA"
       shell: bash
 
     - name: Setup Ruby
