@@ -108,6 +108,16 @@ So Tell's transparency reports are not only an audit surface for the pile — th
 Atlas aggregates upward. Keep them well-described (`CONSTITUTION.md` → "I describe the transparency
 reports I publish").
 
+**Reporting direction (specified — see [`docs/reporting.md`](docs/reporting.md)).** The Tell's *one
+compulsory public artifact* is becoming an **anonymous aggregate** — a per-poll self-description
+(`count`, coarse option tallies, verdict counts, the poll's topic), never per-record answer text or
+`asker`. It rides as a `tell.poll.summary/v1` **promoted into the signed manifest head** (exactly as
+the coarse `tell.voucher.summary/v1` is, below), so the published `reports/poll-*.json` is
+**recomputable from the public manifests without decrypting** — manifest-committed, not separately
+signed — and the **pile backs it** with `bin/prove` raw disclosure on demand. Per-record detail stays
+**sealed in the pile**, no longer a public surface; Atlas roll-up (`OPEN-QUESTIONS.md` §C) consumes the
+*same* signed summaries as the deferred opt-in escalation.
+
 ## Ingress: QR → authorized Issue → digest
 
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
