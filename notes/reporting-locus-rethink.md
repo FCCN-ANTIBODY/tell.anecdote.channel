@@ -359,6 +359,50 @@ gate.
 > "open to anyone the constitution passes" needs a *floor* on exclusionary constitutions, or
 > whether posted + contestable + amendable is enough, is unresolved.
 
+## Defusing the default — character-builder discipline + the consent ladder
+
+Closes the two soft-power threads (the "statistically-top" default render, and the seed lens),
+borrowing from RPG character builders — a genre that *had* to denormalize its starting state
+("Race: Human (default)" is a statement). Three disciplines and a consent posture:
+
+**1. Separate credibility from position.** Convergence strength is **shown as data** (a meter /
+attestation count / overlap %), never used to **anoint** a default. One signal, one job.
+
+**2. Perturb position, don't curve it.** Weighted "lift the underdog to the top" randomization
+is *itself an editorial statement* — soft power back in through the shuffle. The minimal neutral
+move is enough: **list the options and sometimes reverse their order, on the user's device.**
+Content-neutral, per-user, cheap, and meaningful for **3+** options. **Tier it**, don't flatten:
+premium claims share the shuffled top; joke / opt-in claims stay below the fold (base-game vs.
+homebrew) so perturbation never floats a fresh joke up next to the county.
+
+**3. No unmarked norm.** Every claim is **marked** by attester + attributes ("Larimer Dems ·
+2024 · 1.2k attest"); never "official / normal / standard / default." This is the *linguistic*
+enforcement of "no privileged attester" — the place soft power sneaks back is through language
+(the old "normal" in place of a named group).
+
+**The consent ladder — how you source what fills your stack (three rungs):**
+
+- **Take the huge ones** — large, low-controversy boundaries, inherited without fuss.
+- **Inherit from your sovereign authority — *consent without endorsement*.** A consentful
+  decision to go along with what your jurisdiction says, explicitly **not** an endorsement: you
+  bisect against it but add **no convergence weight** to it. *Using ≠ vouching.*
+- **Refrain** — specifically decline a source (abstention — distinct from a *counter-claim*,
+  which is posting a rival boundary = a downvote).
+
+So three distinct signals toward any boundary, kept separate: **endorse** (use + add weight),
+**consent** (use, add no weight), **refrain** (neither). **Only endorsement moves the authority
+needle** — which keeps pragmatic inheritance from silently inflating a boundary's standing.
+
+**The frame:** assembling the stack **is character creation**. The bisect stack is a character
+sheet; *shapes first* = **Address** (geometry) before **Qualification** (constitution) before
+**Participation** (play). The felt experience shifts from being *sorted* into a constituency to
+*authoring* yourself into one — anti-owner-operator at the level of lived experience, not just
+architecture.
+
+> Remaining open thread (carried): whether **Qualification needs a floor** on exclusionary
+> constitutions — a rule that excludes in practice while looking open. Everything on the
+> default/soft-power side is now resolved by the above.
+
 ## Where this diverges from the three open PRs
 
 Agreements: per-record text shouldn't be a bulk public surface; reuse the seal-full /
