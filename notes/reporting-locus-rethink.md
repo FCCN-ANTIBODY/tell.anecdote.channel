@@ -134,6 +134,9 @@ delete button). So moderation is:
 
 ## Open seeds (let simmer)
 
+> **Update:** seed #1 below is now developed in "Label authority — the merged model" above.
+> It is kept here for the trail of thought.
+
 - **Label-authority may equal report-credibility.** Anyone can draw a polygon and call it
   "Water District 4." The directory is easy; ranking competing/overlapping boundary claims by
   authority is the hard part — and it's the same "open line, weight accumulates" problem
@@ -141,6 +144,58 @@ delete button). So moderation is:
   **one attestation mechanism wearing two hats**.
 - **Gradable, not trusted.** The `basis[]` is what makes a membership claim weighable rather
   than believed; this is the operational form of the anti-Sybil stance above.
+
+## Label authority — the merged model (supersedes open-seed #1)
+
+The de jure / de facto split is **collapsed**. "Official" is not a category of boundary; it
+is just an attestation that won a power game somewhere. Privileging it builds a fault line
+exactly where the world is most contested — the contested places are *precisely* the ones
+with no official source (or two). A design that leans on officialness breaks where it matters
+most. So there is **one** kind of thing:
+
+> an **attested boundary** = polygon + `basis[]`. "Official" is a **provenance tag** on an
+> attestation — informative, never load-bearing. Government gets a Tell server like anyone
+> else and supplies its boundary "for what it's worth."
+
+Same grammar as every other layer: a claim, a basis, an accumulating weight — graded, never
+gated. Label-authority is just `basis[]` pointed at polygons (this is why old seeds #1 and #2
+were really one mechanism).
+
+**The invariant (promotes "never one Tell server as the map maker" from instinct to rule):**
+
+> **No single attester can confer authority. Authority is only ever the *shape of agreement*
+> among many independent attestations.**
+
+A lone server — even the government's — can *assert* but can never *authorize*. Authorization
+is emergent from convergence, structurally, so a single cartographer is impossible by
+construction. One proof is an assertion; many convergent proofs are an authority
+("belt-and-suspenders": the people inside supply many kinds of proof, and the agreement
+*among* them is the signal).
+
+**Two non-paths, reconciled:**
+
+- Do **not** infer boundaries from a pile of general data (the "mess"). Boundaries are
+  **asserted as first-class claims** (explicit polygons with basis); convergence sorts them.
+- A thin jurisdictional **glue layer is allowed only as a seeded attestation in the same pile**
+  as everyone else's — never a privileged layer above it. "Temporary" is then guaranteed
+  *structurally*: the glue isn't removed by anyone's decision, it's **diluted** as locals add
+  attestations that outweigh it. Same stance the architecture already takes for reports — a
+  **projection, never a new source of truth**. (The district directory is to boundaries what
+  the poll report is to answers.)
+
+**The bite — authority is a function the edge applies, not a property the center assigns.**
+The center holds a *neutral substrate* of attested boundary-claims. Each community runs its
+**own weighting/lens** over it: Fort Collins may weight the city's claim heavily; a
+contested-zone resident weights any "official" claim at zero. Same substrate, different
+canonical sets — and that is *correct*, because contested places genuinely should differ.
+
+**Decision recorded: give up the view-from-nowhere aggregate.** Every piecewise function is
+computed *relative to a boundary-lens*; a contested region legitimately yields **multiple**
+aggregates, not one. Refusing this would smuggle a privileged attester back into the center.
+Convergence is **geometric**: independent attestations give *overlapping*, not identical,
+polygons, so authority has a spatial-agreement measure (area overlap / IoU). Tight overlap →
+a strong consensus boundary; scatter → contested, surface them all. The disagreement itself
+becomes visible civic data — you can *see* where a community doesn't agree on its own borders.
 
 ## Where this diverges from the three open PRs
 
