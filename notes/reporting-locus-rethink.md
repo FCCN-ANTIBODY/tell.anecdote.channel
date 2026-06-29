@@ -134,6 +134,9 @@ delete button). So moderation is:
 
 ## Open seeds (let simmer)
 
+> **Update:** seed #1 below is now developed in "Label authority — the merged model" above.
+> It is kept here for the trail of thought.
+
 - **Label-authority may equal report-credibility.** Anyone can draw a polygon and call it
   "Water District 4." The directory is easy; ranking competing/overlapping boundary claims by
   authority is the hard part — and it's the same "open line, weight accumulates" problem
@@ -141,6 +144,264 @@ delete button). So moderation is:
   **one attestation mechanism wearing two hats**.
 - **Gradable, not trusted.** The `basis[]` is what makes a membership claim weighable rather
   than believed; this is the operational form of the anti-Sybil stance above.
+
+## Label authority — the merged model (supersedes open-seed #1)
+
+The de jure / de facto split is **collapsed**. "Official" is not a category of boundary; it
+is just an attestation that won a power game somewhere. Privileging it builds a fault line
+exactly where the world is most contested — the contested places are *precisely* the ones
+with no official source (or two). A design that leans on officialness breaks where it matters
+most. So there is **one** kind of thing:
+
+> an **attested boundary** = polygon + `basis[]`. "Official" is a **provenance tag** on an
+> attestation — informative, never load-bearing. Government gets a Tell server like anyone
+> else and supplies its boundary "for what it's worth."
+
+Same grammar as every other layer: a claim, a basis, an accumulating weight — graded, never
+gated. Label-authority is just `basis[]` pointed at polygons (this is why old seeds #1 and #2
+were really one mechanism).
+
+**The invariant (promotes "never one Tell server as the map maker" from instinct to rule):**
+
+> **No single attester can confer authority. Authority is only ever the *shape of agreement*
+> among many independent attestations.**
+
+A lone server — even the government's — can *assert* but can never *authorize*. Authorization
+is emergent from convergence, structurally, so a single cartographer is impossible by
+construction. One proof is an assertion; many convergent proofs are an authority
+("belt-and-suspenders": the people inside supply many kinds of proof, and the agreement
+*among* them is the signal).
+
+**Two non-paths, reconciled:**
+
+- Do **not** infer boundaries from a pile of general data (the "mess"). Boundaries are
+  **asserted as first-class claims** (explicit polygons with basis); convergence sorts them.
+- A thin jurisdictional **glue layer is allowed only as a seeded attestation in the same pile**
+  as everyone else's — never a privileged layer above it. "Temporary" is then guaranteed
+  *structurally*: the glue isn't removed by anyone's decision, it's **diluted** as locals add
+  attestations that outweigh it. Same stance the architecture already takes for reports — a
+  **projection, never a new source of truth**. (The district directory is to boundaries what
+  the poll report is to answers.)
+
+**The bite — authority is a function the edge applies, not a property the center assigns.**
+The center holds a *neutral substrate* of attested boundary-claims. Each community runs its
+**own weighting/lens** over it: Fort Collins may weight the city's claim heavily; a
+contested-zone resident weights any "official" claim at zero. Same substrate, different
+canonical sets — and that is *correct*, because contested places genuinely should differ.
+
+**Decision recorded: give up the view-from-nowhere aggregate.** Every piecewise function is
+computed *relative to a boundary-lens*; a contested region legitimately yields **multiple**
+aggregates, not one. Refusing this would smuggle a privileged attester back into the center.
+Convergence is **geometric**: independent attestations give *overlapping*, not identical,
+polygons, so authority has a spatial-agreement measure (area overlap / IoU). Tight overlap →
+a strong consensus boundary; scatter → contested, surface them all. The disagreement itself
+becomes visible civic data — you can *see* where a community doesn't agree on its own borders.
+
+## The Apex (anecdote.channel) — geometry vs. curation, and where the seed lives
+
+Two jobs of the Apex that must **never merge**:
+
+- **Geometry (neutral).** The Apex is a **static delivery server**: it ships the **bisect zone
+  list** — every boundary it holds, as plain polygons (civic down to neighborhood, "anything
+  boxable"). It blesses nothing. Because **boundaries are public claims and only *memberships*
+  are private**, it can serve the whole universe without leaking anything. This is also a cool
+  resource in its own right: a downloadable map of all geopolitical boundaries.
+- **Curation (opinionated).** *Which* boundaries matter is a **lens** applied on top — and per
+  the decision above, the lens lives at the **edge**, not the center.
+
+**Client-side bisection keeps the privacy promise.** The web app reads your location and
+**bisects locally** against the Apex-delivered polygons; only the resulting membership set
+leaves the device, graded by *how* you proved location (GPS = strong, IP-fallback = weak — the
+"dynamic range" of attestations: you can forgo one to give another, but the weaker one counts
+for less). The static server ships the map; your device folds you into it privately. The Apex
+never becomes a location-surveillance point — it stays a dumb file server.
+
+**No containment hierarchy.** Fort Collins does not need Colorado to co-sign its boundary; a
+shared climate zone is *bigger* and no more privileged. You belong to many **overlapping,
+non-nested** constituencies at once, so bisection is point-in-many-polygons, never
+tree-descent. State is merely the smallest unit we use to think of ourselves as separate — a
+*salience* fact, not a structural one.
+
+**An Atlas offers its claims by publishing a boundary directory** — exactly as it already lists
+the polls it runs. That directory *is just another attestation the Atlas makes*; adopting it =
+loading it as a lens. "**Premium labeling**" is then simply: boundaries a reputable Atlas
+vouches for are in the **default lens**; everything else is **opt-in**.
+
+**"Joke" is not a detected property — it is the absence of premium attestation.** The
+LA-bronies border isn't filtered because someone judged it a joke; it's just that no civic
+Atlas listed it, so it sits below the premium fold — discoverable if you go looking (the
+directory doubles as *advertisement*: discovery without imposition), never forced on you. And
+it's **lens-relative**: if a fandom Atlas lists it, then *within that lens* it's premium.
+Someone who has lived inside that polygon their whole life is still not conscripted into the
+constituency by default, because they never loaded that lens. No truth-oracle for jokes;
+per-community by construction.
+
+**Where the seed lives (honest bootstrap).** The default lens can't be the Apex's own fiat
+without reintroducing a single map-maker. Two compatible truths:
+- In principle the default is the **convergence of the Atlas directories the Apex knows**,
+  shipped as an explicit, overridable projection ("what it *considers* the list" — the phrasing
+  already disclaims it).
+- In practice, **the FCCN-ANTIBODY org will have to run the default/seed infrastructure** for
+  official boundaries that aren't reinforced elsewhere *yet* — **powerfully seeded**. This is
+  acceptable only as the glue-layer move at scale: a **seed that dilutes** as community/Atlas
+  attestation accumulates, not a permanent authority. The seed enters the same pile as everyone
+  else's and can be outweighed.
+
+**Still open (where lens-relative becomes UX):** how a user **adds/removes lenses**, and whether
+even the first-contact default should be a choice rather than a shipped default.
+
+## The boundary is an invitation, not a fence (the enfranchisement floor)
+
+**Drawing a border is an act of address.** If you dare to box people, you have *addressed*
+them — and you **cannot choose which of them are in**. Geography chooses your constituents.
+The only gate is the **posted constitution**, and it gates on *qualification* (does the reply
+pass the rule), never on *identity* (who you are). This is the most thorough anti-owner-operator
+move in the design: an operator's defining power is choosing the room; here you may define the
+*territory*, but the room fills itself.
+
+**Boundaries become self-policing.** If drawing a box enfranchises everyone inside it, a
+malicious boundary *backfires* — you can't fence in only your allies, because you've handed a
+voice to exactly the people you wanted to exclude. A border drawn around people you don't
+control is **dangerous to the drawer, safe for the bounded.** The act of claiming territory is
+the act of giving it away.
+
+**Two-sided symmetry.** The drawer **can't exclude** anyone inside; the standee **can't be
+forced** to speak. Enfranchisement is automatic; voice is opt-in. That is an **optional
+constituency** — you are objectively *in* it by standing there, but activating the voice is
+yours alone. (Distinct from a **lens**: a lens is what you *see*; an optional constituency is
+what you can *act through*.)
+
+**Reconciled with "location never leaves the device":** a Tell does not locate you — **you
+present an inside-the-box membership vouch**, graded by basis (GPS strong, IP weak). The Tell
+addresses a *territory*; you answer by *proving you are of it*, without revealing where you
+stand. Spoofing an inside-claim is possible but weak stiction — low weight, adaptively
+counterable, never a hard gate.
+
+**What "constituency" formalizes — three independent layers, none owner-operated:**
+
+- **Address** — geometry. A boundary names who is *spoken to*. (This is the draggable map:
+  drag it, the centerpoint enumerates *every* box containing it, jokes included — the Address
+  layer made explorable. You don't *select* here; you *see what claims exist*.)
+- **Qualification** — the constitution. What *passes*.
+- **Participation** — individual will. Whether you *answer*.
+
+This is why **anecdote "worships" constituencies but does not hold them**: the territorial
+layer is **sovereign and external**; anecdote only indexes it and needs *you* to tell it your
+membership. It is an atlas of claims, never a claimant.
+
+## Contested by construction — geometry vs. constitution, and choosing among siblings
+
+**Assume there is always more than one group claiming a boundary.** Divisions of thought about
+a place arise no matter what; the count is unbounded (could be 80 over weird internal splits).
+The unlock is to **decouple two things that were being treated as one**:
+
+- **Geometry** — the shape ("this polygon *is* Fort Collins").
+- **Constitution** — the rule ("this is who/what qualifies").
+
+Groups **converge on geometry but fork on constitution** — often writing constitutions
+*specifically to exclude each other*. Larimer County Democrats might be of two minds: they
+**agree on the boundary** and **differ on the rule**. So:
+
+- **Sibling geometries** = claims about the *same referent*, drawn slightly differently.
+- The "80 clubs" case = ~one shape hosting 80 constitutions.
+
+This splits authority cleanly: **shape-authority is spatial convergence** (the area-overlap
+measure from the merged model); **governance is personal, local choice** among the
+constitutions claiming that shape. Posting a boundary is therefore also a **(proportional)
+downvote** — a Tell that goes out of its way to assert a shape is *countering* divergent
+sibling claims, not just picking one to have one. Attestation is competitive, not only
+additive; weight scales with divergence (near-identical siblings barely counter each other).
+
+### The bisect stack — this *is* the lens mechanism (closes the prior open thread)
+
+Hold your finger on your location and anecdote enumerates the **concepts** containing you
+(Fort Collins, the county, a school district, a watershed…) as a **vertical list**; each row is
+a **horizontal carousel of the competing claims** for that concept. You **assemble the stack
+you prefer to bisect against** — pick (or rank) one claim per concept. anecdote may
+default-render the **statistically-top** claim, but you can override per row. Your assembled
+stack **is your lens** — private, local, yours — filtered at minimum by *which constitutions
+would actually pass you*. (The default-render metric is a soft power: keep it transparent and
+overridable, same discipline as the seed lens.)
+
+### Discoverability backoff — declaring a boundary ≠ going public
+
+Walking back "any Tell that declares a boundary is public." Instead: **a Tell becomes
+discoverable by attaching to an Atlas** — then its boundary claim is sent to the Atlas
+directory. Private Tells with boundaries stay private. This is the **spam fix**: a zillion
+counter-groups don't get into a *reputable* Atlas directory, so they fall outside premium
+labeling (joke = absence of premium attestation, again). The Tells we want **joinable by
+spontaneous strangers are exactly the primary core constituencies** a civic Atlas lists.
+Concrete seed: **civic-node is the bootstrap Atlas** — the Fort Collins Civic node repo
+**claims Fort Collins** (scoped small to prove the model, not the whole state/country).
+
+### Join rule — containment required, agreement optional
+
+To answer a Tell, **your location must satisfy their polygon** (hard minimum — you must
+actually be addressed by their geometry). But **your own boundary belief may differ**: the
+**Venn overlap of your boundary and theirs is supporting metadata on the join, not a gate.**
+You can participate in a constituency whose exact borders you would draw differently — you're
+not excluded for disagreeing about the line, only required to be inside it.
+
+### Voluntary preference-signing — salting your own handshake
+
+Users may **optionally** attach signed attestations of their boundary/constituency agreements
+(which claims they respect or reject) to what they submit. **Never forced** — it leaks
+preference data and that would be the surveillance move. Offered only because it **strengthens
+the signer's own claim**: the more contemporaneous, specific preference a user is willing to
+attest, the harder their standing is to spoof — they're *salting their own handshake*. It's a
+**self-serving stiction amplifier, not a report to anyone**; that discipline (opt-in, and only
+ever fortifying the signer) is what keeps it from becoming the thing we route around. A user
+can choose to be **more legible in order to be more credible** — their call, gradable, never a
+gate.
+
+> Still open from the prior section: **Qualification can still gatekeep** — a constitution
+> written to exclude in practice ("answer in iambic pentameter") looks open but isn't. Whether
+> "open to anyone the constitution passes" needs a *floor* on exclusionary constitutions, or
+> whether posted + contestable + amendable is enough, is unresolved.
+
+## Defusing the default — character-builder discipline + the consent ladder
+
+Closes the two soft-power threads (the "statistically-top" default render, and the seed lens),
+borrowing from RPG character builders — a genre that *had* to denormalize its starting state
+("Race: Human (default)" is a statement). Three disciplines and a consent posture:
+
+**1. Separate credibility from position.** Convergence strength is **shown as data** (a meter /
+attestation count / overlap %), never used to **anoint** a default. One signal, one job.
+
+**2. Perturb position, don't curve it.** Weighted "lift the underdog to the top" randomization
+is *itself an editorial statement* — soft power back in through the shuffle. The minimal neutral
+move is enough: **list the options and sometimes reverse their order, on the user's device.**
+Content-neutral, per-user, cheap, and meaningful for **3+** options. **Tier it**, don't flatten:
+premium claims share the shuffled top; joke / opt-in claims stay below the fold (base-game vs.
+homebrew) so perturbation never floats a fresh joke up next to the county.
+
+**3. No unmarked norm.** Every claim is **marked** by attester + attributes ("Larimer Dems ·
+2024 · 1.2k attest"); never "official / normal / standard / default." This is the *linguistic*
+enforcement of "no privileged attester" — the place soft power sneaks back is through language
+(the old "normal" in place of a named group).
+
+**The consent ladder — how you source what fills your stack (three rungs):**
+
+- **Take the huge ones** — large, low-controversy boundaries, inherited without fuss.
+- **Inherit from your sovereign authority — *consent without endorsement*.** A consentful
+  decision to go along with what your jurisdiction says, explicitly **not** an endorsement: you
+  bisect against it but add **no convergence weight** to it. *Using ≠ vouching.*
+- **Refrain** — specifically decline a source (abstention — distinct from a *counter-claim*,
+  which is posting a rival boundary = a downvote).
+
+So three distinct signals toward any boundary, kept separate: **endorse** (use + add weight),
+**consent** (use, add no weight), **refrain** (neither). **Only endorsement moves the authority
+needle** — which keeps pragmatic inheritance from silently inflating a boundary's standing.
+
+**The frame:** assembling the stack **is character creation**. The bisect stack is a character
+sheet; *shapes first* = **Address** (geometry) before **Qualification** (constitution) before
+**Participation** (play). The felt experience shifts from being *sorted* into a constituency to
+*authoring* yourself into one — anti-owner-operator at the level of lived experience, not just
+architecture.
+
+> Remaining open thread (carried): whether **Qualification needs a floor** on exclusionary
+> constitutions — a rule that excludes in practice while looking open. Everything on the
+> default/soft-power side is now resolved by the above.
 
 ## Where this diverges from the three open PRs
 
