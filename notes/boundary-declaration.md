@@ -121,9 +121,9 @@ ways the boundary bytes ride that existing proof — **pick one, both avoid new 
   `sha256: <hash-of-the-geojson>`, so the declaration commits to exact bytes (mirror of how
   `keys/tell.fpr` is the compact anchor for the signer). An Atlas — or anyone — can fetch the file
   and verify it matches what the Tell signed, and an **amendment** to a boundary is a visible hash
-  change, not a silent edit. Leans toward (b): it makes "the same key that signs digests stands
-  behind these shapes" checkable without trusting the transport, the same property the digest feed
-  already has.
+  change, not a silent edit. (b) makes "the same key that signs digests stands behind these shapes"
+  checkable without trusting the transport, the same property the digest feed already has; (a) avoids
+  carrying and maintaining a digest at all.
 
 Either way the principle holds: **a Tell's boundary claim is only as strong as the key behind it**,
 and that's the delivery-signer key, so a boundary inherits the Tell's identity for free. A lone
@@ -136,7 +136,7 @@ the geometry channel. Two shapes, again pick one:
 
 - **Inline:** fold a `boundaries:` block into the `_data/tells.yml` entry. Simple, but bloats the
   Tell directory with geometry meta and couples every directory reader to it.
-- **Referenced (leans this way):** the entry gains a single `boundaries:` *pointer* (a URL/glob on
+- **Referenced:** the entry gains a single `boundaries:` *pointer* (a URL/glob on
   the Tell's own surface, e.g. `boundaries/*.geojson`, exactly as `reports` is a glob the Tell
   hosts and the Atlas pulls). The Atlas reads the pointer and pulls the actual shapes into its own
   **district directory** — a new `_data/districts.yml` (the directory of districts the merged model
@@ -164,8 +164,8 @@ signed claim; the world weighs it.
 
 - **Meta in YAML vs. in the GeoJSON `properties`.** A self-contained `Feature` (geometry + basis in
   `properties`) lets an Atlas slurp a directory of files with no sidecar, at the cost of meta that no
-  longer diffs in one place. The split above (shape in file, meta in `tell.yml`) is the current lean;
-  worth a second look once the Atlas-side reader is sketched.
+  longer diffs in one place. The split sketched above (shape in file, meta in `tell.yml`) keeps the
+  meta human-diffable but needs the sidecar. Held open.
 - **Format & size.** GeoJSON is universal but verbose; a county polygon can be MBs. TopoJSON /
   simplification / a coarse-vs-fine pair (a cheap outline for display, full detail for device-side
   point-in-polygon) may be needed. The device bisects locally, so fidelity matters there, not just
@@ -173,8 +173,8 @@ signed claim; the world weighs it.
 - **Per-file digest (signing option b) — adopt or not**, and if so, where the hash list lives
   (inline per entry vs. a `keys/`-style manifest like `tell.signers`).
 - **`scope` vs. multi-boundary reality.** Is one scalar enough when a Tell's shapes straddle
-  namespaces? Likely yes (scope = branch namespace, boundaries = geometry), but confirm against the
-  `tell/<scope>/<id>` branch grammar before relying on it.
+  namespaces? One reading keeps scope = branch namespace and boundaries = geometry; whether that
+  holds against the `tell/<scope>/<id>` branch grammar is open.
 - **Boundary versioning / amendment.** Append-only vs. in-place edit of a `.geojson`; how an Atlas
   notices and how convergence treats a moved line (the merged model wants disagreement to stay
   *visible* — a silent overwrite would erase it).
@@ -223,8 +223,7 @@ What this story pins down for the declaration design:
 - **Endorse-many is in scope; a designated primary is the open pause.** Hosting "more boundaries that
   I endorse" confirms the **list-first** call. Whether one entry is flagged as **the** topic
   (a single "official topic" slot) vs. a **flat endorsed set** is left open *on purpose* — see the
-  pause below. Lean (unenforced): a flat set, with at most a soft `primary:` hint, because a hard
-  single slot reintroduces a privileged-claim shape we keep trying to avoid.
+  pause below.
 
 ## The realization: a pinned boundary is just an *anecdote* the server holds up
 
@@ -256,13 +255,14 @@ that flows, gets pinned, and gets weighed — but it has **reach well past this 
 
 Recorded as an **open, deliberately-unresolved** fork (the operator "isn't sure"):
 
-- **Flat endorsed set** (lean): every boundary is a peer the server endorses; no anointed primary —
-  consistent with "no privileged attester," and with the consent ladder's *endorse vs. consent vs.
+- **Flat endorsed set:** every boundary is a peer the server endorses; no anointed primary —
+  resonates with "no privileged attester," and with the consent ladder's *endorse vs. consent vs.
   refrain* (the server's list is its **endorsements**).
 - **Single primary slot:** one boundary is "what this Tell is *about*." Cleaner for a directory card
-  and for "this Tell speaks for Fort Collins," but it re-creates a privileged-claim shape and forces a
-  choice the operator may not want to make. If wanted, prefer a **soft** `primary:` hint over a
-  structural single slot.
+  and for "this Tell speaks for Fort Collins"; re-introduces a privileged-claim shape and asks the
+  operator to make a choice they may not want to.
+- **A middle option exists:** a flat set plus a *soft, non-structural* `primary:` hint — neither a
+  hard slot nor strictly flat.
 
 ## "First to say it" — cosmic-fringe credit (let simmer, mostly for the delight of it)
 
@@ -279,9 +279,9 @@ rank.
 ## Added to open threads
 
 - **Author the anecdote schema first** (boundary = a profile of it); decide whether `tell.voucher/v1`
-  is already the envelope. This likely **supersedes** the standalone "meta in YAML vs. GeoJSON
-  `properties`" thread above — the meta may just be anecdote fields.
-- **Single "official topic" slot vs. flat endorsed set** (with a possible soft `primary:` hint).
+  is already the envelope. This intersects the "meta in YAML vs. GeoJSON `properties`" thread above —
+  if the meta is just anecdote fields, the two forks resolve together.
+- **Single "official topic" slot vs. flat endorsed set vs. flat-plus-soft-`primary:`-hint.**
 - **"First to say it" provenance trace** — opt-in, un-gameable, orthogonal to weight; design the
   Atlas-routed "who you heard it from" path so credit is possible without ever becoming rank.
 - **Provenance signing of a self-prepared shape** — wanted, deferred; reconcile with the
