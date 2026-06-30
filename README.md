@@ -45,6 +45,28 @@ reports it publishes and lists itself with an Atlas by a signed PR (`bin/registe
 `tell/<scope>/<id>` branch) so the public can find the piles it fronts. See [`CONTRACT.md`](CONTRACT.md)
 → "Registering with an Atlas."
 
+### Two hats, two things to configure (and the self-Atlas shortcut)
+
+It's easy to lose track of *whose behalf* a run acts on, because one repo can wear two hats. They
+configure separately:
+
+- **Acting *as* a Tell — issuance & QR factorization.** Opening polls and minting QRs (`open-poll`,
+  `qr`, `TELL_QR_SECRET`), and sealing pickups (`TELL_SIGNER_KEY` / `TELL_SEED_IDENTITY`). These are the
+  Tell instrument's **own** behaviors — its own keys, no one else's grant required. This is what the
+  canonical `tell.anecdote.channel` site/repo demonstrates.
+- **Being *discovered* — registering with an Atlas.** `bin/register` opens a PR onto an Atlas's
+  directory, which needs **write on that Atlas** (`ATLAS_PR_TOKEN`). That reach is a **consent gesture**:
+  the Atlas you're joining grants it. You never get write on someone else's Atlas unless they consent —
+  by design.
+
+**The shortcut: be your own Atlas.** Nothing stops one server from running *both* a Tell and an Atlas
+(this is what a personal **civic-node** does — Tell, Atlas, and pile, all in one workspace). When you are
+also the Atlas, `ATLAS_PR_TOKEN` is simply a token to **yourself** — self-consent — and registration
+becomes **the method to force discovery of yourself** when there is no external Atlas you'd rather join
+to list you. Start self-listed; migrate to a community Atlas later by leaving (the pile is always the one
+who can leave). A local workspace holding all the parts at once is the cleanest place to see this:
+self-consent is still consent, present in every outcome.
+
 ## Develop & operate
 
 Logic lives in `bin/` and local composite actions (`ingress`, `deliver`, `register`); workflows stay
