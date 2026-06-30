@@ -1,48 +1,66 @@
 #!/usr/bin/env bash
-# Close the mailbox loop after deliver has published the digests: mark each accepted
-# Issue `ingested` and each rejected Issue `rejected`, with a reason, and close them.
-# The closed/labeled Issues (public) + the encrypted feed commit are the record that
-# "we received the submissions and ate the ones that abide our constitution."
+# Close the mailbox loop after deliver has published the digests, signalling each submission's
+# outcome so a respondent (and the runtime status view) can learn whether their input abided:
+#   - ISSUE submission   -> label `ingested`/`rejected` and close it (the public record).
+#   - COMMENT submission -> react on the comment (👍 ingested / 👎 rejected) — comments can't be
+#                           labeled, so the reaction IS the signal anecdote.channel reads back
+#                           (composer/egress-github interpretStatus).
 #
-# Reads the manifests bin/collect-submissions staged:
-#   $TELL_SUBMISSIONS_DIR/.accepted.tsv   number<TAB>pile
-#   $TELL_SUBMISSIONS_DIR/.rejected.tsv   number<TAB>reason
+# Reads what bin/collect-submissions staged (source<TAB>ref<TAB>pile|reason):
+#   $TELL_SUBMISSIONS_DIR/.accepted.tsv   source  ref  pile
+#   $TELL_SUBMISSIONS_DIR/.rejected.tsv   source  ref  reason
 #
-# Uses `gh` against $GITHUB_REPOSITORY. Set TELL_FINALIZE_DRYRUN=1 to print actions
-# instead (tests / offline).
+# Uses `gh` against $GITHUB_REPOSITORY. Set TELL_FINALIZE_DRYRUN=1 to print actions (tests/offline).
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 stage="${TELL_SUBMISSIONS_DIR:-$(cd "$here/.." && pwd)/.submissions}"
 dry="${TELL_FINALIZE_DRYRUN:-0}"
+repo="${GITHUB_REPOSITORY:-LOCAL}"
 
 run() { if [ "$dry" = 1 ]; then echo "DRYRUN: $*"; else "$@"; fi; }
+# React on an issue comment (👍/👎). The reactions endpoint needs only the comment id. Suppress
+# gh's JSON only on the live path, so the dry-run line stays visible.
+react() { # COMMENT_ID CONTENT
+  if [ "$dry" = 1 ]; then
+    echo "DRYRUN: gh api -X POST repos/$repo/issues/comments/$1/reactions -f content=$2"
+  else
+    gh api -X POST "repos/$repo/issues/comments/$1/reactions" -f "content=$2" >/dev/null 2>&1 || true
+  fi
+}
 
 if [ "$dry" != 1 ]; then
   : "${GITHUB_REPOSITORY:?need GITHUB_REPOSITORY}"
-  # Ensure labels exist (best effort).
   for l in tell-submission ingested rejected; do
     gh label create "$l" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || true
   done
 fi
 
 if [ -s "$stage/.accepted.tsv" ]; then
-  while IFS=$'\t' read -r num pile; do
-    [ -n "$num" ] || continue
-    run gh issue edit "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" --add-label ingested
-    run gh issue close "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" \
-      --comment "Ingested into the encrypted feed for \`$pile\`. Thank you — your reply is sealed to the pile owner."
+  while IFS=$'\t' read -r source ref pile; do
+    [ -n "$ref" ] || continue
+    if [ "$source" = comment ]; then
+      react "$ref" "+1"
+    else
+      run gh issue edit "$ref" --repo "$repo" --add-label ingested
+      run gh issue close "$ref" --repo "$repo" \
+        --comment "Ingested into the encrypted feed for \`$pile\`. Thank you — your reply is sealed to the pile owner."
+    fi
   done < "$stage/.accepted.tsv"
 fi
 
 if [ -s "$stage/.rejected.tsv" ]; then
-  while IFS=$'\t' read -r num reason; do
-    [ -n "$num" ] || continue
-    run gh issue edit "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" --add-label rejected
-    run gh issue close "$num" --repo "${GITHUB_REPOSITORY:-LOCAL}" \
-      --comment "Not ingested — ${reason:-unauthorized}. See CONSTITUTION.md for what Tell accepts."
+  while IFS=$'\t' read -r source ref reason; do
+    [ -n "$ref" ] || continue
+    if [ "$source" = comment ]; then
+      react "$ref" "-1"
+    else
+      run gh issue edit "$ref" --repo "$repo" --add-label rejected
+      run gh issue close "$ref" --repo "$repo" \
+        --comment "Not ingested — ${reason:-unauthorized}. See CONSTITUTION.md for what Tell accepts."
+    fi
   done < "$stage/.rejected.tsv"
 fi
 
 a=$(wc -l < "$stage/.accepted.tsv" 2>/dev/null || echo 0)
 r=$(wc -l < "$stage/.rejected.tsv" 2>/dev/null || echo 0)
-echo "finalize: closed $a accepted, $r rejected" >&2
+echo "finalize: signalled $a accepted, $r rejected" >&2

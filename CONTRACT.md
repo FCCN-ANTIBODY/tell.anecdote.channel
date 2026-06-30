@@ -123,6 +123,11 @@ roll-up (`OPEN-QUESTIONS.md` §C) is the consumer of those signed summaries.
 
 ## Ingress: QR → authorized Issue → digest
 
+> A reply may now also arrive as a **comment on a canonical poll issue** (`bin/open-poll`), carrying the
+> constituent's revocable **nonce**, a **run** id, and the full signed **anecdote** — the Tell half of
+> anecdote.channel's egress. See [`docs/issue-ingress.md`](docs/issue-ingress.md). The HMAC gate below is
+> unchanged.
+
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
 Tell-runner mints:
 

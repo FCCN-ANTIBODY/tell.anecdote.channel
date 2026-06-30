@@ -174,6 +174,48 @@ sub cd04-q1 budget 1 "$tokB" | TELL_REQUIRE_SIG=1 bin/authz 2>/dev/null \
 sub cd04-q1 budget 1 "$tokB" | bin/authz 2>/dev/null || fail "default authz rejected a valid unsigned submission"
 ok "signed payload verified + bound; tamper / token-swap / (strict) unsigned rejected; unsigned still ok by default"
 
+echo "[8d] canonical-issue COMMENT thread: qr mode/run/canonical, open-poll, collect sweeps comments"
+# bin/qr grows the egress fields: mode (issue|comment), a run id (tells QRs apart), the canonical
+# issue comments attach to, and an OPTIONAL semi-public post credential (carried, never minted).
+qc="$(bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical 7 --run runX 2>/dev/null)"
+echo "$qc" | grep -q 'mode=comment' && echo "$qc" | grep -q 'canonical=7' && echo "$qc" | grep -q 'run=runX' \
+  || fail "qr did not emit mode/canonical/run"
+echo "$qc" | grep -q 'post=' && fail "qr leaked a post credential with no TELL_POST_TOKEN" || true
+echo "$qc" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "comment-mode qr lost its authorization token"
+TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical 7 2>/dev/null \
+  | grep -q 'post=ghs_demo' || fail "qr did not carry TELL_POST_TOKEN as the post credential"
+bin/qr --pile cd04-q1 --poll budget --mode comment 2>/dev/null && fail "comment mode allowed without --canonical" || true
+[ "$(TELL_OPENPOLL_DRYRUN=1 bin/open-poll --pile cd04-q1 --poll budget --question Q 2>/dev/null)" = 0 ] \
+  || fail "open-poll dryrun did not print a placeholder canonical number"
+
+# A comment on the canonical issue (#7) carries the same fenced block PLUS nonce/run/anecdote; the
+# anchor (tell.canonical/v1) is ignored, not staged.
+anec='{"schema":"anecdote/v1","to":{"id":"cd04-q1","kind":"tell"},"label":"shade","body":[{"kind":"text","text":"Cut"}],"sig":{"alg":"ed25519","by":"key:sha256:aa"}}'
+cblk="$(jq -n --arg t "$tokB" --argjson a "$anec" '{schema:"tell.submission/v1",pile:"cd04-q1",poll:"budget",round:"1",type:"anecdote",asker:"clerk",shown_guidance:"g",tok:$t,answer:"Cut",nonce:"nonce:abc",run:"runX",anecdote:$a}')"
+anchor="$(jq -n '{schema:"tell.canonical/v1",pile:"cd04-q1",poll:"budget",round:"1"}')"
+jq -n --arg c "$(fence "$cblk")" --arg an "$(fence "$anchor")" \
+  '[{issue:7,id:1001,body:$c},{issue:7,id:1002,body:$an}]' > "$work/comments.json"
+TELL_COMMENTS_JSON="$work/comments.json" TELL_SUBMISSIONS_DIR="$work/cstage" bin/collect-submissions 2>/dev/null
+[ "$(wc -l < "$work/cstage/.accepted.tsv")" = 1 ] || fail "expected 1 accepted comment (anchor ignored)"
+cf="$work/cstage/cd04-q1/c1001.json"
+[ "$(jq -r '.source' "$cf")" = comment ] || fail "comment not tagged source=comment"
+[ "$(jq -r '.comment' "$cf")" = 1001 ] || fail "comment id not staged"
+[ "$(jq -r '.number' "$cf")" = 7 ] || fail "parent canonical issue not staged"
+[ "$(jq -r '.nonce' "$cf")" = "nonce:abc" ] || fail "nonce not staged"
+[ "$(jq -r '.run' "$cf")" = runX ] || fail "run not staged"
+[ "$(jq -r '.anecdote.sig.alg' "$cf")" = ed25519 ] || fail "signed anecdote not staged"
+printf '%s' "$(head -1 "$work/cstage/.accepted.tsv")" | grep -q $'^comment\t1001\tcd04-q1$' || fail ".accepted.tsv not source/ref/pile"
+# govern preserves the new fields; rollup seals them so the pile can honor revocation by nonce.
+TELL_SUBMISSIONS_DIR="$work/cstage" TELL_REPORTS_DIR="$work/reports" bin/govern >/dev/null
+crb="$work/crb.json"; TELL_SUBMISSIONS_DIR="$work/cstage" bin/rollup cd04-q1 colorado > "$crb"
+[ "$(jq -r '.records[0].nonce' "$crb")" = "nonce:abc" ] || fail "rollup dropped the nonce"
+[ "$(jq -r '.records[0].run' "$crb")" = runX ] || fail "rollup dropped the run"
+[ "$(jq -r '.records[0].anecdote.sig.alg' "$crb")" = ed25519 ] || fail "rollup dropped the signed anecdote"
+# finalize signals a comment by a reaction (it can't be labeled); an issue still labels+closes.
+TELL_SUBMISSIONS_DIR="$work/cstage" TELL_FINALIZE_DRYRUN=1 bin/finalize-submissions 2>/dev/null \
+  | grep -q 'issues/comments/1001/reactions -f content=+1' || fail "finalize did not react on the accepted comment"
+ok "comment thread staged with nonce/run/anecdote; anchor ignored; sealed by rollup; finalize reacts"
+
 echo "[9] govern judges staged answers against constitutions/<pile>/<poll>.json (pre-seal, no key)"
 # Real stage (budget=Cut, bikes=Yes — both listed options) gets accepted mechanically and
 # annotated in place, so the rollup below seals the verdict into the digest.

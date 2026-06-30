@@ -1,17 +1,25 @@
 #!/usr/bin/env bash
-# Read open submission Issues (the "mailbox"), run the ejected authorization check on
-# each, and STAGE the authorized ones for the digest pipeline. This step performs NO
-# GitHub mutations and NO network writes — it parses + authorizes only, so it is fully
-# testable offline. bin/finalize-submissions does the closing/labeling afterward.
+# Read the mailbox, authorize each submission, and STAGE the authorized ones for the digest
+# pipeline. The mailbox has two shapes now:
+#   - ISSUE submissions   — one issue per response (the original model; labels per response).
+#   - COMMENT submissions — comments on a poll's CANONICAL issue (bin/open-poll), so the whole
+#                           poll is one thread and the comment ordinal is contemporaneous
+#                           cohort metadata. Comments carry no labels; their metadata is the
+#                           fenced ```tell``` block in the comment body.
+# Both carry the same fenced ```tell``` block; this step parses + authorizes only (NO GitHub
+# mutations), so it is fully testable offline. bin/finalize-submissions signals the outcome
+# afterward (label/close an issue; react on a comment).
 #
-# Source of issues:
-#   TELL_ISSUES_JSON   path to a JSON array of {number, body} (tests / offline); else
-#                      `gh api repos/$GITHUB_REPOSITORY/issues?state=open` (CI).
+# Sources:
+#   TELL_ISSUES_JSON     path to JSON array of {number, body} (tests/offline); else
+#                        `gh api repos/$GITHUB_REPOSITORY/issues?state=open`.
+#   TELL_COMMENTS_JSON   path to JSON array of {issue, id, body} (tests/offline); else, in CI,
+#                        comments are fetched from every open issue labeled `tell-canonical`.
 #
 # Outputs under $TELL_SUBMISSIONS_DIR (default .submissions):
-#   <id>/<number>.json        one accepted answer (number, pile, round, answer, ts)
-#   .accepted.tsv             number<TAB>pile           (for finalize + rollup)
-#   .rejected.tsv             number<TAB>reason         (for finalize)
+#   <id>/<number>.json | <id>/c<commentId>.json   one accepted submission
+#   .accepted.tsv       source<TAB>ref<TAB>pile        (ref = issue# for issue, commentId for comment)
+#   .rejected.tsv       source<TAB>ref<TAB>reason
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 repo="$(cd "$here/.." && pwd)"
@@ -20,30 +28,22 @@ stage="${TELL_SUBMISSIONS_DIR:-$repo/.submissions}"
 rm -rf "$stage"; mkdir -p "$stage"
 : > "$stage/.accepted.tsv"; : > "$stage/.rejected.tsv"
 
-issues="$(mktemp)"
-if [ -n "${TELL_ISSUES_JSON:-}" ]; then
-  cp "$TELL_ISSUES_JSON" "$issues"
-else
-  : "${GITHUB_REPOSITORY:?need GITHUB_REPOSITORY (or TELL_ISSUES_JSON)}"
-  gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
-    -q '[.[] | select(.pull_request|not) | {number, body}]' > "$issues" \
-    || { echo "collect: gh api failed" >&2; exit 1; }
-fi
+acc=0; rej=0
 
-n="$(jq 'length' "$issues")"
-acc=0; rej=0; i=0
-while [ "$i" -lt "$n" ]; do
-  num="$(jq -r ".[$i].number" "$issues")"
-  body="$(jq -r ".[$i].body // \"\"" "$issues")"
-  i=$((i+1))
-
-  # Extract the fenced ```tell JSON block; skip issues that carry none.
+# Stage one submission. Args: source(issue|comment) ref issue_num body
+stage_one() {
+  local source="$1" ref="$2" issue_num="$3" body="$4"
+  # Extract the fenced ```tell JSON block; skip anything carrying none.
+  local block
   block="$(printf '%s\n' "$body" | awk '/^```tell[[:space:]]*$/{f=1;next} /^```[[:space:]]*$/{f=0} f')"
-  [ -n "$block" ] || continue
+  [ -n "$block" ] || return 0
   if ! printf '%s' "$block" | jq -e . >/dev/null 2>&1; then
-    printf '%s\t%s\n' "$num" "unparseable tell block" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
+    printf '%s\t%s\t%s\n' "$source" "$ref" "unparseable tell block" >> "$stage/.rejected.tsv"; rej=$((rej+1)); return 0
   fi
+  # The canonical-issue anchor is not a submission — ignore it silently.
+  [ "$(printf '%s' "$block" | jq -r '.schema // empty')" = "tell.canonical/v1" ] && return 0
 
+  local pile poll round type asker shown answer ts tok nonce run anecdote
   pile="$(printf '%s' "$block" | jq -r '.pile // empty')"
   poll="$(printf '%s' "$block" | jq -r '.poll // empty')"
   round="$(printf '%s' "$block" | jq -r '.round // empty')"
@@ -53,22 +53,77 @@ while [ "$i" -lt "$n" ]; do
   answer="$(printf '%s' "$block" | jq -r '.answer // empty')"
   ts="$(printf '%s' "$block" | jq -r '.ts // empty')"
   tok="$(printf '%s' "$block" | jq -r '.tok // empty')"
+  nonce="$(printf '%s' "$block" | jq -r '.nonce // empty')"
+  run="$(printf '%s' "$block" | jq -r '.run // empty')"
+  anecdote="$(printf '%s' "$block" | jq -c '.anecdote // empty')"
   if [ -z "$pile" ] || [ -z "$poll" ] || [ -z "$round" ] || [ -z "$tok" ]; then
-    printf '%s\t%s\n' "$num" "missing pile/poll/round/tok" >> "$stage/.rejected.tsv"; rej=$((rej+1)); continue
+    printf '%s\t%s\t%s\n' "$source" "$ref" "missing pile/poll/round/tok" >> "$stage/.rejected.tsv"; rej=$((rej+1)); return 0
   fi
 
-  # The ejected check gets the whole submission object on stdin (pile+poll+round bound;
-  # type+asker available for richer overrides).
+  # The ejected check gets the whole submission object on stdin (pile+poll+round bound).
+  local reason
   if reason="$(printf '%s' "$block" | "$authz" 2>&1 >/dev/null)"; then
     mkdir -p "$stage/$pile"
-    jq -n --argjson n "$num" --arg p "$pile" --arg poll "$poll" --arg ty "$type" \
-          --arg ask "$asker" --arg sg "$shown" --arg r "$round" --arg a "$answer" --arg t "$ts" \
-      '{number:$n, pile:$p, poll:$poll, type:$ty, asker:$ask, shown_guidance:$sg, round:$r, answer:$a, ts:$t}' \
-      > "$stage/$pile/$num.json"
-    printf '%s\t%s\n' "$num" "$pile" >> "$stage/.accepted.tsv"; acc=$((acc+1))
+    local key="$ref"; [ "$source" = comment ] && key="c$ref"
+    jq -n --argjson n "$issue_num" --arg src "$source" --arg cmt "$ref" \
+          --arg p "$pile" --arg poll "$poll" --arg ty "$type" --arg ask "$asker" \
+          --arg sg "$shown" --arg r "$round" --arg a "$answer" --arg t "$ts" \
+          --arg nonce "$nonce" --arg run "$run" --argjson anec "${anecdote:-null}" \
+      '{number:$n, source:$src, pile:$p, poll:$poll, type:$ty, asker:$ask, shown_guidance:$sg, round:$r, answer:$a, ts:$t}
+       + (if $src=="comment" then {comment:($cmt|tonumber? // $cmt)} else {} end)
+       + (if $nonce!="" then {nonce:$nonce} else {} end)
+       + (if $run!="" then {run:$run} else {} end)
+       + (if $anec!=null then {anecdote:$anec} else {} end)' \
+      > "$stage/$pile/$key.json"
+    printf '%s\t%s\t%s\n' "$source" "$ref" "$pile" >> "$stage/.accepted.tsv"; acc=$((acc+1))
   else
-    printf '%s\t%s\n' "$num" "${reason##*— }" >> "$stage/.rejected.tsv"; rej=$((rej+1))
+    printf '%s\t%s\t%s\n' "$source" "$ref" "${reason##*— }" >> "$stage/.rejected.tsv"; rej=$((rej+1))
   fi
+}
+
+# --- ISSUE submissions ---------------------------------------------------------------------
+issues="$(mktemp)"
+if [ -n "${TELL_ISSUES_JSON:-}" ]; then
+  cp "$TELL_ISSUES_JSON" "$issues"
+elif [ -n "${TELL_COMMENTS_JSON:-}" ]; then
+  echo '[]' > "$issues"   # offline comment-only fixture
+else
+  : "${GITHUB_REPOSITORY:?need GITHUB_REPOSITORY (or TELL_ISSUES_JSON)}"
+  gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&per_page=100" \
+    -q '[.[] | select(.pull_request|not) | {number, body}]' > "$issues" \
+    || { echo "collect: gh api failed" >&2; exit 1; }
+fi
+n="$(jq 'length' "$issues")"; i=0
+while [ "$i" -lt "$n" ]; do
+  num="$(jq -r ".[$i].number" "$issues")"
+  body="$(jq -r ".[$i].body // \"\"" "$issues")"
+  i=$((i+1))
+  stage_one issue "$num" "$num" "$body"
+done
+
+# --- COMMENT submissions (canonical-issue threads) -----------------------------------------
+comments="$(mktemp)"
+if [ -n "${TELL_COMMENTS_JSON:-}" ]; then
+  cp "$TELL_COMMENTS_JSON" "$comments"
+elif [ -z "${TELL_ISSUES_JSON:-}" ] && [ -n "${GITHUB_REPOSITORY:-}" ]; then
+  # CI: every open canonical issue's comments become candidate submissions.
+  canon="$(gh api --paginate "repos/$GITHUB_REPOSITORY/issues?state=open&labels=tell-canonical&per_page=100" \
+            -q '[.[] | select(.pull_request|not) | .number]' 2>/dev/null || echo '[]')"
+  printf '%s' "$canon" | jq -r '.[]' | while read -r cnum; do
+    [ -n "$cnum" ] || continue
+    gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$cnum/comments?per_page=100" \
+      -q "[.[] | {issue: $cnum, id, body}]"
+  done | jq -s 'add // []' > "$comments" || echo '[]' > "$comments"
+else
+  echo '[]' > "$comments"
+fi
+m="$(jq 'length' "$comments")"; j=0
+while [ "$j" -lt "$m" ]; do
+  ci="$(jq -r ".[$j].issue" "$comments")"
+  cid="$(jq -r ".[$j].id" "$comments")"
+  cbody="$(jq -r ".[$j].body // \"\"" "$comments")"
+  j=$((j+1))
+  stage_one comment "$cid" "$ci" "$cbody"
 done
 
 echo "collect: $acc accepted, $rej rejected (staged at $stage)" >&2
