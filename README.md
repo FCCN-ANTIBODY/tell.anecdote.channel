@@ -17,6 +17,9 @@ Tell registers *to Atlas(es)*. By convention the repo name is the DNS name serve
 - **Where it's going:** [`ROADMAP.md`](ROADMAP.md). What's deferred for the whole constellation lives in
   one place, the workspace's
   [`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md).
+- **The poll, end to end:** how the Tell's authorize → govern → seal → publish loop sits inside the full
+  lifecycle (and which steps are still operator chores) —
+  [`civic-node/docs/PIPELINE.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/docs/PIPELINE.md).
 
 ## How it works, in one breath
 
