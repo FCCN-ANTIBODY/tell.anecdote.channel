@@ -52,6 +52,44 @@ prints its number for `bin/qr --canonical`.
 > valid `tok` is swept `rejected`. A more secure variant fetches the credential from the Tell at scan
 > time rather than baking it into a static QR — recorded as the hardening option.
 
+## Provisioning the post credential — the homebrew path (fine-grained PAT)
+
+The deliberately-lowest-barrier setup, to prove a nobody can stand this up with no second-order infra
+(no GitHub App, no token-vending worker — those are the graduation). One secret, set once:
+
+1. **Make a fine-grained PAT** (github.com → Settings → Developer settings → Fine-grained tokens):
+   - **Resource owner / repository access:** *only this one Tell repo*.
+   - **Repository permissions → Issues: Read and write** — and nothing else. (Issues:write is what covers
+     creating comments.)
+   - **Expiration: short** (7–30 days). You rotate by bumping the poll **round** and re-minting.
+   - For a true "nobody," generate it from a throwaway **machine account** that is a write collaborator
+     on the repo, so it is not tied to your personal identity. (Your own account works too for a first run.)
+2. **Store it** as the repo Actions secret **`TELL_POST_TOKEN`** (Settings → Secrets and variables →
+   Actions). The *mint QR* workflow passes it through; if it is unset, the QR carries no credential and
+   the landing falls back to the respondent's own GitHub auth.
+
+**Eyes open about the blast radius (homebrew on purpose):** a fine-grained PAT scoped to Issues:write lets
+*anyone holding the QR* create/close/comment on issues in that one repo via the API directly — the `tok`
+gates *ingestion acceptance*, not raw GitHub actions. It is a public-inbox repo, so the cost is bounded;
+keep the expiry short, rotate per round, and watch it. The App + scan-time-token model removes this by
+never baking a durable credential into the QR — that is the next step, not this one.
+
+## Operate it (from the Actions tab)
+
+1. **bin/tell-bootstrap** once, *locally* (it sets `TELL_QR_SECRET` / `TELL_SIGNER_KEY` /
+   `TELL_SEED_IDENTITY` via your own `gh` auth — there is no dispatch workflow for it on purpose; see
+   below). Add `TELL_POST_TOKEN` per above.
+2. **"open poll"** workflow → get the canonical issue number.
+3. **"mint QR"** workflow with `mode: comment`, `canonical: <that number>` → the QR/landing the
+   respondent opens. (Or `mode: issue` for one-issue-per-response.)
+4. **"ingest submissions"** sweeps, authorizes, governs, seals, and signals (label/close an issue;
+   👍/👎 react a comment).
+
+> **No dispatch workflow for `bin/tell-bootstrap`** — and that is correct. A workflow cannot write its
+> own repo's Actions secrets with the built-in `GITHUB_TOKEN`; it would need an admin-scoped PAT, which
+> is itself a manual setup secret (chicken-and-egg) and would mean printing freshly-minted **private**
+> keys into a run log. So bootstrap stays a one-time local command where the operator holds the keys.
+
 ## The block — three additions, forward-compatible
 
 `bin/collect-submissions` reads the existing `pile/poll/round/type/asker/shown_guidance/answer/ts/tok`

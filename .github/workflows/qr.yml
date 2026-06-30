@@ -34,6 +34,16 @@ on:
       guidance:
         description: "Guidance shown to the respondent (format/mood). The pile governs by its own."
         required: false
+      mode:
+        description: "issue (one issue per response) | comment (onto a canonical poll issue)"
+        required: false
+        default: "issue"
+      canonical:
+        description: "Canonical poll issue number — required for comment mode (run \"open poll\" first)"
+        required: false
+      run:
+        description: "Run id to tell QRs/runs apart (optional; default derived from the token)"
+        required: false
 
 permissions:
   contents: read
@@ -48,6 +58,11 @@ jobs:
       - name: Mint authorized QR
         env:
           TELL_QR_SECRET: ${{ secrets.TELL_QR_SECRET }}
+          # The semi-public POST credential the runtime uses to post the response (homebrew: a
+          # repo-scoped, Issues:write, short-expiry fine-grained PAT). Optional — if unset, bin/qr
+          # omits it and the landing falls back to the respondent's own GitHub auth. See
+          # docs/issue-ingress.md → "Provisioning the post credential".
+          TELL_POST_TOKEN: ${{ secrets.TELL_POST_TOKEN }}
           # Pass inputs via env (never interpolate into the shell) to avoid injection.
           PILE: ${{ inputs.pile }}
           POLL: ${{ inputs.poll }}
@@ -57,14 +72,19 @@ jobs:
           QUESTION: ${{ inputs.question }}
           OPTS: ${{ inputs.opts }}
           GUIDANCE: ${{ inputs.guidance }}
+          MODE: ${{ inputs.mode }}
+          CANONICAL: ${{ inputs.canonical }}
+          RUN: ${{ inputs.run }}
         run: |
           set -euo pipefail
           [ -n "${TELL_QR_SECRET:-}" ] || { echo "::error::TELL_QR_SECRET secret required (see bin/tell-bootstrap)"; exit 1; }
-          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND" --type "${TYPE:-open}")
+          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND" --type "${TYPE:-open}" --mode "${MODE:-issue}")
           [ -n "${ASKER:-}" ]    && args+=(--asker "$ASKER")
           [ -n "${QUESTION:-}" ] && args+=(--question "$QUESTION")
           [ -n "${OPTS:-}" ]     && args+=(--opts "$OPTS")
           [ -n "${GUIDANCE:-}" ] && args+=(--guidance "$GUIDANCE")
+          [ -n "${CANONICAL:-}" ] && args+=(--canonical "$CANONICAL")
+          [ -n "${RUN:-}" ]      && args+=(--run "$RUN")
           url="$(bin/qr "${args[@]}")"
           mkdir -p out; mv qr-*.png out/ 2>/dev/null || qrencode -o "out/qr-${PILE}-${POLL}-${ROUND}.png" "$url"
           { echo "## QR for \`$POLL\` on \`$PILE\` (round $ROUND)";

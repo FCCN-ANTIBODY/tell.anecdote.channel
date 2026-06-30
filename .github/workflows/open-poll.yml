@@ -1,0 +1,53 @@
+name: "Federate · open poll (canonical issue)"
+
+# Make a poll answerable by opening its CANONICAL issue — the one thread every response comments
+# onto (then mint a comment-mode QR with --canonical <this number>). The comment ordinal is free,
+# verifiable, contemporaneous cohort metadata. See docs/issue-ingress.md.
+#
+# Output: the canonical issue number (in the run summary). Feed it to the "mint QR" workflow's
+# `canonical` input with `mode: comment`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pile:
+        description: "Pile id (must be in _data/piles.yml)"
+        required: true
+      poll:
+        description: "Poll id on that pile"
+        required: true
+      round:
+        description: "Round"
+        required: true
+        default: "1"
+      question:
+        description: "The poll question (shown as the issue title/anchor)"
+        required: false
+
+permissions:
+  contents: read
+  issues: write     # open the canonical issue in THIS repo
+
+jobs:
+  open:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Open the canonical poll issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          # Pass inputs via env (never interpolate into the shell) to avoid injection.
+          PILE: ${{ inputs.pile }}
+          POLL: ${{ inputs.poll }}
+          ROUND: ${{ inputs.round }}
+          QUESTION: ${{ inputs.question }}
+        run: |
+          set -euo pipefail
+          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND")
+          [ -n "${QUESTION:-}" ] && args+=(--question "$QUESTION")
+          n="$(bin/open-poll "${args[@]}")"
+          { echo "## Canonical issue for \`$POLL\` on \`$PILE\` (round $ROUND)";
+            echo; echo "Issue **#$n** opened. Mint a comment-mode QR with:";
+            echo; echo "    mode: comment";
+            echo "    canonical: $n"; } >> "$GITHUB_STEP_SUMMARY"
