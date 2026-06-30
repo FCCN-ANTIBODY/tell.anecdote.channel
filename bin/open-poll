@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Make a poll answerable by opening its CANONICAL issue — the one thread every response
+# comments onto (bin/qr --mode comment --canonical <this number>). The canonical issue is the
+# anchor, not a response: its comment stream gives each reply a free, verifiable,
+# contemporaneous ordinal ("which cohort it came in with") — gracefully better than a random,
+# ever-increasing issue id. bin/collect-submissions finds canonical issues by the
+# `tell-canonical` label and sweeps their comments.
+#
+#   bin/open-poll --pile ID --poll POLL [--round R] [--question Q] [--repo OWNER/NAME]
+#
+# Prints the new canonical issue NUMBER on stdout (feed it to bin/qr --canonical). Uses `gh`
+# against $GITHUB_REPOSITORY (or --repo). Set TELL_OPENPOLL_DRYRUN=1 to print the action and a
+# placeholder number instead (tests / offline).
+set -euo pipefail
+pile=""; poll=""; round="1"; question=""; repo="${GITHUB_REPOSITORY:-}"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pile) pile="$2"; shift 2;;
+    --poll) poll="$2"; shift 2;;
+    --round) round="$2"; shift 2;;
+    --question) question="$2"; shift 2;;
+    --repo) repo="$2"; shift 2;;
+    *) echo "bin/open-poll: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+[ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/open-poll --pile ID --poll POLL [--round R] [--question Q] [--repo OWNER/NAME]" >&2; exit 1; }
+
+title="[poll:${poll}] ${question:-$poll}"
+# The canonical issue's body is an anchor block (NOT a submission — it carries no answer/tok),
+# so bin/collect-submissions can recognize the thread and ignore the anchor itself.
+body="$(jq -n --arg p "$pile" --arg poll "$poll" --arg r "$round" --arg q "$question" \
+  '{schema:"tell.canonical/v1", pile:$p, poll:$poll, round:$r, question:$q} | "Canonical thread for this poll. Responses arrive as comments via anecdote.channel.\n\n```tell\n" + (.|tojson) + "\n```\n"' -r)"
+labels="tell-canonical,poll:${poll},round:${round}"
+
+if [ "${TELL_OPENPOLL_DRYRUN:-0}" = 1 ]; then
+  echo "DRYRUN: gh issue create --repo ${repo:-LOCAL} --title \"$title\" --label \"$labels\" --body <anchor>" >&2
+  echo "0"   # placeholder canonical number
+  exit 0
+fi
+
+: "${repo:?need GITHUB_REPOSITORY (or --repo)}"
+command -v gh >/dev/null 2>&1 || { echo "bin/open-poll: gh required (or set TELL_OPENPOLL_DRYRUN=1)" >&2; exit 1; }
+for l in tell-canonical "poll:${poll}" "round:${round}"; do
+  gh label create "$l" --repo "$repo" >/dev/null 2>&1 || true
+done
+url="$(gh issue create --repo "$repo" --title "$title" --label "$labels" --body "$body")"
+# `gh issue create` prints the issue URL; the number is its last path segment.
+printf '%s\n' "${url##*/}"

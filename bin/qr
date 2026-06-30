@@ -31,7 +31,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
 pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
-signkey_arg=""
+signkey_arg=""; mode="issue"; canonical=""; run=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -44,9 +44,17 @@ while [ $# -gt 0 ]; do
     --guidance) guidance="$2"; shift 2;;
     --repo) repo="$2"; shift 2;;
     --signkey) signkey_arg="$2"; shift 2;;
+    --mode) mode="$2"; shift 2;;          # issue (one issue per response) | comment (onto the canonical poll issue)
+    --canonical) canonical="$2"; shift 2;; # the canonical poll issue number that comments attach to (comment mode)
+    --run) run="$2"; shift 2;;            # a non-secret id telling QRs/runs apart; default derived from the token
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
+case "$mode" in issue|comment) ;; *) echo "bin/qr: --mode must be issue|comment (got: $mode)" >&2; exit 1;; esac
+[ "$mode" = comment ] && [ -z "$canonical" ] && { echo "bin/qr: --mode comment needs --canonical <issue#> (run bin/open-poll first)" >&2; exit 1; }
+if [ -n "$canonical" ] && ! printf '%s' "$canonical" | grep -Eq '^[0-9]+$'; then
+  echo "bin/qr: --canonical must be an issue number (got: $canonical)" >&2; exit 1
+fi
 # Sanitize repo to OWNER/NAME so it can only ever address a github.com repo path.
 if [ -n "$repo" ] && ! printf '%s' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
   echo "bin/qr: --repo must be OWNER/NAME (got: $repo)" >&2; exit 1
@@ -56,18 +64,37 @@ fi
 : "${TELL_DOMAIN:=https://tell.anecdote.channel}"
 
 tok="$(tl_token "$TELL_QR_SECRET" "$pile" "$poll" "$round")"
+# Default run id: a short, non-secret tag derived from the token so it is stable per
+# (pile,poll,round). Pass --run to distinguish several concurrent runs of the same poll.
+[ -n "$run" ] || run="${tok:0:12}"
 
 enc() { jq -rn --arg s "$1" '$s|@uri'; }   # URL-encode
 
 # Collect the payload as key=value pairs (values URL-encoded, exactly as they ride in the
 # URL). Bound fields first, then unbound routing/render metadata. This same set, run
-# through tl_qr_canon, is the preimage the provenance signature covers.
+# through tl_qr_canon, is the preimage the provenance signature covers — so mode/canonical/
+# run are provenance-covered too (the credential below is NOT; it is never self-signed).
 pairs=( "pile=$(enc "$pile")" "poll=$(enc "$poll")" "round=$(enc "$round")" "tok=${tok}" "type=$(enc "$type")" )
+pairs+=( "mode=$(enc "$mode")" "run=$(enc "$run")" )
+[ -n "$canonical" ] && pairs+=( "canonical=$(enc "$canonical")" )
 [ -n "$asker" ]    && pairs+=( "asker=$(enc "$asker")" )
 [ -n "$question" ] && pairs+=( "q=$(enc "$question")" )
 [ -n "$opts" ]     && pairs+=( "opts=$(enc "$opts")" )
 [ -n "$guidance" ] && pairs+=( "guidance=$(enc "$guidance")" )
 [ -n "$repo" ]     && pairs+=( "repo=$(enc "$repo")" )
+
+# The POST CREDENTIAL (optional): a semi-public, GitHub-acceptable write token so the runtime
+# (anecdote.channel) can post the response with NO GitHub account from the respondent. It is
+# CARRIED here, never MINTED here — set $TELL_POST_TOKEN from a repo-scoped, issues-only,
+# short-lived credential (a GitHub App installation token is ideal; rotate per round). It is a
+# semi-public secret by design (it rides in the QR); keep its scope tiny. It is added AFTER the
+# signature preimage is built (see below) and excluded from canon (tl_qr_canon drops `post`),
+# so rotating it never invalidates the poll's provenance signature.
+post_pair=""
+if [ -n "${TELL_POST_TOKEN:-}" ]; then
+  post_pair="post=$(enc "$TELL_POST_TOKEN")"
+  echo "bin/qr: WARN embedding a semi-public POST credential in the QR (repo-scoped/short-lived only; see docs/issue-ingress.md)" >&2
+fi
 
 # Provenance signature (optional, additive). Sign the canonical preimage with the Tell's
 # delivery signer — the same ssh-keygen -Y primitive bin/deliver uses, under TL_QR_SIG_NS
@@ -97,6 +124,9 @@ else
   echo "bin/qr: note — no --signkey/TELL_SIGNER_KEY; QR carries no provenance signature" >&2
 fi
 [ -n "$sig" ] && pairs+=( "sig=$(enc "$sig")" "kid=$(enc "$kid")" )
+# The credential rides AFTER the signature preimage and is dropped by tl_qr_canon, so it is
+# never part of the signed payload (rotating it doesn't break provenance).
+[ -n "$post_pair" ] && pairs+=( "$post_pair" )
 
 # Assemble the URL from the (possibly signed) pairs, preserving order.
 url="${TELL_DOMAIN}/?$(IFS='&'; printf '%s' "${pairs[*]}")"
