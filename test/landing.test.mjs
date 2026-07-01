@@ -1,126 +1,55 @@
-// Unit-test index.md's link-builder: given a QR config in the URL, it must render the
-// options and build a GitHub issues/new URL whose body carries a parseable ```tell```
-// block with the right fields. Runs the page script under minimal DOM/location stubs.
+// Unit-test index.md's FORWARD: the landing no longer composes replies (anecdote.channel does now — see
+// docs/answer-runtime.md). Given a poll QR in the URL, the page must redirect to anecdote's answer runtime
+// carrying the query VERBATIM (so a signed poll's provenance survives byte-for-byte); with no poll it shows
+// the empty state and does not redirect. The byte-parity of the submission itself is guarded on the
+// anecdote side (composer/poll-answer.test.mjs).
 import fs from "fs";
 
 const root = new URL("..", import.meta.url).pathname;
 const md = fs.readFileSync(root + "index.md", "utf8");
 const script = md.match(/<script>([\s\S]*?)<\/script>/)[1];
 
-const el = { innerHTML: "" };
-globalThis.document = { getElementById: () => el };
-globalThis.location = {
-  search:
-    "?pile=cd04-q1&poll=bikes&round=3&type=open&asker=" + encodeURIComponent("dot-office") +
-    "&guidance=" + encodeURIComponent("one option; no essays") +
-    "&tok=deadbeef&q=" + encodeURIComponent("Expand bike lanes?") +
-    "&opts=" + encodeURIComponent("Yes,No,Study"),
-  hash: "",
-};
-globalThis.window = globalThis;
-
-eval(script);
-
+const RUNTIME = "https://anecdote.channel/poll.html";
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
 
-assert(/Expand bike lanes/.test(el.innerHTML), "question not rendered");
-// Option links carry real hrefs; the write-in "Compose reply" link starts at href="#", so
-// filter those out to count true option links.
-const links = [...el.innerHTML.matchAll(/href="([^"]+)"/g)].filter((h) => h[1] !== "#");
-assert(links.length === 3, "expected 3 option links, got " + links.length);
-// type=open also offers a write-in field alongside the suggested options.
-assert(/<textarea/.test(el.innerHTML), "open poll: expected a write-in textarea beside options");
-
-const u = new URL(window.tellIssueUrl("Study"));
-assert(u.pathname.endsWith("/issues/new"), "not an issues/new url: " + u.pathname);
-// No &repo in this config → addresses the canonical Tell repo.
-assert(u.host === "github.com" && u.pathname === "/FCCN-ANTIBODY/tell.anecdote.channel/issues/new",
-  "default repo addressing wrong: " + u.pathname);
-assert(u.searchParams.get("labels") === "tell-submission", "missing tell-submission label");
-const body = u.searchParams.get("body");
-const block = body.match(/```tell\n([\s\S]*?)\n```/);
-assert(block, "no fenced tell block in body");
-const obj = JSON.parse(block[1]);
-assert(
-  obj.schema === "tell.submission/v1" &&
-  obj.pile === "cd04-q1" && obj.poll === "bikes" && obj.round === "3" &&
-  obj.type === "open" && obj.asker === "dot-office" &&
-  obj.shown_guidance === "one option; no essays" &&
-  obj.tok === "deadbeef" && obj.answer === "Study",
-  "tell block fields wrong: " + JSON.stringify(obj)
-);
-// Re-run the page script under a fresh location to exercise &repo addressing.
-function issueHostPath(search) {
-  const e = { innerHTML: "" };
-  globalThis.document = { getElementById: () => e };
-  globalThis.location = { search, hash: "" };
+// Run the page script under minimal DOM/location stubs; capture any location.replace target.
+function run(search, hash = "") {
+  const el = { innerHTML: "" };
+  let replaced = null;
+  globalThis.document = { getElementById: () => el };
+  globalThis.location = { search, hash, replace: (u) => { replaced = u; } };
   globalThis.window = globalThis;
+  globalThis.URLSearchParams = URLSearchParams;
   eval(script);
-  const x = new URL(window.tellIssueUrl("Yes"));
-  return x.host + x.pathname;
-}
-const base = "?pile=p&poll=q&round=1&tok=t&opts=Yes,No";
-// A clean OWNER/NAME addresses that jurisdiction Tell.
-assert(issueHostPath(base + "&repo=" + encodeURIComponent("acme/tell.fort-collins")) ===
-  "github.com/acme/tell.fort-collins/issues/new", "custom repo not addressed");
-// A malformed repo (path traversal / extra segments / scheme) falls back to canonical.
-for (const bad of ["evil.com/a/b", "a", "../../x", "https://evil/x"]) {
-  assert(issueHostPath(base + "&repo=" + encodeURIComponent(bad)) ===
-    "github.com/FCCN-ANTIBODY/tell.anecdote.channel/issues/new", "bad repo not rejected: " + bad);
+  return { html: el.innerHTML, replaced };
 }
 
-// --- Write-in / custom-entry rendering -------------------------------------------------
-// Re-run the page under a fresh location and return the rendered HTML.
-function render(search) {
-  const e = { innerHTML: "" };
-  globalThis.document = { getElementById: () => e };
-  globalThis.location = { search, hash: "" };
-  globalThis.window = globalThis;
-  eval(script);
-  return e.innerHTML;
+// 1. A loaded poll forwards to anecdote's runtime with the query verbatim.
+{
+  const raw = "pile=cd04-q1&poll=bikes&round=3&type=open&tok=deadbeef&q=Expand%20bike%20lanes%3F&opts=Yes%2CNo";
+  const { html, replaced } = run("?" + raw);
+  assert(replaced === RUNTIME + "?" + raw, "did not forward verbatim to the runtime: " + replaced);
+  assert(/Continue to anecdote\.channel/.test(html), "no manual Continue link for the no-JS-redirect fallback");
 }
-const realLinks = (html) => [...html.matchAll(/href="([^"]+)"/g)].filter((h) => h[1] !== "#");
 
-// Open poll with no fixed options → a write-in textarea, no option links, and the link-builder
-// still produces a valid issue URL carrying the typed answer.
-const openHtml = render("?pile=p&poll=open1&round=1&tok=t&type=open&q=" + encodeURIComponent("Why?"));
-assert(/<textarea/.test(openHtml), "open poll: no write-in textarea");
-assert(realLinks(openHtml).length === 0, "open poll with no opts should have no option links");
-const typed = JSON.parse(
-  new URL(window.tellIssueUrl("A free-form reply")).searchParams.get("body").match(/```tell\n([\s\S]*?)\n```/)[1]
-);
-assert(typed.answer === "A free-form reply" && typed.type === "open",
-  "typed answer block wrong: " + JSON.stringify(typed));
+// 2. The query is forwarded byte-for-byte (a signed poll's sig must not be re-encoded).
+{
+  const raw = "pile=p&poll=q&round=1&tok=t&sig=Zm9vYmFy%2Bb2F%3D&kid=SHA256%3Aabc";
+  const { replaced } = run("?" + raw);
+  assert(replaced === RUNTIME + "?" + raw, "signed query was altered in transit: " + replaced);
+}
 
-// multichoice → option links only, no write-in field.
-const mcHtml = render("?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No");
-assert(!/<textarea/.test(mcHtml), "multichoice should not show a write-in textarea");
-assert(realLinks(mcHtml).length === 2, "multichoice should render 2 option links");
+// 3. Hash-carried params are forwarded too (a search-less QR).
+{
+  const { replaced } = run("", "#pile=p&poll=q&round=1&tok=t");
+  assert(replaced === RUNTIME + "?pile=p&poll=q&round=1&tok=t", "hash params not forwarded: " + replaced);
+}
 
-// multichoice that opts into write-in → both option links and a textarea.
-const mcW = render("?pile=p&poll=mc&round=1&tok=t&type=multichoice&writein=1&opts=Yes,No");
-assert(/<textarea/.test(mcW), "multichoice+writein should show a textarea");
-assert(realLinks(mcW).length === 2, "multichoice+writein should still render 2 option links");
+// 4. No poll → empty state, and NO redirect.
+{
+  const { html, replaced } = run("?poll=q");   // missing pile/round/tok
+  assert(replaced === null, "redirected without a full poll token");
+  assert(/No poll loaded/.test(html), "missing empty state");
+}
 
-// No type, no opts → still answerable: a write-in field, never a fabricated yes/no.
-const bareHtml = render("?pile=p&poll=bare&round=1&tok=t");
-assert(/<textarea/.test(bareHtml), "bare poll should fall back to a write-in field");
-assert(!/>Yes<|>No</.test(bareHtml), "bare poll must not fabricate yes/no options");
-
-// --- Provenance: a signed QR carries its exact payload into the submission ------------
-const blockFor = (search, ans) => {
-  render(search);
-  return JSON.parse(
-    new URL(window.tellIssueUrl(ans)).searchParams.get("body").match(/```tell\n([\s\S]*?)\n```/)[1]
-  );
-};
-// A signed QR (cfg.sig present) carries the exact query verbatim as `qr`, so the Tell can
-// verify the poll's signature before processing.
-const signedSearch = "?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No&sig=SIGVAL&kid=SHA256%3Aabc";
-const sBlock = blockFor(signedSearch, "Yes");
-assert(sBlock.qr === signedSearch.slice(1), "signed QR not carried verbatim as qr: " + sBlock.qr);
-// An unsigned QR carries no qr field (keeps the body lean; nothing to verify).
-const uBlock = blockFor("?pile=p&poll=mc&round=1&tok=t&type=multichoice&opts=Yes,No", "Yes");
-assert(!("qr" in uBlock), "unsigned submission must not carry a qr field");
-
-console.log("landing link-builder: OK");
+console.log("landing forward test passed");
