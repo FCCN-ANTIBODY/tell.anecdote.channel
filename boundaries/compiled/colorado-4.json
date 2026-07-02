@@ -53,6 +53,10 @@
   ],
   "concept": "congressional-district",
   "hard": false,
+  "center": [
+    -103.5,
+    39.5
+  ],
   "derives": {
     "source": "US Census TIGER/Line CD-118 shapefile",
     "hash": null,
@@ -62,6 +66,6 @@
     "alg": "ed25519",
     "by": "key:sha256:418f78724bbc6c5c01190ea37a432680fdbae9eb9817e61505347ab74f75f015",
     "key": "7CVujdl64d+bboZWSImCWTtykejlh4LNxFKz2IMFVkM=",
-    "signature": "g0r0RpIAkVFOGhPDQfemxlOT2MIB4udhefBOrbv5VXxy6nsOfln/VcqZ0xcs0FuM7h7p12yh6VfRmuHR9gT3Ag=="
+    "signature": "uh8K/R+Yx5vjxT5xDcPdn158zQztY7Ci1z0r6rhwdyPfbeQjUsUt2t6gQ/s9HXawtVRFRil5NjnV+S3L0nXABA=="
   }
 }

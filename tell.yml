@@ -56,4 +56,8 @@ boundaries:
       source: "US Census TIGER/Line CD-118 shapefile"
       hash: null   # source-file hash not retained; the point stands without it:
       note: "simplified deliberately — vertex reduction by hand; we did something to it on purpose"
-    hash: "sha256:989b58b64b472ea3bc9f0d32548821db61f0f4db2fe3ea63bf2c968cc4152182"   # content id of boundaries/compiled/colorado-4.json — `bin/boundaries check` guards it
+    center: [-103.5, 39.5]   # the DECLARED anchor — our center of mass, "where you'd knock" (eastern plains).
+    # NOT computed from the polygon: an Atlas tests THIS point against its own shape to observe `anchored`,
+    # but membership is this filing, never the geometry (a rounding sliver must never exile a member). Its
+    # absence would be honest silence (anchored: null); declaring it lets a real member graduate.
+    hash: "sha256:0fc5f73f55540685cf1428d8141d4bf56bd6ab8b04c1a297cc9d9aa2bf4b5edb"   # content id of boundaries/compiled/colorado-4.json — `bin/boundaries check` guards it
