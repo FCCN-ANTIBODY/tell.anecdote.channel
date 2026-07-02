@@ -25,3 +25,35 @@ scope: colorado
 # described in CONSTITUTION.md ("I describe the transparency reports I publish"); an
 # Atlas requires that description to list this Tell.
 reports: "reports/govern-*"
+
+# ── The boundaries this Tell asserts (notes/boundary-declaration.md; the canon lives in
+# atlas.anecdote.channel/notes/boundary-canon.md). Each entry is a CLAIM: "here is a shape I
+# assert, and here is what my assertion is made of." Geometry lives in boundaries/<slug>.geojson
+# (pure shape, tool-round-trippable); everything about the assertion lives here. bin/boundaries
+# compiles each entry + shape into a SIGNED anecdote.boundary/v1 artifact under
+# boundaries/compiled/ — the form phones verify and bisect against (composer/bisect.mjs), whose
+# content id is pinned below as `hash` so drift is detectable (bin/boundaries check).
+#
+# The listing is a LEASE: re-run `bin/boundaries renew` to re-sign the assertion with a fresh
+# date (boundaries/renewals/); an Atlas computes "listed" from renewal freshness, never from a
+# stored state. Relations, when needed, are declared per entry and SIGNED into the artifact:
+#   derives:  { source, hash?, note }   # same referent, different bytes, ON PURPOSE (family)
+#   disputes: { boundary, grounds? }    # intentional disagreement with another claim (contest)
+#   proposes: { for, replaces? }        # a shape hosted for a referent we do NOT claim (wish)
+# `hard: true` declares joining requires the joiner's own presence proof (a met-record at the
+# door — composer/met.mjs). Default false: presence grades participation, never gates it.
+boundaries:
+  - slug: colorado-4
+    concept: congressional-district
+    label: "Colorado's 4th Congressional District (simplified)"
+    file: boundaries/colorado-4.geojson
+    hard: false
+    basis:
+      - kind: derived
+        source: "US Census TIGER/Line congressional districts (118th Congress)"
+        note: "post-processed to a coarse outline for demonstration"
+    derives:
+      source: "US Census TIGER/Line CD-118 shapefile"
+      hash: null   # source-file hash not retained; the point stands without it:
+      note: "simplified deliberately — vertex reduction by hand; we did something to it on purpose"
+    hash: "sha256:989b58b64b472ea3bc9f0d32548821db61f0f4db2fe3ea63bf2c968cc4152182"   # content id of boundaries/compiled/colorado-4.json — `bin/boundaries check` guards it

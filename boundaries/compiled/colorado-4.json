@@ -1,0 +1,67 @@
+{
+  "schema": "anecdote.boundary/v1",
+  "constituency": "colorado-4",
+  "name": "Colorado's 4th Congressional District (simplified)",
+  "polygons": [
+    [
+      [
+        [
+          -105.05,
+          41
+        ],
+        [
+          -102.05,
+          41
+        ],
+        [
+          -102.04,
+          37
+        ],
+        [
+          -104.94,
+          37
+        ],
+        [
+          -104.94,
+          38.26
+        ],
+        [
+          -105.03,
+          39.13
+        ],
+        [
+          -104.66,
+          39.61
+        ],
+        [
+          -104.9,
+          40
+        ],
+        [
+          -105.28,
+          40.52
+        ]
+      ]
+    ]
+  ],
+  "basis": [
+    {
+      "kind": "derived",
+      "source": "US Census TIGER/Line congressional districts (118th Congress)",
+      "note": "post-processed to a coarse outline for demonstration"
+    }
+  ],
+  "concept": "congressional-district",
+  "hard": false,
+  "derives": {
+    "source": "US Census TIGER/Line CD-118 shapefile",
+    "hash": null,
+    "note": "simplified deliberately — vertex reduction by hand; we did something to it on purpose"
+  },
+  "sig": {
+    "alg": "ed25519",
+    "by": "key:sha256:418f78724bbc6c5c01190ea37a432680fdbae9eb9817e61505347ab74f75f015",
+    "key": "7CVujdl64d+bboZWSImCWTtykejlh4LNxFKz2IMFVkM=",
+    "signature": "g0r0RpIAkVFOGhPDQfemxlOT2MIB4udhefBOrbv5VXxy6nsOfln/VcqZ0xcs0FuM7h7p12yh6VfRmuHR9gT3Ag=="
+  }
+}
