@@ -7,7 +7,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync, cpSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalize, defaultHash, verifyAttested, geojsonToPolygons, readBoundariesBlock, compileAll, checkAll, renewAll } from "../bin/boundaries.mjs";
+import { canonicalize, defaultHash, verifyAttested, geojsonToPolygons, readBoundariesBlock, buildArtifact, declaredCenter, compileAll, checkAll, renewAll } from "../bin/boundaries.mjs";
 
 let fails = 0;
 const ok = (c, m) => { if (!c) { console.error("FAIL: " + m); fails++; } else console.log("  ok: " + m); };
@@ -89,6 +89,30 @@ function scratchTell() {
   process.env.TELL_BOUNDARY_KEY = path.join(dir, "keys/nonexistent.pk8");
   let threw = false; try { await renewAll(dir); } catch { threw = true; }
   ok(threw, "renewal REFUSES to run without the original key (no silent signer swap)");
+}
+
+// 4b. the DECLARED anchor: an inline [lon, lat] parses, is validated, and is SIGNED into the artifact — but
+// only when declared (its absence is honest silence). The atlas dump tests this point to observe `anchored`.
+{
+  const dummyGj = { type: "Polygon", coordinates: [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]] };
+  // parses out of the inline-array YAML value, all the way through readBoundariesBlock
+  const parsed = readBoundariesBlock(`boundaries:\n  - slug: c\n    file: x\n    center: [-103.5, 39.5]\n    hash: X\n`);
+  ok(Array.isArray(parsed[0].center) && parsed[0].center[0] === -103.5 && parsed[0].center[1] === 39.5, "an inline `center: [lon, lat]` parses to a real two-number array");
+  // signed into the artifact when present
+  const withAnchor = buildArtifact({ slug: "c", center: [-103.5, 39.5] }, dummyGj);
+  ok(Array.isArray(withAnchor.center) && withAnchor.center.length === 2, "buildArtifact emits `center` when the anchor is declared");
+  // absent when NOT declared — no key at all, so the atlas observes anchored: null (honest silence)
+  const noAnchor = buildArtifact({ slug: "c" }, dummyGj);
+  ok(!("center" in noAnchor), "no `center` key when undeclared — the artifact is byte-identical to the pre-anchor shape");
+  ok(declaredCenter({ slug: "c" }) === undefined, "declaredCenter is undefined for an undeclared anchor");
+  // a malformed anchor is REFUSED at build time, never silently dropped or coerced
+  let threw = 0;
+  for (const bad of [[-103.5], [-103.5, 39.5, 1], ["a", "b"], [NaN, 2], "somewhere"])
+    try { declaredCenter({ slug: "c", center: bad }); } catch { threw++; }
+  ok(threw === 5, "a malformed anchor (wrong arity, non-number, NaN, non-array) is refused, not coerced");
+  // and the REAL committed colorado-4 now ships its anchor, inside its own shape
+  const committed = JSON.parse(readFileSync(path.join(ROOT, "boundaries/compiled/colorado-4.json"), "utf8"));
+  ok(Array.isArray(committed.center) && committed.center[0] === -103.5 && committed.center[1] === 39.5, "the committed colorado-4 artifact declares its eastern-plains anchor");
 }
 
 // 5. cross-repo: the REAL client (composer/bisect.mjs) verifies the committed colorado-4 artifact and

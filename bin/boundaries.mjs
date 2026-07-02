@@ -95,8 +95,20 @@ export function geojsonToPolygons(gj) {
   throw new Error(`boundaries: unsupported geometry ${geom.type}`);
 }
 
+// The DECLARED anchor: your center of mass — "where you'd knock." A single [lon, lat] the Tell states about
+// itself, NOT computed from the polygon (rounding math must never exile a member; membership is the filing,
+// not the geometry). The Atlas dump tests THIS point against its own shape to observe `anchored` — so it
+// only appears when the Tell chooses to declare it; its absence is honest silence (anchored: null).
+export function declaredCenter(entry) {
+  const c = entry.center;
+  if (c == null) return undefined;
+  if (!Array.isArray(c) || c.length !== 2 || !c.every((n) => typeof n === "number" && Number.isFinite(n)))
+    throw new Error(`boundaries: ${entry.slug}: center must be [lon, lat] finite numbers, got ${JSON.stringify(c)}`);
+  return [c[0], c[1]];
+}
+
 // The unsigned artifact: bisect.mjs's shape (schema/constituency/name/polygons/basis) plus the DECLARED
-// extras — hard + the relations — all covered by the signature (extra fields verify fine downstream).
+// extras — hard, the anchor, the relations — all covered by the signature (extra fields verify fine downstream).
 export function buildArtifact(entry, gj) {
   const a = {
     schema: "anecdote.boundary/v1",
@@ -107,6 +119,8 @@ export function buildArtifact(entry, gj) {
     concept: entry.concept || "asserted",
     hard: !!entry.hard,
   };
+  const center = declaredCenter(entry);
+  if (center) a.center = center;
   for (const rel of ["derives", "disputes", "proposes"]) if (entry[rel]) a[rel] = entry[rel];
   return a;
 }
@@ -127,7 +141,10 @@ export function readBoundariesBlock(yml) {
     if (!m) continue;
     const [, indent, dash, key, rawVal] = m;
     const val = strip(rawVal);
-    const parse = (v) => (v === "null" ? null : v === "true" ? true : v === "false" ? false : v);
+    const parse = (v) =>
+      v === "null" ? null : v === "true" ? true : v === "false" ? false
+      : /^\[.*\]$/.test(v) ? JSON.parse(v)   // an inline array, e.g. center: [-103.5, 39.5]
+      : v;
     if (dash && indent.length === 2) { cur = {}; entries.push(cur); inBasis = false; inRel = null; }
     if (!cur) continue;
     if (key === "basis" && val === "") { cur.basis = []; inBasis = true; inRel = null; continue; }
