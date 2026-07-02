@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# bin/boundaries — exec shim; the logic lives in boundaries.mjs (importable by test/boundaries.test.mjs).
+exec node "$(cd "$(dirname "$0")" && pwd)/boundaries.mjs" "$@"

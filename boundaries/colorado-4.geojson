@@ -1,0 +1,23 @@
+{
+  "type": "Feature",
+  "properties": {
+    "note": "Colorado's 4th Congressional District — DELIBERATELY SIMPLIFIED coarse outline (the eastern plains, wrapping east of the Front Range). Pure shape only: all provenance/meta lives in tell.yml's boundaries[] entry for slug colorado-4 (see notes/boundary-declaration.md — geometry here, declaration there). This is a demonstration shape: we post-processed it on purpose and say so in the declaration's derives."
+  },
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [-105.05, 41.00],
+        [-102.05, 41.00],
+        [-102.04, 37.00],
+        [-104.94, 37.00],
+        [-104.94, 38.26],
+        [-105.03, 39.13],
+        [-104.66, 39.61],
+        [-104.90, 40.00],
+        [-105.28, 40.52],
+        [-105.05, 41.00]
+      ]
+    ]
+  }
+}

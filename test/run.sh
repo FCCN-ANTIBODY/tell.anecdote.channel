@@ -340,6 +340,14 @@ else
   echo "[12] SKIPPED — node not available for the landing test"
 fi
 
+if command -v node >/dev/null 2>&1; then
+  echo "[12b] boundary declarations compile, pin, verify, and renew (cross-checked with the real client when present)"
+  node "$root/test/boundaries.test.mjs" || fail "boundary declaration test failed"
+  ok "boundaries: compile/check/renew + client cross-check"
+else
+  echo "[12b] SKIPPED — node not available for the boundaries test"
+fi
+
 echo "[13] bin/register emits this Tell's signed registration entry for an Atlas"
 # keys/tell.fpr is operator-set (bin/tell-bootstrap); stand in the test signer's REAL
 # fingerprint as the published anchor, via the TELL_FPR_FILE seam.

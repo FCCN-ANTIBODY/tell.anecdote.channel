@@ -9,3 +9,4 @@ vendor/
 # Transient ingress staging (bin/collect-submissions) and locally-minted QR images.
 /.submissions/
 qr-*.png
+keys/boundary-signer.pk8
