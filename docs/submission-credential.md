@@ -39,10 +39,10 @@ people's credentials is the feature.
 ### The distributed jar
 
 There is no central jar to manage. **Each Tell repo is its own single slot** — one token, one repo, held as
-that repo's own secret. Provisioning is self-service via `bin/submit-bootstrap` (the `bin/boundary-bootstrap`
-pattern): because a GitHub PAT cannot be minted by a script, the tool **captures + installs + validates** —
-it guides the operator to create the correctly-scoped PAT, sets it as their repo secret, and confirms the
-scope. Rotate or revoke per-Tell, bothering no one.
+that repo's own secret (`TELL_POST_TOKEN`, the name `bin/qr` reads). Provisioning is self-service via
+`bin/submit-bootstrap` (the `bin/boundary-bootstrap` pattern): because a GitHub PAT cannot be minted by a
+script, the tool **captures + installs + validates** — it guides the operator to create the correctly-scoped
+PAT, sets it as their repo secret, and confirms the scope. Rotate or revoke per-Tell, bothering no one.
 
 ### The registrar shape
 
@@ -56,10 +56,11 @@ version of exactly that.
 1. **Host-injected** — a chamber the operator controls holds the credential and passes it to the submit op
    transiently (what `poll-answer.mjs`'s `poll.submit` already takes). The token **never touches the QR**;
    nothing is exposed. This is the path for known participants using an operator's instance.
-2. **QR-embedded** — for anonymous public, the token rides in the QR (public, as above). When we wire this,
-   the credential **MUST be excluded from the signed `qr` provenance field** — it is a header-only bearer
-   token, never part of the bytes a submission carries forward. That exclusion is the one careful seam of the
-   embed step.
+2. **QR-embedded** — for anonymous public, the token rides in the QR (public, as above) as the `post=` param.
+   `bin/qr` already embeds it and **`tl_qr_canon` drops `sig|kid|post`**, so it is never part of the signed
+   provenance preimage on the Tell side. The client **MUST likewise exclude `post` from the `qr` provenance
+   field** it carries into the submission (`poll-answer.mjs` strips it from `rawQuery`) — it is a header-only
+   bearer token, never part of the bytes a submission carries forward.
 
 ## Rejected
 
@@ -74,5 +75,6 @@ version of exactly that.
 
 1. ~~Pin this posture~~ — this note.
 2. ~~**`bin/submit-bootstrap`**~~ — **built**: captures/installs/validates the per-Tell PAT as the repo secret
-   `TELL_POST_CREDENTIAL` (guidance mode when no token; non-destructive repo-reach check; apex-free).
-3. **The QR-embed** — carry the credential on the anonymous-public path, with the provenance-field exclusion.
+   `TELL_POST_TOKEN` (guidance mode when no token; non-destructive repo-reach check; apex-free).
+3. **The QR-embed** — tell side is already in `bin/qr` (`post=`, dropped from the canon). Remaining: the
+   **client** reads `post` and strips it from the provenance field before submitting (`poll-answer.mjs`).

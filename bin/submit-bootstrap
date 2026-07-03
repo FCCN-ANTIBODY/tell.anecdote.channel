@@ -3,7 +3,7 @@
 # account post an answer into this Tell's mailbox (docs/submission-credential.md). Sibling of
 # bin/boundary-bootstrap, but CAPTURE/INSTALL/VALIDATE rather than generate: a GitHub PAT cannot be minted
 # by a script, so this guides you to create the correctly-scoped one, stores it as THIS repo's secret
-# TELL_POST_CREDENTIAL, and confirms it can reach this repo.
+# TELL_POST_TOKEN, and confirms it can reach this repo.
 #
 # THE SCOPE IS THE WHOLE POINT. The token is PUBLIC by design (it rides in a public QR; docs/…), so its only
 # defense is scope: a FINE-GRAINED PAT with `Issues: Read and write` on THIS ONE REPO and nothing else. Its
@@ -16,7 +16,7 @@
 #   bin/submit-bootstrap --token-file tok --no-secrets   # validate + print how to set it yourself
 #   bin/submit-bootstrap --repo OWNER/NAME ...            # override repo detection
 #
-# Requires: gh, git. The token is read from --token-file / stdin / $TELL_POST_CREDENTIAL and never echoed.
+# Requires: gh, git. The token is read from --token-file / stdin / $TELL_POST_TOKEN and never echoed.
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"; repo_dir="$(cd "$here/.." && pwd)"; cd "$repo_dir"
 
@@ -50,13 +50,13 @@ The token is PUBLIC once minted into a QR; this scope is why that is acceptable.
 (those cannot be pinned to one repo), and do NOT grant more than Issues.
 GUIDE
 
-# Read the token (never printed): --token-file, then $TELL_POST_CREDENTIAL, then stdin if piped.
+# Read the token (never printed): --token-file, then $TELL_POST_TOKEN, then stdin if piped.
 tok=""
 if [ -n "$token_file" ]; then
   [ -f "$token_file" ] || { echo "submit-bootstrap: no such --token-file: $token_file" >&2; exit 1; }
   tok="$(tr -d '\r\n' < "$token_file")"
-elif [ -n "${TELL_POST_CREDENTIAL:-}" ]; then
-  tok="$(printf '%s' "$TELL_POST_CREDENTIAL" | tr -d '\r\n')"
+elif [ -n "${TELL_POST_TOKEN:-}" ]; then
+  tok="$(printf '%s' "$TELL_POST_TOKEN" | tr -d '\r\n')"
 elif [ ! -t 0 ]; then
   tok="$(tr -d '\r\n')"
 fi
@@ -81,19 +81,20 @@ fi
 echo "    ok — token belongs to '${viewer:-?}' and can reach ${repo} (Issues:write verified on first post)"
 
 if [ "$do_secrets" = 1 ]; then
-  echo "==> setting repo secret TELL_POST_CREDENTIAL (via your own gh auth, not the post token)"
-  printf '%s' "$tok" | gh secret set TELL_POST_CREDENTIAL --repo "$repo"
-  echo "    set TELL_POST_CREDENTIAL on ${repo}"
+  echo "==> setting repo secret TELL_POST_TOKEN (via your own gh auth, not the post token)"
+  printf '%s' "$tok" | gh secret set TELL_POST_TOKEN --repo "$repo"
+  echo "    set TELL_POST_TOKEN on ${repo}"
 else
   echo "==> NOT setting the secret. Set it yourself:"
-  echo "    printf '%s' \"\$PAT\" | gh secret set TELL_POST_CREDENTIAL --repo ${repo}"
+  echo "    printf '%s' \"\$PAT\" | gh secret set TELL_POST_TOKEN --repo ${repo}"
 fi
 
 cat <<DONE
 
 Done. ${repo} now has a submission credential.
-  • It is consumed by the QR-embed step (bin/qr, still to wire) for the anonymous-public path, and can be
-    host-injected for operator chambers (anecdote.channel/composer/poll-answer.mjs :: poll.submit).
+  • bin/qr reads \$TELL_POST_TOKEN and embeds it in the QR (the post= param, dropped from the signed canon)
+    for the anonymous-public path; it can also be host-injected for operator chambers
+    (anecdote.channel/composer/poll-answer.mjs :: poll.submit).
   • Rotate/revoke any time on GitHub, then re-run this — nothing else holds it, and no one else is affected.
   • The apex domain owner holds none of this. See docs/submission-credential.md.
 DONE
