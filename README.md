@@ -20,25 +20,32 @@ Tell registers *to Atlas(es)*. By convention the repo name is the DNS name serve
 - **The poll, end to end:** how the Tell's authorize → govern → seal → publish loop sits inside the full
   lifecycle (and which steps are still operator chores) —
   [`civic-node/docs/PIPELINE.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/docs/PIPELINE.md).
+- **The life of a Tell**, state by state — and which of its parts are live, mirrored, or vestigial —
+  [`docs/lifecycle.md`](docs/lifecycle.md).
 
 ## How it works, in one breath
 
-A respondent scans a QR that opens a prefilled GitHub Issue carrying an HMAC token bound to a specific
-pile and poll. Tell **authorizes** the reply against that token (`bin/authz`), **governs** it when the
-pile delegated a constitution (`bin/govern`, before sealing, on the still-public plaintext), **seals**
-it `age`-encrypted to the pile and signed, and **publishes** it on a `feed/<scope>/<id>` branch. The
-pile **pulls**; Tell never reaches into it.
+A respondent scans a QR and lands in the **answer runtime — `anecdote.channel/poll.html`** (this repo's
+`index.md` forwards there verbatim; see [`docs/answer-runtime.md`](docs/answer-runtime.md)), which
+composes the reply and posts it into the Tell's mailbox as a GitHub Issue or comment carrying an HMAC
+token bound to a specific pile and poll. Tell **authorizes** the reply against that token (`bin/authz`),
+**governs** it when the pile delegated a constitution (`bin/govern`, before sealing, on the still-public
+plaintext), **seals** it `age`-encrypted to the pile and signed, and **publishes** it on a
+`feed/<scope>/<id>` branch. The pile **pulls**; Tell never reaches into it.
 
 ```
-QR (token) ──▶ public Issue ──▶ authorize ──▶ govern (when delegated) ──▶ seal + sign ──▶ feed/<scope>/<id>
-                                                                                   │  the pile PULLS
-                                                                                   ▼
-                                                            transparency report (reports/govern-…)
+QR (token) ──▶ answer runtime ──▶ public Issue ──▶ authorize ──▶ govern (when delegated) ──▶ seal + sign ──▶ feed/<scope>/<id>
+                                                                                                      │  the pile PULLS
+                                                                                                      ▼
+                                                                               transparency report (reports/govern-…)
 ```
 
-**Three secrets, none of them decrypt.** `TELL_SIGNER_KEY` signs manifests, `TELL_SEED_IDENTITY` resumes
-each pile's one-way ratchet, `TELL_QR_SECRET` mints poll tokens. The owner's pile holds the only key that
-reads the sealed digest — Tell delivers what only the pile can open.
+**Three sealed-side secrets, none of them decrypt.** `TELL_SIGNER_KEY` signs manifests,
+`TELL_SEED_IDENTITY` resumes each pile's one-way ratchet, `TELL_QR_SECRET` mints poll tokens — plus one
+**transport credential**, `TELL_POST_TOKEN`, a repo-scoped issues-only PAT that rides **public by
+design** in the QR ([`docs/submission-credential.md`](docs/submission-credential.md)). The owner's pile
+holds the only key that reads the sealed digest — Tell delivers what only the pile can open. The full
+inventory, placed per operating posture, is [`keys/README.md`](keys/README.md).
 
 ## The constellation place
 
@@ -69,6 +76,16 @@ becomes **the method to force discovery of yourself** when there is no external 
 to list you. Start self-listed; migrate to a community Atlas later by leaving (the pile is always the one
 who can leave). A local workspace holding all the parts at once is the cleanest place to see this:
 self-consent is still consent, present in every outcome.
+
+## Three ways to run a Tell
+
+The operating postures are pinned in [`keys/README.md`](keys/README.md): **Hosted** (a reference
+operator holds a bounded number of Tells' secrets), **Computer** (your own repo and workflows hold
+them), and **Mobile — the offline origin** (keys live on the device; `anecdote.channel` mints and signs
+locally, and the **workflow-less operator is the end vision**). The workflows in this repo are the
+Computer mirror of gestures the offline origin performs natively; where the split is going — the hosted
+rework — is the workspace's
+[`civic-node/docs/TENANCY.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/docs/TENANCY.md).
 
 ## Develop & operate
 
