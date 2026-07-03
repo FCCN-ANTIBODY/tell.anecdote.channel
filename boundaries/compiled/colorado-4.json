@@ -64,8 +64,8 @@
   },
   "sig": {
     "alg": "ed25519",
-    "by": "key:sha256:418f78724bbc6c5c01190ea37a432680fdbae9eb9817e61505347ab74f75f015",
-    "key": "7CVujdl64d+bboZWSImCWTtykejlh4LNxFKz2IMFVkM=",
-    "signature": "uh8K/R+Yx5vjxT5xDcPdn158zQztY7Ci1z0r6rhwdyPfbeQjUsUt2t6gQ/s9HXawtVRFRil5NjnV+S3L0nXABA=="
+    "by": "key:sha256:efe13dceddc111ffb05103b957b7e74b6579acb6a28c7a986a905b55348e4a68",
+    "key": "+K7IfLmyl+66r5aeQ3mJXzWi6ntv2K1LSLKpjc5nWRg=",
+    "signature": "lwQCsU6t/AAdwlUTA8tQ+HwGp70xGTPWkjZqCCkNq4lw8s94V8BJBK1dkt96Opl892p6GUSaiuFPDM8vEyDIBg=="
   }
 }
