@@ -123,11 +123,6 @@ roll-up (`OPEN-QUESTIONS.md` §C) is the consumer of those signed summaries.
 
 ## Ingress: QR → authorized Issue → digest
 
-> A reply may now also arrive as a **comment on a canonical poll issue** (`bin/open-poll`), carrying the
-> constituent's revocable **nonce**, a **run** id, and the full signed **anecdote** — the Tell half of
-> anecdote.channel's egress. See [`docs/issue-ingress.md`](docs/issue-ingress.md). The HMAC gate below is
-> unchanged.
-
 A reply enters through Tell's **mailbox** — its GitHub Issues — and is gated by an HMAC capability the
 Tell-runner mints:
 
@@ -144,12 +139,23 @@ Tell-runner mints:
 - **QR build.** `bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV]`
   (run by the `qr.yml` workflow with the secret) prints the landing URL
   `…/?pile&poll&round&tok&type&asker&q&opts`. This is "the runtime generates what future QR builds use."
-- **Submission.** `index.md` reads that config and builds a **pre-filled `issues/new` link**; the
-  respondent's click posts an Issue whose body carries a fenced ```tell``` JSON block
-  `{schema:"tell.submission/v1", pile, poll, round, type, asker, shown_guidance, tok, answer}`. The
-  page only builds a link — nothing phones home. `shown_guidance` is the guidance the respondent was
-  *shown* — informational provenance, carried to the pile. What *governs* is the constitution the pile
-  delegated to Tell (`_data/constitutions/<pile>/<poll>.json`), applied below before sealing.
+- **Submission.** The QR opens the **answer runtime — `anecdote.channel/poll.html`**; this repo's
+  `index.md` is a thin **verbatim forward** for QRs minted against the Tell's domain (verbatim because a
+  signed poll's `sig` covers a canonical preimage — the bytes must not re-encode in transit; see
+  [`docs/answer-runtime.md`](docs/answer-runtime.md)). The runtime renders the poll and builds a fenced
+  ```tell``` JSON block `{schema:"tell.submission/v1", pile, poll, round, type, asker, shown_guidance,
+  tok, answer}` — held **byte-identical** to what this repo's page used to emit (anecdote's
+  `composer/poll-answer.test.mjs` freezes the old construction as its oracle) — plus the optional
+  revocable **nonce**, a **run** id, and the full signed **anecdote** payload
+  ([`docs/issue-ingress.md`](docs/issue-ingress.md)). The reply reaches the mailbox one of two ways: the
+  respondent's own click posts it — a pre-filled `issues/new` link, or a comment on the **canonical poll
+  issue** (`bin/open-poll`); nothing phones home — or the runtime **POSTs it directly** using the
+  QR-carried `TELL_POST_TOKEN`, a repo-scoped issues-only credential that is **public by design**,
+  excluded from the signed canon and stripped from provenance
+  ([`docs/submission-credential.md`](docs/submission-credential.md)). `shown_guidance` is the guidance
+  the respondent was *shown* — informational provenance, carried to the pile. What *governs* is the
+  constitution the pile delegated to Tell (`_data/constitutions/<pile>/<poll>.json`), applied below
+  before sealing.
 - **The ejected check.** `bin/authz` reads the submission JSON on stdin (overridable via
   `TELL_AUTHZ_CMD`, mirroring the rollup seam), re-derives `k_pile`, recomputes the HMAC over
   {pile, poll, round}, constant-time compares, and confirms the pile is one Tell fronts. Stricter,

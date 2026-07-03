@@ -32,8 +32,10 @@ published digest-summary log for public benefit, never again as a place that hol
 data *first*.
 
 The collector changes shape with it: a **direct-transfer ingress agent**. A tool on the operator's
-phone web browser **buffers collected responses locally** until the known window opens; a
-**daily-cron agent** then submits the legitimate batch directly. The cron lives on the agent — one
+phone web browser — **`anecdote.channel`, the offline origin runtime** ([`keys/README.md`](keys/README.md)
+→ the Mobile posture) — **buffers collected responses locally** until the known window opens; a
+**daily-cron agent** then submits the legitimate batch directly. The buffer and the agent are the
+unbuilt extension of that runtime. The cron lives on the agent — one
 scheduled pickup of vetted submissions — rather than firing one GitHub Action per submission, which
 scales with traffic and with spam instead of with legitimate answers.
 
