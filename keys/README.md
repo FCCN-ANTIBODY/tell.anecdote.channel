@@ -61,6 +61,10 @@ the phone to mint a signed poll. `bin/authz` verifies either — same `tell.sign
 | --- | --- | --- |
 | **`TELL_QR_SECRET`** | 32 random bytes; the master from which every per-poll token derives: `k_pile = HMAC(TELL_QR_SECRET, "qr:"‖pile)`, `tok = HMAC(k_pile, "tok:"‖pile‖poll‖round)`. **One secret, any number of polls** — the token is *derived*, never stored. `bin/qr` / `poll.mint` mint it; `bin/authz` re-derives and verifies at ingest. | `bin/tell-bootstrap` |
 
+> The machine-checkable edge of this document is [`custody.yml`](custody.yml): every secret a
+> workflow may read and every signing namespace a key may serve, **enforced in CI by
+> `bin/check-custody`** — an undeclared read or namespace fails the build.
+
 It has no public half — the QR's `tok` is a bearer "this poll is open" capability, but only the
 secret can *mint* one. In the **Mobile** posture the secret is held Elevated on the device and
 `poll.mint` derives tokens locally (`composer/qr-mint.mjs`, byte-identical to `bin/qr`); the

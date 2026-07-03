@@ -1,0 +1,40 @@
+# DECLARED, BOUNDED CUSTODY (rework slice 5, civic-node#61; the posture is civic-node
+# docs/TENANCY.md → "The collapse"). Every secret a workflow in this repo may read is declared
+# here, with whose it is and where it lives per posture; every ssh signing NAMESPACE a key may
+# serve is declared here too. bin/check-custody enforces both in CI: an undeclared secret-read
+# or an undeclared namespace fails the build — custody as a declared posture, never an accident
+# of accretion. The human canon stays keys/README.md; this file is its machine-checkable edge.
+
+secrets:
+  - name: TELL_SIGNER_KEY
+    kind: signing identity (ssh-ed25519 private half; public committed as keys/tell.{pub,signers,fpr})
+    minter: bin/tell-bootstrap (operator)
+    holder: "hosted: host repo secret · computer: repo secret · mobile: device identity (end vision)"
+  - name: TELL_SEED_IDENTITY
+    kind: age identity (resumes each pile's one-way ratchet; no committed half)
+    minter: bin/tell-bootstrap (operator)
+    holder: "hosted: host repo secret · computer: repo secret · mobile: the offline mirror (end vision)"
+  - name: TELL_QR_SECRET
+    kind: capability master (derives every per-poll token; never stored per-poll)
+    minter: bin/tell-bootstrap (operator)
+    holder: "hosted: host repo secret · computer: repo secret · mobile: held Elevated on the device"
+  - name: TELL_BOUNDARY_KEY
+    kind: boundary signer (ed25519 pkcs8; local compile — no workflow reads it)
+    minter: bin/boundary-bootstrap (operator)
+    holder: "operator-local; may be inline key content, never a committed file"
+  - name: TELL_POST_TOKEN
+    kind: transport credential (fine-grained PAT, issues-only, this one repo)
+    minter: bin/submit-bootstrap (operator; a PAT cannot be minted by a script)
+    holder: "preferred: submit-gateway worker secret (wrangler) · fallback: repo secret + QR-embed · mobile: host-injected at mint"
+  - name: ATLAS_PR_TOKEN
+    kind: consent transport (write on the Atlas being joined — the Atlas's grant, not ours)
+    minter: the Atlas operator (or self, when self-listed)
+    holder: "repo secret, read only by register-atlas.yml"
+
+namespaces:
+  - name: data-pile
+    key: TELL_SIGNER_KEY
+    used-by: bin/deliver (manifest head signature)
+  - name: tell-poll
+    key: TELL_SIGNER_KEY
+    used-by: bin/qr (provenance) / bin/authz (verify) — TL_QR_SIG_NS

@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Enforce the DECLARED custody boundary (keys/custody.yml; rework slice 5, civic-node#61):
+#   1. every `secrets.X` a workflow reads must be declared — an undeclared read fails;
+#   2. every ssh signing namespace used in bin/ must be declared — a new namespace can't
+#      slip in unnamed (namespace discipline is what makes key REUSE safe rather than habitual).
+# Read-only, dependency-free (grep/awk), runs in the test suite. GITHUB_TOKEN is the platform's
+# own ambient token, allowed implicitly.
+#
+#   bin/check-custody            # check this repo
+#   CUSTODY_YML=… WORKFLOWS_DIR=… BINS_DIR=… bin/check-custody   # the code-vs-data seams
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$here/.." && pwd)"
+custody="${CUSTODY_YML:-$repo/keys/custody.yml}"
+workflows="${WORKFLOWS_DIR:-$repo/.github}"
+bins="${BINS_DIR:-$repo/bin}"
+
+[ -f "$custody" ] || { echo "check-custody: no custody manifest at $custody" >&2; exit 1; }
+
+# Declared names, by section ("secrets:" / "namespaces:").
+declared() { # SECTION
+  awk -v want="$1" '
+    /^[a-z]+:/ { sect=$1; sub(":","",sect) }
+    sect==want && /^  - name: / { print $3 }
+  ' "$custody"
+}
+
+fail=0
+
+# 1. workflow secret-reads ⊆ declared secrets
+used_secrets="$(grep -rhoE 'secrets\.[A-Z_]+' "$workflows" 2>/dev/null | sed 's/secrets\.//' | sort -u || true)"
+declared_secrets="$(declared secrets)"
+for s in $used_secrets; do
+  [ "$s" = "GITHUB_TOKEN" ] && continue
+  printf '%s\n' "$declared_secrets" | grep -qx "$s" || {
+    echo "check-custody: UNDECLARED secret read in workflows: $s (declare it in keys/custody.yml or stop reading it)" >&2
+    fail=1
+  }
+done
+
+# 2. signing namespaces used ⊆ declared namespaces: literal `-Y sign|verify -n <ns>` calls plus
+#    the namespace-variable convention (assignments ending in SIG_NS). The checker excludes
+#    itself — its own doc-strings are not usage.
+used_ns="$( { grep -rhoE --exclude=check-custody '\-Y (sign|verify) -n "?[a-z][a-z-]*"?' "$bins" 2>/dev/null | grep -oE '[a-z][a-z-]*$' ;
+              grep -rhoE --exclude=check-custody '_SIG_NS="[a-z-]+"' "$bins" 2>/dev/null | grep -oE '"[a-z-]+"' | tr -d '"' ; } | sort -u || true)"
+declared_ns="$(declared namespaces)"
+for n in $used_ns; do
+  [ "$n" = "sign" ] || [ "$n" = "verify" ] || true
+  printf '%s\n' "$declared_ns" | grep -qx "$n" || {
+    echo "check-custody: UNDECLARED signing namespace in $bins: $n (declare which key serves it in keys/custody.yml)" >&2
+    fail=1
+  }
+done
+
+if [ "$fail" = 1 ]; then
+  echo "check-custody: FAILED — custody is a declared posture, not an accident of accretion" >&2
+  exit 1
+fi
+echo "check-custody: ok — $(printf '%s\n' "$declared_secrets" | grep -c .) secrets declared, workflows read only declared names; namespaces: $(printf '%s' "$used_ns" | tr '\n' ' ')"
