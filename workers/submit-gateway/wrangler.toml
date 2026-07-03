@@ -1,0 +1,16 @@
+# The Tell's submit gateway — the credential-shielding relay (see worker.js / README.md).
+#
+# Deploy:
+#   cd workers/submit-gateway
+#   wrangler deploy                                # account_id via CLOUDFLARE_ACCOUNT_ID or `wrangler login`
+#   wrangler secret put TELL_POST_TOKEN            # the bin/submit-bootstrap PAT — the ONE secret this worker holds
+#
+# Requires the Tell's domain proxied through Cloudflare (orange-cloud) so the route intercepts.
+
+name = "tell-submit-gateway"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+routes = [
+  { pattern = "tell.anecdote.channel/submit", zone_name = "anecdote.channel" }
+]
