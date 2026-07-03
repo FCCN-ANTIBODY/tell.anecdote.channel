@@ -59,6 +59,33 @@ re-derives and verifies it at ingestion. It has no public half — the token in 
 bearer "this poll is open" capability, but only the secret can *mint* one. See
 `CONTRACT.md` → authorization.
 
+## The boundary signer (`TELL_BOUNDARY_KEY` + `keys/boundary.fpr`)
+
+A separate Ed25519 signer, on its **own lifecycle** from the delivery signer: `bin/boundaries`
+uses it to sign this Tell's `anecdote.boundary/v1` artifacts and their lease renewals. Provision
+(or rotate) it with **`bin/boundary-bootstrap`** — the sibling of `bin/tell-bootstrap`:
+
+```sh
+bin/boundary-bootstrap                 # generate, set TELL_BOUNDARY_KEY secret, publish keys/boundary.fpr, commit
+bin/boundary-bootstrap --no-secrets    # print the value once to `gh secret set` yourself
+bin/boundary-bootstrap --force         # rotate (mints a NEW fingerprint — consumers re-pin; recompile)
+```
+
+The **private** half is the repo secret `TELL_BOUNDARY_KEY`; the **public** fingerprint is
+committed at `keys/boundary.fpr` (what a phone pins to verify a boundary artifact). Only the
+public half is ever committed — same rule as the delivery signer.
+
+**No file to mount.** `bin/boundaries` reads `TELL_BOUNDARY_KEY` as **either a file path or the
+base64 pkcs8 key content itself**, so CI passes the secret inline with nothing on disk:
+
+```sh
+TELL_BOUNDARY_KEY="${{ secrets.TELL_BOUNDARY_KEY }}" bin/boundaries renew   # content — no file
+TELL_BOUNDARY_KEY=keys/boundary-signer.pk8            bin/boundaries renew   # path — also fine (local dev)
+```
+
+After a rotate, recompile so committed artifacts + `tell.yml` pins match the new signer
+(`bin/boundaries compile`, repin the printed hash, `bin/boundaries check`).
+
 ## What a pile owner does
 
 1. Copy `tell.signers` here into the pile's `keys/tell.signers`.
