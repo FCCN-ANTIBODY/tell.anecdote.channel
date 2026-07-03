@@ -73,5 +73,6 @@ version of exactly that.
 ## Next
 
 1. ~~Pin this posture~~ — this note.
-2. **`bin/submit-bootstrap`** — capture/install/validate the per-Tell PAT as the repo secret.
+2. ~~**`bin/submit-bootstrap`**~~ — **built**: captures/installs/validates the per-Tell PAT as the repo secret
+   `TELL_POST_CREDENTIAL` (guidance mode when no token; non-destructive repo-reach check; apex-free).
 3. **The QR-embed** — carry the credential on the anonymous-public path, with the provenance-field exclusion.

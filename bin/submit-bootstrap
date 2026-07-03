@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# Provision this Tell's SUBMISSION credential — the GitHub token that lets a respondent with no GitHub
+# account post an answer into this Tell's mailbox (docs/submission-credential.md). Sibling of
+# bin/boundary-bootstrap, but CAPTURE/INSTALL/VALIDATE rather than generate: a GitHub PAT cannot be minted
+# by a script, so this guides you to create the correctly-scoped one, stores it as THIS repo's secret
+# TELL_POST_CREDENTIAL, and confirms it can reach this repo.
+#
+# THE SCOPE IS THE WHOLE POINT. The token is PUBLIC by design (it rides in a public QR; docs/…), so its only
+# defense is scope: a FINE-GRAINED PAT with `Issues: Read and write` on THIS ONE REPO and nothing else. Its
+# blast radius is "create issues on one already-public repo," and the `tok` HMAC (bin/authz) still gates
+# whether any such issue is ADMITTED. The apex domain owner holds none of this — every Tell provisions its own.
+#
+#   bin/submit-bootstrap                       # print how to create the PAT, then re-run with it
+#   bin/submit-bootstrap --token-file tok.txt  # capture from a file, validate, set the repo secret
+#   echo "$PAT" | bin/submit-bootstrap         # capture from stdin
+#   bin/submit-bootstrap --token-file tok --no-secrets   # validate + print how to set it yourself
+#   bin/submit-bootstrap --repo OWNER/NAME ...            # override repo detection
+#
+# Requires: gh, git. The token is read from --token-file / stdin / $TELL_POST_CREDENTIAL and never echoed.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"; repo_dir="$(cd "$here/.." && pwd)"; cd "$repo_dir"
+
+repo_arg=""; token_file=""; do_secrets=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo) repo_arg="${2:-}"; shift 2;;
+    --token-file) token_file="${2:-}"; shift 2;;
+    --no-secrets) do_secrets=0; shift;;
+    *) echo "submit-bootstrap: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+
+for t in gh git; do
+  command -v "$t" >/dev/null 2>&1 || { echo "submit-bootstrap: missing required tool: $t" >&2; exit 1; }
+done
+
+# Which repo is this Tell? --repo wins, then CI's $GITHUB_REPOSITORY, then gh's view of the checkout.
+repo="${repo_arg:-${GITHUB_REPOSITORY:-}}"
+[ -n "$repo" ] || repo="$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)"
+[ -n "$repo" ] || { echo "submit-bootstrap: could not detect the repo — pass --repo OWNER/NAME" >&2; exit 1; }
+
+cat <<GUIDE
+Create the submission credential as a FINE-GRAINED personal access token — scope is the defense:
+  https://github.com/settings/personal-access-tokens/new
+    • Resource owner:      the account/org that owns ${repo}
+    • Repository access:   Only select repositories → ${repo}   (this ONE repo)
+    • Permissions:         Issues → Read and write   (nothing else)
+    • Expiration:          your call — shorter is safer; rotate by re-running this
+The token is PUBLIC once minted into a QR; this scope is why that is acceptable. Do NOT use a classic PAT
+(those cannot be pinned to one repo), and do NOT grant more than Issues.
+GUIDE
+
+# Read the token (never printed): --token-file, then $TELL_POST_CREDENTIAL, then stdin if piped.
+tok=""
+if [ -n "$token_file" ]; then
+  [ -f "$token_file" ] || { echo "submit-bootstrap: no such --token-file: $token_file" >&2; exit 1; }
+  tok="$(tr -d '\r\n' < "$token_file")"
+elif [ -n "${TELL_POST_CREDENTIAL:-}" ]; then
+  tok="$(printf '%s' "$TELL_POST_CREDENTIAL" | tr -d '\r\n')"
+elif [ ! -t 0 ]; then
+  tok="$(tr -d '\r\n')"
+fi
+
+if [ -z "$tok" ]; then
+  echo
+  echo "No token supplied yet. Create it above, then re-run:"
+  echo "    bin/submit-bootstrap --token-file <the-token-file>"
+  exit 0
+fi
+
+echo
+echo "==> validating the token can reach ${repo} (non-destructive: no issue is created)"
+viewer="$(GH_TOKEN="$tok" gh api user --jq .login 2>/dev/null || true)"
+full="$(GH_TOKEN="$tok" gh api "repos/${repo}" --jq .full_name 2>/dev/null || true)"
+if [ "$full" != "$repo" ]; then
+  echo "submit-bootstrap: the token could not read ${repo} (got: '${full:-<none>}')." >&2
+  echo "  Check the resource owner + 'Only select repositories → ${repo}'. Issues:write is confirmed on the" >&2
+  echo "  first real submission (there is no non-destructive write probe)." >&2
+  exit 1
+fi
+echo "    ok — token belongs to '${viewer:-?}' and can reach ${repo} (Issues:write verified on first post)"
+
+if [ "$do_secrets" = 1 ]; then
+  echo "==> setting repo secret TELL_POST_CREDENTIAL (via your own gh auth, not the post token)"
+  printf '%s' "$tok" | gh secret set TELL_POST_CREDENTIAL --repo "$repo"
+  echo "    set TELL_POST_CREDENTIAL on ${repo}"
+else
+  echo "==> NOT setting the secret. Set it yourself:"
+  echo "    printf '%s' \"\$PAT\" | gh secret set TELL_POST_CREDENTIAL --repo ${repo}"
+fi
+
+cat <<DONE
+
+Done. ${repo} now has a submission credential.
+  • It is consumed by the QR-embed step (bin/qr, still to wire) for the anonymous-public path, and can be
+    host-injected for operator chambers (anecdote.channel/composer/poll-answer.mjs :: poll.submit).
+  • Rotate/revoke any time on GitHub, then re-run this — nothing else holds it, and no one else is affected.
+  • The apex domain owner holds none of this. See docs/submission-credential.md.
+DONE
