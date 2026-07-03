@@ -51,16 +51,24 @@ up*, nobody bothers the top. A future registrar changes none of this architectur
 per-Tell bootstrap on the operator's behalf at registration time. Today's by-hand-per-operator is the manual
 version of exactly that.
 
-## Two consumption paths (they differ on exposure)
+## Three consumption paths (they differ on exposure)
 
-1. **Host-injected** — a chamber the operator controls holds the credential and passes it to the submit op
+1. **Worker-injected (the graduated form)** — the Tell's own **submit-gateway worker**
+   ([`workers/submit-gateway/`](../workers/submit-gateway/)) holds the credential as a worker secret and
+   injects it server-side; the QR carries only the worker's non-secret address (`su=`, minted by
+   `bin/qr --submit-url`, dropped from the signed canon like `post`). Nothing durable rides in the QR.
+   Custody stays per-Tell — the worker is the Tell's own — and the worker stays a **relay, not a
+   gatekeeper**: it holds no `TELL_QR_SECRET` and performs no admission; `tok` still decides at ingest.
+2. **Host-injected** — a chamber the operator controls holds the credential and passes it to the submit op
    transiently (what `poll-answer.mjs`'s `poll.submit` already takes). The token **never touches the QR**;
    nothing is exposed. This is the path for known participants using an operator's instance.
-2. **QR-embedded** — for anonymous public, the token rides in the QR (public, as above) as the `post=` param.
-   `bin/qr` already embeds it and **`tl_qr_canon` drops `sig|kid|post`**, so it is never part of the signed
-   provenance preimage on the Tell side. The client **MUST likewise exclude `post` from the `qr` provenance
-   field** it carries into the submission (`poll-answer.mjs` strips it from `rawQuery`) — it is a header-only
-   bearer token, never part of the bytes a submission carries forward.
+3. **QR-embedded (legacy fallback)** — for anonymous public with no worker, the token rides in the QR
+   (public, as above) as the `post=` param.
+   `bin/qr` embeds it and **`tl_qr_canon` drops `sig|kid|post|su`**, so neither the credential nor the
+   worker address is ever part of the signed provenance preimage on the Tell side. The client **MUST
+   likewise exclude `post` from the `qr` provenance field** it carries into the submission
+   (`poll-answer.mjs` strips it from `rawQuery`) — it is a header-only bearer token, never part of the
+   bytes a submission carries forward.
 
 ## Rejected
 
@@ -76,5 +84,11 @@ version of exactly that.
 1. ~~Pin this posture~~ — this note.
 2. ~~**`bin/submit-bootstrap`**~~ — **built**: captures/installs/validates the per-Tell PAT as the repo secret
    `TELL_POST_TOKEN` (guidance mode when no token; non-destructive repo-reach check; apex-free).
-3. **The QR-embed** — tell side is already in `bin/qr` (`post=`, dropped from the canon). Remaining: the
-   **client** reads `post` and strips it from the provenance field before submitting (`poll-answer.mjs`).
+3. ~~**The QR-embed**~~ — **built** both sides: `bin/qr` embeds `post=` (dropped from the canon); the client
+   reads it and strips it from the provenance field before submitting (`poll-answer.mjs`).
+4. ~~**The worker shield**~~ — **built** (rework slice 1,
+   [civic-node#57](https://github.com/FCCN-ANTIBODY/civic-node/issues/57)): `workers/submit-gateway/`
+   holds the PAT server-side; `bin/qr --submit-url` mints `su=` instead of a credential; the runtime
+   POSTs through the worker. The QR-embed remains the workers-less fallback.
+5. **Judge summoning** — when the summonable judge lands (civic-node `OPEN-QUESTIONS.md` §A), the worker
+   summons it over the `{verdict, reason}` contract before relaying; it never decides itself.

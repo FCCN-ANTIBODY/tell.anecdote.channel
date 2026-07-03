@@ -70,10 +70,11 @@ powerless chamber can *request* a mint but never sees the secret.
 
 | Secret | What it is | Provisioned by |
 | --- | --- | --- |
-| **`TELL_POST_TOKEN`** | a GitHub fine-grained PAT with `Issues: Read and write` on **this one repo** — lets a respondent with no GitHub account post a reply. It rides in the QR (`post=`), so it is **public by design**; its only defense is scope, and the `tok` HMAC still gates whether any issue is *admitted*. | `bin/submit-bootstrap` |
+| **`TELL_POST_TOKEN`** | a GitHub fine-grained PAT with `Issues: Read and write` on **this one repo** — lets a respondent with no GitHub account post a reply. **Preferred home: the submit-gateway worker** ([`../workers/submit-gateway/`](../workers/submit-gateway/)), where it stays server-side and the QR carries only the worker's address (`su=`). The legacy fallback rides it in the QR (`post=`), **public by design**; either way its only defense is scope, and the `tok` HMAC still gates whether any issue is *admitted*. | `bin/submit-bootstrap`; `wrangler secret put` for the worker |
 
-Full rationale in [`../docs/submission-credential.md`](../docs/submission-credential.md). `bin/qr`
-embeds it and `tl_qr_canon` drops it from the signed canon; the client strips it from the
+Full rationale in [`../docs/submission-credential.md`](../docs/submission-credential.md). With a
+worker, `bin/qr --submit-url` emits `su=` and embeds no credential; without one, `bin/qr` embeds
+`post=`. `tl_qr_canon` drops both from the signed canon; the client strips the credential from the
 provenance field (`poll-answer.mjs`). In **Mobile**, the operator supplies it to `poll.mint`
 directly (host-injected) — it need not be a repo secret at all.
 
@@ -95,7 +96,7 @@ token used only by `register-atlas.yml` to open this Tell's registration PR to a
 | Seed `TELL_SEED_IDENTITY` | host repo secret | repo secret | the offline mirror *(end vision)* |
 | `TELL_QR_SECRET` | host repo secret | repo secret | **held Elevated on the device** (`poll.mint`) — no secret store |
 | Boundary signer `TELL_BOUNDARY_KEY` | host repo secret | repo secret | **the operator, local compile** (already workflow-free) |
-| `TELL_POST_TOKEN` | host repo secret | repo secret | host-injected at mint; rides public in the QR |
+| `TELL_POST_TOKEN` | host's worker secret (per-Tell submit-gateway) | **worker secret** (submit-gateway); repo secret + QR-embed as the workers-less fallback | host-injected at mint; rides public in the QR only without a worker |
 | Respondent identity | — | — | the **respondent's own** device (never a Tell secret) |
 
 Built today: minting and boundary signing already have the Mobile path. Ingest and deliver are

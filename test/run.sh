@@ -185,6 +185,29 @@ echo "$qc" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "comment-mode qr lost its 
 TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical 7 2>/dev/null \
   | grep -q 'post=ghs_demo' || fail "qr did not carry TELL_POST_TOKEN as the post credential"
 bin/qr --pile cd04-q1 --poll budget --mode comment 2>/dev/null && fail "comment mode allowed without --canonical" || true
+
+echo "[8e] submit-gateway address (su=) supersedes the embedded credential"
+# --submit-url (or TELL_SUBMIT_URL) rides as su= — and the credential is NOT embedded beside it.
+qsu="$(TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 \
+  --submit-url https://tell.anecdote.channel/submit 2>/dev/null)"
+echo "$qsu" | grep -q 'su=https%3A%2F%2Ftell.anecdote.channel%2Fsubmit' || fail "qr did not carry the submit URL as su="
+echo "$qsu" | grep -q 'post=' && fail "qr embedded the credential despite a submit URL" || true
+echo "$qsu" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "su-mode qr lost its authorization token"
+TELL_SUBMIT_URL=https://tell.example/submit bin/qr --pile cd04-q1 --poll budget 2>/dev/null \
+  | grep -q 'su=https%3A%2F%2Ftell.example%2Fsubmit' || fail "TELL_SUBMIT_URL env not honored"
+bin/qr --pile cd04-q1 --poll budget --submit-url 'http://insecure' 2>/dev/null && fail "non-https submit URL accepted" || true
+bin/qr --pile cd04-q1 --poll budget --submit-url 'https://x/?a=b' 2>/dev/null && fail "query-carrying submit URL accepted" || true
+# su is dropped from the signed canon (like post): a signed QR minted WITH a submit URL
+# verifies over the same preimage after su is stripped — moving the worker re-mints nothing.
+ssu="$(bin/qr --pile cd04-q1 --poll bikes --round 1 --question "Q" \
+  --submit-url https://tell.anecdote.channel/submit --signkey "$work/sign" 2>/dev/null)"
+sparams="$(printf '%s' "${ssu#*\?}" | tr '&' '\n')"
+urldec "$(printf '%s\n' "$sparams" | sed -n 's/^sig=//p')" | base64 -d > "$work/qr-su.sig"
+printf '%s\n' "$sparams" | tl_qr_canon | grep -q '^su=' && fail "tl_qr_canon did not drop su" || true
+printf '%s\n' "$sparams" | tl_qr_canon | \
+  ssh-keygen -Y verify -n tell-poll -I tell -f "$work/qr.signers" -s "$work/qr-su.sig" >/dev/null 2>&1 \
+  || fail "signed su-mode QR does not verify over the su-stripped canon"
+ok "su= rides unbound, suppresses post=, drops from canon; https-only, no query"
 [ "$(TELL_OPENPOLL_DRYRUN=1 bin/open-poll --pile cd04-q1 --poll budget --question Q 2>/dev/null)" = 0 ] \
   || fail "open-poll dryrun did not print a placeholder canonical number"
 
@@ -346,6 +369,14 @@ if command -v node >/dev/null 2>&1; then
   ok "boundaries: compile/check/renew + client cross-check"
 else
   echo "[12b] SKIPPED — node not available for the boundaries test"
+fi
+
+if command -v node >/dev/null 2>&1; then
+  echo "[12c] submit-gateway worker is a pure, allowlisted, credential-shielding relay"
+  node "$root/test/submit-gateway.test.mjs" || fail "submit-gateway worker test failed"
+  ok "submit-gateway: relays verbatim, allowlists one repo, never leaks the credential"
+else
+  echo "[12c] SKIPPED — node not available for the submit-gateway test"
 fi
 
 echo "[13] bin/register emits this Tell's signed registration entry for an Atlas"

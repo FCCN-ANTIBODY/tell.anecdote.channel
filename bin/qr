@@ -31,7 +31,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
 pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
-signkey_arg=""; mode="issue"; canonical=""; run=""
+signkey_arg=""; mode="issue"; canonical=""; run=""; submit_url="${TELL_SUBMIT_URL:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -47,6 +47,7 @@ while [ $# -gt 0 ]; do
     --mode) mode="$2"; shift 2;;          # issue (one issue per response) | comment (onto the canonical poll issue)
     --canonical) canonical="$2"; shift 2;; # the canonical poll issue number that comments attach to (comment mode)
     --run) run="$2"; shift 2;;            # a non-secret id telling QRs/runs apart; default derived from the token
+    --submit-url) submit_url="$2"; shift 2;; # the Tell's submit-gateway worker (see workers/submit-gateway); supersedes embedding a post credential
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
@@ -58,6 +59,10 @@ fi
 # Sanitize repo to OWNER/NAME so it can only ever address a github.com repo path.
 if [ -n "$repo" ] && ! printf '%s' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
   echo "bin/qr: --repo must be OWNER/NAME (got: $repo)" >&2; exit 1
+fi
+# Sanitize the submit URL: https only — it is where the runtime will POST the reply.
+if [ -n "$submit_url" ] && ! printf '%s' "$submit_url" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$'; then
+  echo "bin/qr: --submit-url must be a plain https URL (got: $submit_url)" >&2; exit 1
 fi
 [ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT] [--signkey PATH]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
@@ -83,17 +88,27 @@ pairs+=( "mode=$(enc "$mode")" "run=$(enc "$run")" )
 [ -n "$guidance" ] && pairs+=( "guidance=$(enc "$guidance")" )
 [ -n "$repo" ]     && pairs+=( "repo=$(enc "$repo")" )
 
-# The POST CREDENTIAL (optional): a semi-public, GitHub-acceptable write token so the runtime
-# (anecdote.channel) can post the response with NO GitHub account from the respondent. It is
-# CARRIED here, never MINTED here — set $TELL_POST_TOKEN from a repo-scoped, issues-only,
-# short-lived credential (a GitHub App installation token is ideal; rotate per round). It is a
-# semi-public secret by design (it rides in the QR); keep its scope tiny. It is added AFTER the
-# signature preimage is built (see below) and excluded from canon (tl_qr_canon drops `post`),
-# so rotating it never invalidates the poll's provenance signature.
-post_pair=""
-if [ -n "${TELL_POST_TOKEN:-}" ]; then
+# The SUBMIT URL (preferred) or POST CREDENTIAL (legacy): how a respondent with no GitHub
+# account gets their reply posted.
+#
+# `su=` — the Tell's own submit-gateway worker (workers/submit-gateway): the credential stays
+# server-side as a worker secret and the QR carries only a non-secret address. Like `post`, it
+# is added AFTER the signature preimage and dropped from canon (tl_qr_canon), so the worker can
+# move/rotate without re-minting printed QRs. When set, no credential is embedded.
+#
+# `post=` — the legacy QR-embedded credential: CARRIED here, never MINTED here — set
+# $TELL_POST_TOKEN from a repo-scoped, issues-only, short-expiry fine-grained PAT. Semi-public
+# by design (it rides in the QR); keep its scope tiny. Superseded by the worker; kept for
+# workers-less deployments (see docs/submission-credential.md).
+post_pair=""; su_pair=""
+if [ -n "$submit_url" ]; then
+  su_pair="su=$(enc "$submit_url")"
+  if [ -n "${TELL_POST_TOKEN:-}" ]; then
+    echo "bin/qr: note — --submit-url set; NOT embedding TELL_POST_TOKEN (the worker holds it)" >&2
+  fi
+elif [ -n "${TELL_POST_TOKEN:-}" ]; then
   post_pair="post=$(enc "$TELL_POST_TOKEN")"
-  echo "bin/qr: WARN embedding a semi-public POST credential in the QR (repo-scoped/short-lived only; see docs/issue-ingress.md)" >&2
+  echo "bin/qr: WARN embedding a semi-public POST credential in the QR (repo-scoped/short-lived only; see docs/issue-ingress.md); prefer --submit-url (workers/submit-gateway)" >&2
 fi
 
 # Provenance signature (optional, additive). Sign the canonical preimage with the Tell's
@@ -124,8 +139,10 @@ else
   echo "bin/qr: note — no --signkey/TELL_SIGNER_KEY; QR carries no provenance signature" >&2
 fi
 [ -n "$sig" ] && pairs+=( "sig=$(enc "$sig")" "kid=$(enc "$kid")" )
-# The credential rides AFTER the signature preimage and is dropped by tl_qr_canon, so it is
-# never part of the signed payload (rotating it doesn't break provenance).
+# The submit address / credential ride AFTER the signature preimage and are dropped by
+# tl_qr_canon, so they are never part of the signed payload (moving the worker or rotating
+# the credential doesn't break provenance).
+[ -n "$su_pair" ] && pairs+=( "$su_pair" )
 [ -n "$post_pair" ] && pairs+=( "$post_pair" )
 
 # Assemble the URL from the (possibly signed) pairs, preserving order.

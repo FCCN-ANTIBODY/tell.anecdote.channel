@@ -46,10 +46,12 @@ TL_QR_SIG_NS="tell-poll"
 
 # Canonical signing preimage. Reads the QR's payload as "key=value" lines on stdin (values
 # URL-encoded exactly as they ride in the URL — robust to newlines / & / =), drops the
-# signature metadata (`sig`, `kid` are never self-signed) and the `post` credential (a
+# signature metadata (`sig`, `kid` are never self-signed), the `post` credential (a
 # semi-public, rotatable GitHub write token that must never be part of the provenance
-# preimage — see bin/qr / docs/issue-ingress.md), and emits them sorted by key so signer and
-# verifier agree regardless of URL param order. Both sides pipe through this.
+# preimage — see bin/qr / docs/issue-ingress.md), and the `su` submit-gateway address (a
+# non-secret transport hint that must rotate as freely as the credential it replaces —
+# see workers/submit-gateway), and emits them sorted by key so signer and verifier agree
+# regardless of URL param order. Both sides pipe through this.
 tl_qr_canon() {
-  grep -vE '^(sig|kid|post)=' | LC_ALL=C sort
+  grep -vE '^(sig|kid|post|su)=' | LC_ALL=C sort
 }
