@@ -60,4 +60,4 @@ boundaries:
     # NOT computed from the polygon: an Atlas tests THIS point against its own shape to observe `anchored`,
     # but membership is this filing, never the geometry (a rounding sliver must never exile a member). Its
     # absence would be honest silence (anchored: null); declaring it lets a real member graduate.
-    hash: "sha256:0fc5f73f55540685cf1428d8141d4bf56bd6ab8b04c1a297cc9d9aa2bf4b5edb"   # content id of boundaries/compiled/colorado-4.json — `bin/boundaries check` guards it
+    hash: "sha256:5d92c4d5aac8c8b7d4eaadfe5c8ee6445eb7a4714b32bed94389dd6dae65a974"   # content id of boundaries/compiled/colorado-4.json — `bin/boundaries check` guards it
