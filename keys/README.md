@@ -168,6 +168,11 @@ exist, and each phase has an offline-origin counterpart:
 So the trajectory is a **workflow-less operator**: keys on the phone, GitHub as a temporary,
 addressable mirror you pull from — not a place that holds authority or runs your logic. The
 Computer posture stays first-class for anyone who wants it; it is simply never the only way.
+The constellation-level continuation of this trajectory — multi-tenant custody, per-node
+credentials, phone-native provisioning — is pinned in civic-node
+[`docs/TENANCY.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/docs/TENANCY.md), with
+the unbuilt parts tracked at
+[`OPEN-QUESTIONS.md` §P](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md).
 
 ---
 
