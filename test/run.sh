@@ -431,3 +431,42 @@ bin/widget --atlas 'a/b' --scope colorado >/dev/null 2>&1 && fail "widget: accep
 ok "data-filled fragment: tell contract preserved, geo-less locator handed to the hub, label-guarded"
 
 echo "ALL TESTS PASSED"
+
+echo "[15] custody: the declared boundary holds; bootstraps never echo a secret"
+bin/check-custody >/dev/null 2>&1 || fail "check-custody failed on the repo as-is"
+mkdir -p "$work/badwf"; printf 'env:\n  X: ${{ secrets.SNEAKY }}\n' > "$work/badwf/x.yml"
+WORKFLOWS_DIR="$work/badwf" bin/check-custody >/dev/null 2>&1 && fail "checker passed an undeclared secret-read" || true
+printf 'x() { ssh-keygen -Y sign -n rogue-ns -f k; }\n' > "$work/roguebin"; mkdir -p "$work/rb"; mv "$work/roguebin" "$work/rb/rogue"
+BINS_DIR="$work/rb" bin/check-custody >/dev/null 2>&1 && fail "checker passed an undeclared namespace" || true
+ok "undeclared secret-read and undeclared namespace both fail the build"
+
+# The capture-install-validate promise, tested behaviorally: stub `gh`, capture exactly the bytes
+# each bootstrap hands to `gh secret set`, and assert those bytes NEVER appear on the console.
+stub="$work/stub"; cap="$work/ghcap"; mkdir -p "$stub" "$cap"
+cat > "$stub/gh" <<'STUB'
+#!/usr/bin/env bash
+if [ "$1" = secret ] && [ "$2" = set ]; then cat > "$GH_CAPTURE_DIR/$3"; exit 0; fi
+if [ "$1" = api ] && [ "$2" = user ]; then echo "op"; exit 0; fi
+if [ "$1" = api ]; then echo "${GH_FAKE_REPO:-o/r}"; exit 0; fi
+exit 0
+STUB
+chmod +x "$stub/gh"
+
+boot="$work/tellboot"; mkdir -p "$boot/bin" "$boot/keys"
+cp bin/tell-bootstrap bin/publish-signer bin/submit-bootstrap "$boot/bin/"
+bout="$( cd "$boot" && GH_CAPTURE_DIR="$cap" PATH="$stub:$PATH" bin/tell-bootstrap --no-commit 2>&1 )" \
+  || fail "tell-bootstrap failed under the gh stub"
+for s in TELL_SIGNER_KEY TELL_SEED_IDENTITY TELL_QR_SECRET; do
+  [ -s "$cap/$s" ] || fail "tell-bootstrap did not set $s"
+  val="$(grep -vE '^(-----|#)' "$cap/$s" | head -1)"
+  [ -n "$val" ] || fail "captured $s is empty"
+  printf '%s' "$bout" | grep -qF "$val" && fail "tell-bootstrap echoed $s to the console" || true
+done
+grep -q . "$boot/keys/tell.fpr" || fail "tell-bootstrap did not publish the public signer material"
+
+sout="$( cd "$boot" && GH_CAPTURE_DIR="$cap" GH_FAKE_REPO="o/r" PATH="$stub:$PATH" \
+         TELL_POST_TOKEN="ghp_stub_semi_public_value" bin/submit-bootstrap --repo o/r 2>&1 )" \
+  || fail "submit-bootstrap failed under the gh stub"
+[ "$(cat "$cap/TELL_POST_TOKEN")" = "ghp_stub_semi_public_value" ] || fail "submit-bootstrap did not install the token"
+printf '%s' "$sout" | grep -qF "ghp_stub_semi_public_value" && fail "submit-bootstrap echoed the token to the console" || true
+ok "bootstraps install exactly what gh received and echo none of it (capture-install-validate, proven)"
