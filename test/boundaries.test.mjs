@@ -7,7 +7,7 @@ import { mkdtempSync, writeFileSync, mkdirSync, readFileSync, existsSync, cpSync
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { canonicalize, defaultHash, verifyAttested, geojsonToPolygons, readBoundariesBlock, buildArtifact, declaredCenter, compileAll, checkAll, renewAll } from "../bin/boundaries.mjs";
+import { canonicalize, defaultHash, verifyAttested, geojsonToPolygons, readBoundariesBlock, buildArtifact, declaredCenter, loadOrCreateSigner, compileAll, checkAll, renewAll } from "../bin/boundaries.mjs";
 
 let fails = 0;
 const ok = (c, m) => { if (!c) { console.error("FAIL: " + m); fails++; } else console.log("  ok: " + m); };
@@ -113,6 +113,21 @@ function scratchTell() {
   // and the REAL committed colorado-4 now ships its anchor, inside its own shape
   const committed = JSON.parse(readFileSync(path.join(ROOT, "boundaries/compiled/colorado-4.json"), "utf8"));
   ok(Array.isArray(committed.center) && committed.center[0] === -103.5 && committed.center[1] === 39.5, "the committed colorado-4 artifact declares its eastern-plains anchor");
+}
+
+// 4c. the signer loads from a FILE path OR the base64 key CONTENT inline — so CI needs NO file to mount
+// (`TELL_BOUNDARY_KEY=<secret> bin/boundaries renew`). bin/boundary-bootstrap sets the secret to the content.
+{
+  const dir = scratchTell();
+  const { signer } = await compileAll(dir);                         // mints the signer at the path (file)
+  const content = readFileSync(process.env.TELL_BOUNDARY_KEY, "utf8").trim();
+  const fromContent = await loadOrCreateSigner(content, { create: false });
+  ok(fromContent.fingerprint === signer.fingerprint, "the signer loads from inline base64 CONTENT — same key as the file, no file to mount");
+  process.env.TELL_BOUNDARY_KEY = content;                          // the mount-free CI shape: env carries the key itself
+  const again = await compileAll(dir, { create: false });
+  ok(again.signer.fingerprint === signer.fingerprint, "compileAll runs with TELL_BOUNDARY_KEY set to the key CONTENT (never a file on disk)");
+  let threw = false; try { await loadOrCreateSigner("neither-a-path-nor-a-key", { create: false }); } catch { threw = true; }
+  ok(threw, "a value that is neither an existing file nor valid key content is refused — no silent create in renew mode");
 }
 
 // 5. cross-repo: the REAL client (composer/bisect.mjs) verifies the committed colorado-4 artifact and

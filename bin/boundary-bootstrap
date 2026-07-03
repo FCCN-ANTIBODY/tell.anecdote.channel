@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# One-time (or rotate) setup for the Tell's BOUNDARY signer — the Ed25519 key bin/boundaries uses to sign
+# anecdote.boundary/v1 artifacts and their lease renewals. The sibling of bin/tell-bootstrap, but for the
+# boundary signer (a WebCrypto Ed25519 pkcs8, not the ssh delivery signer): it generates the key, stores the
+# PRIVATE half as the repo secret TELL_BOUNDARY_KEY, publishes the PUBLIC fingerprint at keys/boundary.fpr,
+# and commits that public material. Independent lifecycle from the delivery signer — rotate one without the
+# other. (bin/tell-bootstrap handles the delivery signer + seed + QR secret; this handles boundaries.)
+#
+# NO FILE TO MOUNT: bin/boundaries reads TELL_BOUNDARY_KEY as EITHER a file path OR the base64 key CONTENT,
+# so a workflow does `TELL_BOUNDARY_KEY=${{ secrets.TELL_BOUNDARY_KEY }} bin/boundaries renew` with nothing
+# written to disk. This script sets the secret to the content for exactly that.
+#
+#   bin/boundary-bootstrap [--force] [--no-secrets] [--no-commit]
+#     --force       rotate even if keys/boundary.fpr exists (every pinned consumer must re-pin; recompile)
+#     --no-secrets  don't `gh secret set` — print the value ONCE to set it yourself
+#     --no-commit   generate + publish locally but don't git commit
+#
+# Requires: openssl, node, git. `gh` only when actually setting the secret.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"; repo="$(cd "$here/.." && pwd)"; cd "$repo"
+
+force=0; do_secrets=1; do_commit=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --force) force=1; shift;;
+    --no-secrets) do_secrets=0; shift;;
+    --no-commit) do_commit=0; shift;;
+    *) echo "boundary-bootstrap: unknown arg: $1" >&2; exit 1;;
+  esac
+done
+
+for t in openssl node git; do
+  command -v "$t" >/dev/null 2>&1 || { echo "boundary-bootstrap: missing required tool: $t" >&2; exit 1; }
+done
+
+if [ -f keys/boundary.fpr ] && [ "$force" != 1 ]; then
+  echo "boundary-bootstrap: keys/boundary.fpr already exists — the Tell already has a boundary signer." >&2
+  echo "  Rotating mints a NEW fingerprint: every pinned consumer must re-pin, and boundaries must recompile" >&2
+  echo "  (see keys/README.md). Pass --force only if you mean to rotate." >&2
+  exit 1
+fi
+
+umask 077
+tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
+
+echo "==> generating boundary signer (ed25519 pkcs8, base64)"
+openssl genpkey -algorithm ed25519 -outform DER 2>/dev/null | base64 | tr -d '\n' > "$tmp/boundary-signer.pk8"
+
+echo "==> publishing PUBLIC fingerprint (keys/boundary.fpr) — private key never touches the repo"
+fpr="$(node -e '
+  import("./bin/boundaries.mjs").then(async (m) => {
+    const fs = await import("node:fs");
+    const content = fs.readFileSync(process.argv[1], "utf8");     // load from CONTENT (no committed file)
+    const s = await m.loadOrCreateSigner(content, { create: false });
+    fs.writeFileSync("keys/boundary.fpr", s.fingerprint + "\n");
+    process.stdout.write(s.fingerprint);
+  }).catch((e) => { console.error(e.message); process.exit(1); });
+' "$tmp/boundary-signer.pk8")"
+
+if [ "$do_secrets" = 1 ] && command -v gh >/dev/null 2>&1; then
+  echo "==> storing the PRIVATE key as repo secret TELL_BOUNDARY_KEY via gh"
+  gh secret set TELL_BOUNDARY_KEY < "$tmp/boundary-signer.pk8"
+  echo "    set TELL_BOUNDARY_KEY (the base64 key content — bin/boundaries reads it inline, no file to mount)"
+else
+  echo "==> NOT setting the secret here. Set it yourself (value printed ONCE below):"
+  echo "    gh secret set TELL_BOUNDARY_KEY   # paste the base64 content below"
+  echo "----- TELL_BOUNDARY_KEY -----"; cat "$tmp/boundary-signer.pk8"; echo; echo "-----------------------------"
+fi
+
+if [ "$do_commit" = 1 ]; then
+  echo "==> committing keys/boundary.fpr (public material only)"
+  git add keys/boundary.fpr
+  if git diff --cached --quiet; then
+    echo "    (no change to commit)"
+  else
+    git commit -q -m "tell: publish boundary signer fingerprint (public material only)"
+    echo "    committed. Push when ready: git push"
+  fi
+fi
+
+# The private key lives only under $tmp (umask 077) and is shredded on exit.
+echo
+echo "Done. Boundary signer fingerprint:"
+echo "    $fpr"
+echo "Next: recompile so the committed artifacts + tell.yml pins match the new signer —"
+echo "    TELL_BOUNDARY_KEY=\"\$(cat the-key)\" bin/boundaries compile   # or in CI, from the secret"
+echo "then repin each printed hash in tell.yml and run: bin/boundaries check"

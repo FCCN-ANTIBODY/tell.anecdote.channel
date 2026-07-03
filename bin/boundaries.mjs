@@ -62,21 +62,29 @@ export async function verifyAttested(obj) {
   } catch (e) { return { ok: false, by: null, errors: ["verify threw: " + e.message] }; }
 }
 
-// ---- signer key (pkcs8 on disk; public fingerprint published) ------------------------------------------
-export async function loadOrCreateSigner(keyPath, { create = false } = {}) {
-  if (existsSync(keyPath)) {
-    const pk8 = unb64(readFileSync(keyPath, "utf8").trim());
-    const privateKey = await subtle.importKey("pkcs8", pk8, { name: "Ed25519" }, true, ["sign"]);
-    // Ed25519 pkcs8 carries the seed; derive the public half via jwk export of the private key.
-    const jwk = await subtle.exportKey("jwk", privateKey);
-    const raw = unb64(jwk.x.replace(/-/g, "+").replace(/_/g, "/"));
-    return { privateKey, raw, fingerprint: await fingerprint(raw) };
-  }
-  if (!create) throw new Error(`boundaries: no signer key at ${keyPath} (run \`bin/boundaries compile\` to create one)`);
+// ---- signer key (pkcs8; public fingerprint published) --------------------------------------------------
+// Ed25519 pkcs8 carries the seed; derive the public half via jwk export of the private key.
+async function signerFromPk8(pk8b64) {
+  const pk8 = unb64(String(pk8b64).trim());
+  const privateKey = await subtle.importKey("pkcs8", pk8, { name: "Ed25519" }, true, ["sign"]);
+  const jwk = await subtle.exportKey("jwk", privateKey);
+  const raw = unb64(jwk.x.replace(/-/g, "+").replace(/_/g, "/"));
+  return { privateKey, raw, fingerprint: await fingerprint(raw) };
+}
+
+// The signer resolves from EITHER a file path OR — so there is NO file to mount in CI — the base64 pkcs8 key
+// CONTENT itself, passed inline via $TELL_BOUNDARY_KEY (`TELL_BOUNDARY_KEY=${{ secrets.TELL_BOUNDARY_KEY }}
+// bin/boundaries renew`). An existing file at `keyRef` wins; else a value that parses as a pkcs8 key is used
+// as-is; else `compile` (create) mints a fresh key at `keyRef` as a path. `bin/boundary-bootstrap` sets the
+// secret to the content for exactly this.
+export async function loadOrCreateSigner(keyRef, { create = false } = {}) {
+  if (keyRef && existsSync(keyRef)) return signerFromPk8(readFileSync(keyRef, "utf8"));
+  if (keyRef) { try { return await signerFromPk8(keyRef); } catch { /* not inline key content — fall through */ } }
+  if (!create) throw new Error(`boundaries: no signer at ${keyRef} — give a pkcs8 file path or the base64 key content (or run \`bin/boundaries compile\` to create one)`);
   const pair = await subtle.generateKey({ name: "Ed25519" }, true, ["sign", "verify"]);
   const pk8 = new Uint8Array(await subtle.exportKey("pkcs8", pair.privateKey));
-  mkdirSync(path.dirname(keyPath), { recursive: true });
-  writeFileSync(keyPath, b64(pk8) + "\n", { mode: 0o600 });
+  mkdirSync(path.dirname(keyRef), { recursive: true });
+  writeFileSync(keyRef, b64(pk8) + "\n", { mode: 0o600 });
   const raw = new Uint8Array(await subtle.exportKey("raw", pair.publicKey));
   return { privateKey: pair.privateKey, raw, fingerprint: await fingerprint(raw), created: true };
 }
