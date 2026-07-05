@@ -37,10 +37,13 @@ assert(r.status === 400, "an unopenable cipher not refused");
 r = await worker.fetch(new Request("https://tell.anecdote.channel/submit", { method: "POST", body: JSON.stringify({ path: GOOD, body: {}, sc }) }), { TELL_POST_TOKEN: "x" });
 assert(r.status === 503, "sealed path without a seal key fails closed");
 
-// legacy path unchanged; nothing echoes
+// legacy path: the canonical Tell's own comment threads, and ONLY those — mode=issue is
+// retired, so the bare new-issue path refuses on this branch too; nothing echoes
 calls.length = 0;
+r = await post({ path: "/repos/FCCN-ANTIBODY/tell.anecdote.channel/issues/7/comments", body: { body: "c" } });
+assert(r.status === 201 && calls[0].init.headers.Authorization === "Bearer ghp_tell", "the canonical Tell's own comment path still relays");
 r = await post({ path: "/repos/FCCN-ANTIBODY/tell.anecdote.channel/issues", body: { title: "t" } });
-assert(r.status === 201 && calls[0].init.headers.Authorization === "Bearer ghp_tell", "the canonical Tell's own path is untouched");
+assert(r.status === 403, "the retired new-issue path is refused on the legacy branch too");
 const out = await (await post({ path: GOOD, body: {}, sc })).text();
 assert(!out.includes("ghp_asker") && !out.includes(KEY), "neither token nor key ever echoes");
 

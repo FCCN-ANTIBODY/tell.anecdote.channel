@@ -8,7 +8,7 @@
 
 ## The one hard fact: the token will be public
 
-To let someone with **no GitHub account** create an issue, *something* must carry a GitHub write credential,
+To let someone with **no GitHub account** post into a Tell's mailbox, *something* must carry a GitHub write credential,
 and for an anonymous respondent scanning a **public** QR there is no channel to hand it to but the QR itself.
 So the post credential **is public** — anyone who sees the poster has it. We do not pretend otherwise. This
 is the ground-level case worth getting right, precisely because the token leaks by design.
@@ -16,7 +16,7 @@ is the ground-level case worth getting right, precisely because the token leaks 
 Given that, the entire defense is **scope**, not secrecy:
 
 - The credential is a **fine-grained PAT with `issues:write` on exactly one repo — the Tell's own** — and
-  nothing else. Its whole blast radius is "create issues on one already-public repo." Revocable, rotatable,
+  nothing else. Its whole blast radius is "comment into one already-public repo's poll threads." Revocable, rotatable,
   minted by the Tell operator on their own account. GitHub's own boundary (`one repo, issues only`) *is* the
   boundary we want around the token.
 - **The `tok` HMAC is the real gate, and it is not public-mintable.** The post credential only lets you
@@ -52,6 +52,12 @@ per-Tell bootstrap on the operator's behalf at registration time. Today's by-han
 version of exactly that.
 
 ## Three consumption paths (they differ on exposure)
+
+All three land the same way: a **comment on the poll's canonical issue** (`mode=comment`,
+`bin/open-poll`, the QR's `canonical=`). Issue-per-response is retired for every credentialed path —
+`bin/qr` refuses to mint it and the worker's allowlist is comments-only. The one new-issue path left
+is the credential-free `issueUrl` fallback, where the respondent's own click is the authority (and so
+needs none of the paths below).
 
 1. **Worker-injected (the graduated form)** — the Tell's own **submit-gateway worker**
    ([`workers/submit-gateway/`](../workers/submit-gateway/)) holds the credential as a worker secret and

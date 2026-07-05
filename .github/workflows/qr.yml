@@ -35,11 +35,11 @@ on:
         description: "Guidance shown to the respondent (format/mood). The pile governs by its own."
         required: false
       mode:
-        description: "issue (one issue per response) | comment (onto a canonical poll issue)"
+        description: "comment (onto the canonical poll issue) — the paradigm; issue is retired"
         required: false
-        default: "issue"
+        default: "comment"
       canonical:
-        description: "Canonical poll issue number — required for comment mode (run \"open poll\" first)"
+        description: "Canonical poll issue number (run \"open poll\" first) — required for a credentialed QR; omit for an issueUrl-fallback-only QR"
         required: false
       run:
         description: "Run id to tell QRs/runs apart (optional; default derived from the token)"
@@ -78,7 +78,7 @@ jobs:
         run: |
           set -euo pipefail
           [ -n "${TELL_QR_SECRET:-}" ] || { echo "::error::TELL_QR_SECRET secret required (see bin/tell-bootstrap)"; exit 1; }
-          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND" --type "${TYPE:-open}" --mode "${MODE:-issue}")
+          args=(--pile "$PILE" --poll "$POLL" --round "$ROUND" --type "${TYPE:-open}" --mode "${MODE:-comment}")
           [ -n "${ASKER:-}" ]    && args+=(--asker "$ASKER")
           [ -n "${QUESTION:-}" ] && args+=(--question "$QUESTION")
           [ -n "${OPTS:-}" ]     && args+=(--opts "$OPTS")

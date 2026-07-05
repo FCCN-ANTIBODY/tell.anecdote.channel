@@ -18,9 +18,13 @@
 //     summonable judge lands (civic-node OPEN-QUESTIONS §A) the worker SUMMONS it over the
 //     {verdict, reason} contract; it never decides itself.
 //
-// The blast radius of the worker equals the blast radius of the PAT it holds: create issues /
-// comments on ONE already-public repo. The path allowlist below is defense in depth on top of
-// GitHub's own scope boundary.
+// The blast radius of the worker equals the blast radius of the PAT it holds: comments on ONE
+// already-public repo's issues. The path allowlist below is defense in depth on top of GitHub's
+// own scope boundary — and it is COMMENTS-ONLY: mode=issue is retired for every relayed path
+// (docs/sealed-credential.md → "What it forces, usefully"), so the relay never creates an issue.
+// The one legitimate new-issue path is the credential-free issueUrl fallback, which never comes
+// here at all — the respondent's own click on github.com is the authority. bin/open-poll opens
+// the canonical issue with the operator's own `gh` auth, not through this relay.
 //
 // Deploy: wrangler deploy && wrangler secret put TELL_POST_TOKEN   (see README.md)
 
@@ -29,13 +33,14 @@ const REPO = "tell.anecdote.channel";
 const API = "https://api.github.com";
 import { unseal } from "./seal.mjs";
 
-// POST /repos/OWNER/REPO/issues  |  POST /repos/OWNER/REPO/issues/<n>/comments — nothing else.
+// POST /repos/OWNER/REPO/issues/<n>/comments — nothing else. The bare /issues (new issue) path
+// is gone with mode=issue: every credentialed reply is a comment on the poll's canonical issue.
 const PATH_OK = new RegExp(
-  `^/repos/${OWNER}/${REPO}/issues(/[0-9]{1,10}/comments)?$`
+  `^/repos/${OWNER}/${REPO}/issues/[0-9]{1,10}/comments$`
 );
-// Any relay target must at least be SOME repo's issues surface; the sealed branch then
-// narrows to its exact binding, the legacy branch to this repo (PATH_OK).
-const PATH_SHAPE = /^\/repos\/[\w.-]+\/[\w.-]+\/issues(\/[0-9]{1,10}\/comments)?$/;
+// Any relay target must at least be SOME repo's canonical-issue comment thread; the sealed
+// branch then narrows to its exact binding, the legacy branch to this repo (PATH_OK).
+const PATH_SHAPE = /^\/repos\/[\w.-]+\/[\w.-]+\/issues\/[0-9]{1,10}\/comments$/;
 const MAX_BODY = 64 * 1024; // a submission block is small; a relay stays polite
 
 const CORS = {

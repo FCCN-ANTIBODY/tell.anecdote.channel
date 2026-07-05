@@ -31,7 +31,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
 pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
-signkey_arg=""; mode="issue"; canonical=""; run=""; submit_url="${TELL_SUBMIT_URL:-}"
+signkey_arg=""; mode="comment"; canonical=""; run=""; submit_url="${TELL_SUBMIT_URL:-}"
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -44,15 +44,22 @@ while [ $# -gt 0 ]; do
     --guidance) guidance="$2"; shift 2;;
     --repo) repo="$2"; shift 2;;
     --signkey) signkey_arg="$2"; shift 2;;
-    --mode) mode="$2"; shift 2;;          # issue (one issue per response) | comment (onto the canonical poll issue)
-    --canonical) canonical="$2"; shift 2;; # the canonical poll issue number that comments attach to (comment mode)
+    --mode) mode="$2"; shift 2;;          # comment (onto the canonical poll issue) — the paradigm; issue is retired
+    --canonical) canonical="$2"; shift 2;; # the canonical poll issue number that comments attach to (bin/open-poll prints it)
     --run) run="$2"; shift 2;;            # a non-secret id telling QRs/runs apart; default derived from the token
     --submit-url) submit_url="$2"; shift 2;; # the Tell's submit-gateway worker (see workers/submit-gateway); supersedes embedding a post credential
     *) echo "bin/qr: unknown arg: $1" >&2; exit 1;;
   esac
 done
-case "$mode" in issue|comment) ;; *) echo "bin/qr: --mode must be issue|comment (got: $mode)" >&2; exit 1;; esac
-[ "$mode" = comment ] && [ -z "$canonical" ] && { echo "bin/qr: --mode comment needs --canonical <issue#> (run bin/open-poll first)" >&2; exit 1; }
+# mode=issue is RETIRED for every relayed/credentialed path (docs/sealed-credential.md → "What it
+# forces, usefully"): the comment paradigm is the paradigm — one poll, one canonical issue
+# (bin/open-poll), every reply a comment on it. The one legitimate new-issue path left is the
+# credential-free issueUrl fallback on the runtime, where the respondent's own click is the authority.
+case "$mode" in
+  comment) ;;
+  issue) echo "bin/qr: --mode issue is retired — open the poll's canonical issue (bin/open-poll) and mint --canonical <issue#>; the credential-free issueUrl fallback is the one new-issue path left" >&2; exit 1;;
+  *) echo "bin/qr: --mode must be comment (got: $mode)" >&2; exit 1;;
+esac
 if [ -n "$canonical" ] && ! printf '%s' "$canonical" | grep -Eq '^[0-9]+$'; then
   echo "bin/qr: --canonical must be an issue number (got: $canonical)" >&2; exit 1
 fi
@@ -63,6 +70,12 @@ fi
 # Sanitize the submit URL: https only — it is where the runtime will POST the reply.
 if [ -n "$submit_url" ] && ! printf '%s' "$submit_url" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$'; then
   echo "bin/qr: --submit-url must be a plain https URL (got: $submit_url)" >&2; exit 1
+fi
+# A credentialed route (su= relay or embedded post=) can only ever land a COMMENT on the poll's
+# canonical issue — the runtime refuses a credentialed submit with no canonical thread, so minting
+# one would mint a dead route. Without --canonical only the issueUrl fallback rides.
+if [ -z "$canonical" ] && { [ -n "$submit_url" ] || [ -n "${TELL_POST_TOKEN:-}" ]; }; then
+  echo "bin/qr: a credentialed QR (su=/post=) needs --canonical <issue#> — run bin/open-poll first (a canonical-less QR carries only the issueUrl fallback)" >&2; exit 1
 fi
 [ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT] [--signkey PATH]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
