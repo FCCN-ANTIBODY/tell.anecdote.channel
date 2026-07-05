@@ -161,13 +161,14 @@ Open, and genuinely just these two: the **threshold policy** (what counts, how m
 diverse, how it decays) and the **epoch/rotation economics** of visitor attestations. Design
 choices — not missing cryptography.
 
-## Next (all unbuilt)
+## Next
 
-1. **The mint gesture** — where an asker hands in their token and receives the cipher: a
-   confirm-gated op or `bin/` tool on the Tell holding the sealing secret; never a page that
-   ships the secret client-side.
+1. ~~**The mint gesture**~~ — **built** (`bin/seal-credential`: mint/peek/mint-key, run
+   wherever the operator holds `TELL_SEAL_KEY`; the confirm-gated browser op can follow).
 2. **The `sc=` param** — the sealed cipher riding the poll's routing; dropped from the signed
-   canon like `post`/`su`; stripped from provenance by the client the same way.
-3. **The worker change** — accept `sc=`, AEAD-verify, refuse on binding mismatch, relay
-   header-only; `TELL_POST_TOKEN` becomes a sealed cipher like the rest.
+   canon like `post`/`su`; stripped from provenance by the client the same way. (Client-side,
+   anecdote `poll-answer.mjs` + `bin/qr` — the remaining wiring.)
+3. ~~**The worker change**~~ — **built** (`workers/submit-gateway/seal.mjs` + the `sc` branch:
+   AES-256-GCM, refuse-on-binding-mismatch to the bound poll's ONE issue, relay header-only,
+   fails closed unprovisioned; the canonical Tell's own `TELL_POST_TOKEN` path unchanged).
 4. **Retire `mode=issue` for hosted polls** — the comment paradigm becomes the paradigm.
