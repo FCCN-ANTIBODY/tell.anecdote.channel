@@ -94,6 +94,73 @@ respondent's own click is the authority.
 - **A per-cipher revocation list** — state creeping back; both stateless handles above
   suffice.
 
+## The offline parallel — where the worker is a ceremony, not a token-wielder
+
+The sealed path above quietly assumes an edge exists to unwrap at. Two honest corrections
+from working that assumption over:
+
+**Per-Tell secret, per-workspace worker.** A per-Tell *worker* only exists where a Tell's
+operator deploys an edge — most Tells deploy nothing anywhere. The real shape: one worker per
+**workspace**, holding one sealing secret per Tell it services. That custody is exactly as
+wide as TENANCY already declared hosting to be (the workspace owner has access-auth over the
+Tells it runs, never the piles). A Tell with no edge at all simply doesn't offer `sc=` — the
+credential-free `issueUrl` fallback remains. Which makes the offline case the primary case,
+not the exotic one.
+
+**The cached tell is structurally mute to the seal — correctly.** In the promiscuous sharing
+path, an ambassador (a member of an Atlas or a Tell, or the poll's own author, carrying a
+copy) has their QR scanned by a respondent, whose anecdote app opens the *offline* tell —
+the canonical DNS name, served from their own service-worker cache. That shell holds no
+secrets, by the dumb-shell/bind-the-queen rule, so offline answering can never route through
+unwrapping. It needs a different authority: **possession plus presence.** The pieces mostly
+exist:
+
+- **Useless-if-found is already built.** The device identity is a non-extractable CryptoKey
+  (anecdote `sign.mjs`); `gesture.mjs` gates its use behind a passkey ceremony whose
+  challenge is the hash of the exact object signed — live human presence folded into the
+  signature. Its noted-not-built follow-on (a WebAuthn-PRF-derived wrap key, so the identity
+  is *cryptographically* unusable without the gesture) is precisely the "key every user
+  makes that only a gesture unlocks."
+- **Issue attestations, never secrets.** The permanent-credential trap ("the workspace could
+  sign anything forever as that user") is what happens if the canonical Tell hands visitors
+  an unwrap *key*. It must not. It hands a signed, short-lived **statement** about the
+  device key — "visitor, epoch N." Verification is public; nothing stolen outlives the
+  epoch; hygiene is ordinary re-attestation on contact plus per-use ratcheting. The
+  credential to answer polls is a statement, renewed — not a key, held.
+- **The in-person unlock is key agreement, not broadcast.** "Many payloads each wrapped for
+  every key" is absent-audience thinking. The meet is *interactive*: X25519 agreement (age's
+  own curve) derives the pairwise secret at the moment of contact from your private half and
+  their public half — nothing pre-wrapped, no global material, and "a powerful key only
+  unlockable by someone else's key" is literally what Diffie-Hellman is. The scan exchanging
+  public halves + fresh nonces both ways, each side signing the transcript with its
+  gesture-gated identity, is an authenticated key exchange — a solved shape.
+- **The evidence is `met.mjs`, plural.** A met-record is already publicly re-verifiable
+  in-person contact (anyone re-checks the Tell's signature, the body's signature, and the
+  claim, holding no secret). A scan-gesture that also rolls a labeling task means one
+  meet-session emits *multiple co-signed artifacts* — the receipts on every commingled
+  step. The "dynamic, fairly high threshold" needs no new math: v1 is a **policy over the
+  count and diversity of co-signed meet artifacts**, enforced at the consent-ladder rung,
+  unlocked by gesture, hardened later by the PRF line. (Pinned limit: no crypto detects two
+  *colluding* people faking a meet — the threshold raises fabrication's cost, never to
+  infinity.)
+- **Latecomers need first contact, not the secret.** There is no global secret to acquire:
+  any ambassador's scan bootstraps the pairwise channel, and the introduction travels
+  person-to-person the way `firmware-offer` already carries code offline to knock on the pin
+  gate. The canonical Tell's role shrinks to signing attestations — verification public,
+  unlocking pairwise. The "everyone needs it, so it can't be secret" paradox dissolves
+  because what everyone needs is a verifiable statement, and statements are supposed to be
+  public.
+
+So the offline counterpart of this worker wields no token at all. Its output is **evidence,
+not access**: an answer signed by device key + gesture + met-receipts + the poll's own
+`tok`, held in a trove, delivered to the Tell's mailbox whenever either party next touches
+the network. The online worker unwraps authority it was handed; the offline ceremony
+*constitutes* authority from presence.
+
+Open, and genuinely just these two: the **threshold policy** (what counts, how many, how
+diverse, how it decays) and the **epoch/rotation economics** of visitor attestations. Design
+choices — not missing cryptography.
+
 ## Next (all unbuilt)
 
 1. **The mint gesture** — where an asker hands in their token and receives the cipher: a
