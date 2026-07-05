@@ -1,9 +1,10 @@
 name: "Federate · deliver"
 
-# Produce inbound encrypted digests and publish them on this Tell's OWN feed branches
-# (feed/<scope>/<id>). A pile PULLS its feed from the gateway (see CONTRACT.md); Tell
-# never writes into a pile, so this needs NO GitHub App and NO cross-repo token — only
-# contents:write on THIS repo, which the built-in GITHUB_TOKEN already grants.
+# Produce inbound encrypted digests and publish them in this Tell's OWN served tree
+# (piles/<id>/feed/ — disk path == URL path; the Pages build serves the files as-is).
+# A pile PULLS its feed from there (see CONTRACT.md); Tell never writes into a pile,
+# so this needs NO GitHub App and NO cross-repo token — only contents:write on THIS
+# repo, which the built-in GITHUB_TOKEN already grants.
 #
 # The work itself is the reusable `deliver` composite action (.github/actions/deliver),
 # which any jurisdiction can drop into their own repo to run on their own dataset. This

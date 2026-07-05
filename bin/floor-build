@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Build the Floor as its OWN GitHub Pages site (anecdote.channel#93).
+#
+# `bin/floor-build [outdir]` emits a complete, ready-to-publish Pages site —
+# the three template files plus a CNAME — into <outdir> (default: _floor).
+# This is a separate site output from the Jekyll build on purpose: the Floor
+# is one canonical Pages site of its own, and every made-up
+# <name>.tell.anecdote.channel is masked onto it at the edge (wildcard DNS,
+# proxied; the masking is DNS/edge configuration, not a repo concern).
+#
+# The CNAME carries the ONE canonical hostname (default
+# floor.tell.anecdote.channel — itself just another name under the same
+# wildcard; calling it up directly gets the same blank slate as any name,
+# because the page can't do anything else). Override with FLOOR_CNAME.
+#
+# Nothing is ever provisioned per name. The output is static, constant, and
+# public — the server it lands on has no obligations other than delivering it.
+set -euo pipefail
+here="$(cd "$(dirname "$0")/.." && pwd)"
+out="${1:-$here/_floor}"
+cname="${FLOOR_CNAME:-floor.tell.anecdote.channel}"
+
+mkdir -p "$out"
+cp "$here/floor/index.html" "$out/index.html"
+cp "$here/floor/floor.mjs" "$out/floor.mjs"
+cp "$here/floor/sw.js" "$out/sw.js"
+printf '%s\n' "$cname" > "$out/CNAME"
+# Pages must not run the output through Jekyll — serve the bytes as-is.
+: > "$out/.nojekyll"
+
+echo "floor site built: $out (CNAME: $cname)" >&2

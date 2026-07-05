@@ -31,13 +31,14 @@ joining ([`reporting.md`](reporting.md)).
   is minted (`bin/qr`). The respondent-facing poll is **self-contained in its QR**, deliberately
   unbacked by a registry ([`per-poll-registry.md`](per-poll-registry.md)).
 - **Ingesting.** The loop: `bin/collect-submissions` → `bin/authz` → `bin/govern` → `bin/deliver` →
-  `bin/finalize-submissions`, publishing sealed chunks on `feed/<scope>/<id>` for the pile to pull.
+  `bin/finalize-submissions`, publishing sealed chunks at `piles/<id>/feed/*` for the pile to pull.
   The producing cadence is deliberately **off by default** — the template's cron is a commented
   suggestion (┄ civic-node
   [`OPEN-QUESTIONS.md` §K](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md)).
-- **Rotating.** Feed branches are append-only; `prune-pile-history.yml` archives intact history to
-  `archive/<branch>@<date>` and resets the live ref — nothing thrown away, only rotated. Staged
-  submissions are intermediate; govern reports are the kept evidence locker.
+- **Rotating.** The served chain (`piles/<id>/feed/*`) is append-only files; bounding its live size
+  is an operator retention policy, deferred until it bites (the `prune-pile-history` action remains
+  for workspaces that still hold branch-based feeds: archive intact, reset lean, never rewrite signed
+  history). Staged submissions are intermediate; govern reports are the kept evidence locker.
 - **Quiet.** A Tell with no registrants is **not a private Tell; it is a public Tell nobody has
   joined.** Addressability is its whole publicity — privacy is an empty registry, not a mode. What a
   quiet Tell is *for* — the first singleton beside which new ones are provisioned, like group chats —
@@ -57,7 +58,7 @@ twin of a gesture the offline origin performs natively), **retired** (kept for c
 | `index.md` (landing page) | **retired** to a thin verbatim forward | `anecdote.channel/poll.html` | [`answer-runtime.md`](answer-runtime.md) |
 | composer-only rules in `assets/tell.css` | **retired** with the landing page | the runtime's own styles | [`answer-runtime.md`](answer-runtime.md) |
 | `bin/qr` + `qr.yml` | **mirror** — the Computer twin | `anecdote …/composer/qr-mint.mjs` (byte-parity; an operator holding `TELL_QR_SECRET` runs author → mint → answer → host → tally with this repo minting nothing) | [`answer-runtime.md`](answer-runtime.md) |
-| `workers/feed-gateway` | **not load-bearing** — serving nicety, no runtime secrets | `raw.githubusercontent.com` works directly | its `worker.js` header |
+| `workers/feed-gateway` | **retired** — feeds are plain static files in the served tree (`piles/<id>/feed/*`); Pages serves them, normal caching applies | GitHub Pages itself | [`CONTRACT.md`](../CONTRACT.md) → Direction |
 | `ingest-submissions.yml` cron / issues triggers | **scaffold** — commented by design | the coordinated deliver window | ┄ §K |
 | `bin/judge` (`TELL_JUDGE_CMD`) · `bin/vouch` (`TELL_VOUCH_CMD`) | **scaffold** — honest-default seams | the summonable judge | ┄ §A |
 | signed-QR trust roots beyond `TELL_SIGNERS` | **scaffold** — slices 3–4 unbuilt | the friend-list generalization | [`qr-provenance.md`](qr-provenance.md), ┄ §L |

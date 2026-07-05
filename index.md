@@ -31,6 +31,28 @@ Nothing here phones home: the reply is a GitHub issue you review and submit your
   var raw = (location.search || "").replace(/^\?/, "") || (location.hash || "").replace(/^#/, "");
   var p = new URLSearchParams(raw);
   if (!p.get("pile") || !p.get("poll") || !p.get("round") || !p.get("tok")) {
+    // No live token -> nothing to forward. But a question that names itself (pile+poll+q,
+    // just no tok) is a PREVIEW, not an error: the mode selection issue #93 says is already
+    // free. The Floor (<name>.tell.anecdote.channel, docs/floor.md) drives this branch when
+    // it iframes vanilla Tell per question — a Floor can never mint a token, only the Tell
+    // engine can. Preview renders display fields only; no reply can be composed from here.
+    var esc = function (s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    };
+    if (p.get("pile") && p.get("poll") && p.get("q")) {
+      var opts = (p.get("opts") || "").split(",").filter(function (s) { return s !== ""; });
+      var html = '<p class="tell-preview-tag">Preview — no live token rides this link, so no reply can be composed. A live poll’s QR carries its <code>tok</code>.</p>';
+      html += '<h2 class="tell-question">' + esc(p.get("q")) + "</h2>";
+      if (p.get("guidance")) html += '<p class="tell-guidance">' + esc(p.get("guidance")) + "</p>";
+      if (opts.length) {
+        html += '<ul class="tell-opts">';
+        for (var i = 0; i < opts.length; i++) html += "<li>" + esc(opts[i]) + "</li>";
+        html += '</ul><p class="tell-empty">Options are only suggestions — a live reply is always yours to write.</p>';
+      }
+      html += '<p class="tell-empty">' + esc(p.get("pile")) + "/" + esc(p.get("poll")) + "</p>";
+      if (mount) mount.innerHTML = html;
+      return;
+    }
     if (mount) mount.innerHTML = '<p class="tell-empty">No poll loaded — open Tell from a poll’s QR code.</p>';
     return;
   }

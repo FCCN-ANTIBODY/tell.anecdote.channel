@@ -27,7 +27,7 @@ underneath that the others won't lead with.
 ## The shape of the system
 
 - **Two directions, mirror images.** Inbound: Issues → authorize → govern (when delegated) →
-  seal → publish a `feed/<scope>/<id>` branch. The pile **pulls**; Tell never reaches into it.
+  seal → publish at `piles/<id>/feed/*` in the served tree. The pile **pulls**; Tell never reaches into it.
   Tell writes only its own repo with the built-in `GITHUB_TOKEN` — no GitHub App, no cross-repo
   token.
 - **Three secrets, none of them decrypt.** `TELL_SIGNER_KEY` signs manifests, `TELL_SEED_IDENTITY`

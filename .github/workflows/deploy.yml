@@ -1,11 +1,18 @@
 name: "Publish · site"
 
+# Cadence, not chatter: deliveries and merges land as ordinary commits, and the
+# site publishes on a 6-hour window — only if the tree actually moved since the
+# last deploy (the moving `pages-deployed` tag marks what's live). Manual
+# dispatch deploys unconditionally. Branch pushes only VALIDATE the build (a PR
+# can't break Jekyll silently); they never deploy, and main pushes trigger
+# nothing here at all — the window picks them up.
 on:
-  # Any branch push validates the build; only main / manual dispatch deploys.
   push:
+    branches-ignore: [main]
+  schedule:
+    - cron: "23 */6 * * *"
   workflow_dispatch:
 
-# Allow the deploy job to publish to GitHub Pages.
 permissions:
   contents: read
   pages: write
@@ -17,7 +24,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # On the schedule, skip everything when nothing changed since the last deploy.
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - id: diff
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git rev-parse -q --verify refs/tags/pages-deployed >/dev/null \
+             && git diff --quiet pages-deployed HEAD; then
+            echo "no diffs since the deployed tree — skipping this window"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: gate
+    if: needs.gate.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +71,22 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
-    # Feature-branch pushes validate the build above without deploying.
-    if: >-
-      github.ref == 'refs/heads/main' ||
-      github.event_name == 'workflow_dispatch'
+    # Branch pushes validate the build above without deploying.
+    if: github.event_name != 'push'
+    permissions:
+      contents: write # move the pages-deployed tag
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+      - uses: actions/checkout@v4
+
+      - name: Mark the deployed tree
+        run: |
+          git tag -f pages-deployed "$GITHUB_SHA"
+          git push -f origin refs/tags/pages-deployed
