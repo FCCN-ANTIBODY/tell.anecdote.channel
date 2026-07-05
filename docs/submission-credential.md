@@ -92,3 +92,6 @@ version of exactly that.
    POSTs through the worker. The QR-embed remains the workers-less fallback.
 5. **Judge summoning** — when the summonable judge lands (civic-node `OPEN-QUESTIONS.md` §A), the worker
    summons it over the `{verdict, reason}` contract before relaying; it never decides itself.
+6. **The multitenant graduation** — hosted polls need the worker to act on *many* askers' authority
+   without a token jar: the asker's own token, sealed under the Tell's secret, traveling in the poll's
+   routing. Direction pinned in [`sealed-credential.md`](sealed-credential.md).
