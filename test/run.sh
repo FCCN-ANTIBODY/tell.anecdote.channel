@@ -175,31 +175,42 @@ sub cd04-q1 budget 1 "$tokB" | bin/authz 2>/dev/null || fail "default authz reje
 ok "signed payload verified + bound; tamper / token-swap / (strict) unsigned rejected; unsigned still ok by default"
 
 echo "[8d] canonical-issue COMMENT thread: qr mode/run/canonical, open-poll, collect sweeps comments"
-# bin/qr grows the egress fields: mode (issue|comment), a run id (tells QRs apart), the canonical
-# issue comments attach to, and an OPTIONAL semi-public post credential (carried, never minted).
-qc="$(bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical 7 --run runX 2>/dev/null)"
+# The comment paradigm is THE paradigm: bin/qr defaults to mode=comment, refuses the retired
+# mode=issue outright, and carries a run id (tells QRs apart) + the canonical issue comments
+# attach to, plus an OPTIONAL semi-public post credential (carried, never minted).
+qc="$(bin/qr --pile cd04-q1 --poll budget --round 1 --canonical 7 --run runX 2>/dev/null)"
 echo "$qc" | grep -q 'mode=comment' && echo "$qc" | grep -q 'canonical=7' && echo "$qc" | grep -q 'run=runX' \
-  || fail "qr did not emit mode/canonical/run"
+  || fail "qr did not emit mode/canonical/run (comment must be the default)"
 echo "$qc" | grep -q 'post=' && fail "qr leaked a post credential with no TELL_POST_TOKEN" || true
 echo "$qc" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "comment-mode qr lost its authorization token"
 TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical 7 2>/dev/null \
   | grep -q 'post=ghs_demo' || fail "qr did not carry TELL_POST_TOKEN as the post credential"
-bin/qr --pile cd04-q1 --poll budget --mode comment 2>/dev/null && fail "comment mode allowed without --canonical" || true
+# mode=issue is RETIRED: minting it is refused; the issueUrl fallback is the one new-issue path left.
+bin/qr --pile cd04-q1 --poll budget --mode issue 2>/dev/null && fail "retired mode=issue still mints" || true
+# A canonical-less QR still mints (it carries only the issueUrl fallback) — but a CREDENTIALED
+# canonical-less QR would mint a dead route, so it is refused.
+bin/qr --pile cd04-q1 --poll budget 2>/dev/null | grep -q 'mode=comment' \
+  || fail "canonical-less (fallback-only) qr did not mint in comment mode"
+TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget 2>/dev/null \
+  && fail "credentialed (post=) qr minted without --canonical" || true
 
 echo "[8e] submit-gateway address (su=) supersedes the embedded credential"
 # --submit-url (or TELL_SUBMIT_URL) rides as su= — and the credential is NOT embedded beside it.
-qsu="$(TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 \
+# A relayed reply only ever COMMENTS on the canonical issue, so an su= mint needs --canonical too.
+qsu="$(TELL_POST_TOKEN=ghs_demo bin/qr --pile cd04-q1 --poll budget --round 1 --canonical 7 \
   --submit-url https://tell.anecdote.channel/submit 2>/dev/null)"
 echo "$qsu" | grep -q 'su=https%3A%2F%2Ftell.anecdote.channel%2Fsubmit' || fail "qr did not carry the submit URL as su="
 echo "$qsu" | grep -q 'post=' && fail "qr embedded the credential despite a submit URL" || true
 echo "$qsu" | grep -q '[?&]tok=[0-9a-f]\{64\}' || fail "su-mode qr lost its authorization token"
-TELL_SUBMIT_URL=https://tell.example/submit bin/qr --pile cd04-q1 --poll budget 2>/dev/null \
+TELL_SUBMIT_URL=https://tell.example/submit bin/qr --pile cd04-q1 --poll budget --canonical 7 2>/dev/null \
   | grep -q 'su=https%3A%2F%2Ftell.example%2Fsubmit' || fail "TELL_SUBMIT_URL env not honored"
-bin/qr --pile cd04-q1 --poll budget --submit-url 'http://insecure' 2>/dev/null && fail "non-https submit URL accepted" || true
-bin/qr --pile cd04-q1 --poll budget --submit-url 'https://x/?a=b' 2>/dev/null && fail "query-carrying submit URL accepted" || true
+bin/qr --pile cd04-q1 --poll budget --canonical 7 --submit-url 'http://insecure' 2>/dev/null && fail "non-https submit URL accepted" || true
+bin/qr --pile cd04-q1 --poll budget --canonical 7 --submit-url 'https://x/?a=b' 2>/dev/null && fail "query-carrying submit URL accepted" || true
+bin/qr --pile cd04-q1 --poll budget --submit-url https://tell.example/submit 2>/dev/null \
+  && fail "credentialed (su=) qr minted without --canonical (a dead route)" || true
 # su is dropped from the signed canon (like post): a signed QR minted WITH a submit URL
 # verifies over the same preimage after su is stripped — moving the worker re-mints nothing.
-ssu="$(bin/qr --pile cd04-q1 --poll bikes --round 1 --question "Q" \
+ssu="$(bin/qr --pile cd04-q1 --poll bikes --round 1 --question "Q" --canonical 7 \
   --submit-url https://tell.anecdote.channel/submit --signkey "$work/sign" 2>/dev/null)"
 sparams="$(printf '%s' "${ssu#*\?}" | tr '&' '\n')"
 urldec "$(printf '%s\n' "$sparams" | sed -n 's/^sig=//p')" | base64 -d > "$work/qr-su.sig"
@@ -374,7 +385,7 @@ fi
 if command -v node >/dev/null 2>&1; then
   echo "[12c] submit-gateway worker is a pure, allowlisted, credential-shielding relay"
   node "$root/test/submit-gateway.test.mjs" || fail "submit-gateway worker test failed"
-  ok "submit-gateway: relays verbatim, allowlists one repo, never leaks the credential"
+  ok "submit-gateway: relays verbatim, allowlists one repo's comment threads, never leaks the credential"
 else
   echo "[12c] SKIPPED — node not available for the submit-gateway test"
 fi

@@ -81,9 +81,14 @@ become just another sealed cipher — the uniform case, not a special one.
 
 The cipher binds to **the** issue — one poll, one issue, all activity on it. Hosted polls
 therefore structurally require the canonical-issue comment paradigm (`mode=comment`,
-`bin/open-poll`, the `[8d]` sweep), which is the push that finally retires issue-per-response
+`bin/open-poll`, the `[8d]` sweep), which is the push that finally retired issue-per-response
 (`mode=issue`) for everything except the credential-free `issueUrl` fallback, where the
-respondent's own click is the authority.
+respondent's own click is the authority. **Retired, done:** `bin/qr` (and anecdote's mirror
+`qr-mint.mjs`) defaults to comment mode and refuses to mint `mode=issue`; a credentialed QR
+(`su=`/`post=`) mints only against a `--canonical` thread; the runtime's credentialed submit
+targets only that thread's comments and falls back to `issueUrl` without one; and the
+submit-gateway's allowlist is comments-only on both branches. Historical issues still sweep —
+`bin/collect-submissions` ingests both shapes unchanged.
 
 ## Rejected
 
@@ -171,4 +176,5 @@ choices — not missing cryptography.
 3. ~~**The worker change**~~ — **built** (`workers/submit-gateway/seal.mjs` + the `sc` branch:
    AES-256-GCM, refuse-on-binding-mismatch to the bound poll's ONE issue, relay header-only,
    fails closed unprovisioned; the canonical Tell's own `TELL_POST_TOKEN` path unchanged).
-4. **Retire `mode=issue` for hosted polls** — the comment paradigm becomes the paradigm.
+4. ~~**Retire `mode=issue` for hosted polls**~~ — **done**: the comment paradigm is the paradigm
+   (see "What it forces, usefully" above for what changed where).

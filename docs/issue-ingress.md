@@ -6,27 +6,30 @@
 > constituent's **revocable nonce** through to the sealed digest, and identify which **run** a
 > submission came through.
 
-## Two mailbox shapes
+## Two mailbox shapes — one paradigm, one fallback
 
 A submission is still a fenced ` ```tell ` block (`bin/authz` still gates on the HMAC `tok` bound to
-`{pile,poll,round}`), but it can now arrive two ways:
+`{pile,poll,round}`), and it can arrive two ways:
 
-- **Issue submission** — one issue per response (the original model). Labels can carry per-response
-  metadata.
-- **Comment submission** — a comment on the poll's **canonical issue**. `bin/open-poll` opens that one
-  thread when the poll is made answerable; every response comments onto it. The comment's **position
-  in the thread is a free, verifiable, contemporaneous ordinal** — *which cohort a response came in
-  with* — gracefully better than a random, ever-increasing issue id. Comments carry no labels, so all
-  metadata lives in the block.
+- **Comment submission — the paradigm.** A comment on the poll's **canonical issue**. `bin/open-poll`
+  opens that one thread when the poll is made answerable; every response comments onto it. The
+  comment's **position in the thread is a free, verifiable, contemporaneous ordinal** — *which cohort
+  a response came in with* — gracefully better than a random, ever-increasing issue id. Comments carry
+  no labels, so all metadata lives in the block. Every relayed/credentialed reply lands this way.
+- **Issue submission — the credential-free fallback.** One issue per response, opened by the
+  respondent's **own click** on a prefilled `issues/new` link (the runtime's `issueUrl`). That click is
+  the authority — no relay, no credential. Minting `mode=issue` QRs is **retired** (`bin/qr` refuses);
+  the shape survives only as this fallback and as history.
 
 `bin/collect-submissions` sweeps both: open issues' bodies, and the comments of every open issue
-labelled `tell-canonical`. (Offline seams: `TELL_ISSUES_JSON`, `TELL_COMMENTS_JSON`.)
+labelled `tell-canonical` — so fallback replies and every historical issue still ingest. (Offline
+seams: `TELL_ISSUES_JSON`, `TELL_COMMENTS_JSON`.)
 
 ## Making a poll answerable
 
 ```sh
 n=$(bin/open-poll --pile cd04-q1 --poll budget --question "How should we spend it?")  # prints the canonical issue #
-bin/qr --pile cd04-q1 --poll budget --round 1 --mode comment --canonical "$n" --run spring-fair
+bin/qr --pile cd04-q1 --poll budget --round 1 --canonical "$n" --run spring-fair
 ```
 
 `bin/open-poll` posts the canonical issue (an **anchor** block `tell.canonical/v1`, carrying no
@@ -35,7 +38,9 @@ prints its number for `bin/qr --canonical`.
 
 ## bin/qr — the new fields
 
-- `--mode issue|comment` (default `issue`); `--canonical <n>` (required for comment mode).
+- `--mode comment` (the default, and the only mode; `--mode issue` is refused — the retirement above);
+  `--canonical <n>` — required for any **credentialed** QR (`su=`/`post=`), since the runtime refuses a
+  credentialed submit with no canonical thread. Omit it and the QR carries only the `issueUrl` fallback.
 - `--run <id>` — a **non-secret** id that tells QRs/runs apart ("identify the semi-public token"). It is
   provenance-covered (signed with the rest of the payload) and serialized onto each submission. Defaults
   to a short tag derived from the token; pass `--run` to distinguish several concurrent runs.
@@ -80,8 +85,8 @@ never baking a durable credential into the QR — that is the next step, not thi
    `TELL_SEED_IDENTITY` via your own `gh` auth — there is no dispatch workflow for it on purpose; see
    below). Add `TELL_POST_TOKEN` per above.
 2. **"open poll"** workflow → get the canonical issue number.
-3. **"mint QR"** workflow with `mode: comment`, `canonical: <that number>` → the QR/landing the
-   respondent opens. (Or `mode: issue` for one-issue-per-response.)
+3. **"mint QR"** workflow with `canonical: <that number>` → the QR/landing the respondent opens.
+   (One-issue-per-response is retired; leave `canonical` empty only for a fallback-only QR.)
 4. **"ingest submissions"** sweeps, authorizes, governs, seals, and signals (label/close an issue;
    👍/👎 react a comment).
 

@@ -40,9 +40,13 @@ poll in the URL, the page shows the empty state and does not redirect.
 
 anecdote.channel serves `poll.html`: it reads the query and hands it to a powerless `data:` chamber over the
 probe line, which renders the question and — **always offering a custom answer, options only as
-suggestions** — builds the pre-filled GitHub issue carrying a `tell.submission/v1` block. The block's wire
-format is held **byte-identical** to what this repo used to emit (anecdote's `composer/poll-answer.test.mjs`
-freezes the old construction as its oracle), so `bin/authz` / `bin/collect-submissions` accept it unchanged.
+suggestions** — composes the reply carrying a `tell.submission/v1` block. A **credentialed** submit (the
+host-injected token, the `su=` relay, or a QR-carried `post=`) only ever lands as a **comment on the poll's
+canonical issue** (`canonical=`, opened by `bin/open-poll`) — issue-per-response is retired; with no
+canonical thread the runtime refuses the credentialed route and offers the pre-filled `issues/new` link
+instead, where the respondent's own click is the authority. The block's wire format is held
+**byte-identical** to what this repo used to emit (anecdote's `composer/poll-answer.test.mjs` freezes the
+old construction as its oracle), so `bin/authz` / `bin/collect-submissions` accept it unchanged.
 
 anecdote can also **mint** the QR itself now (`composer/qr-mint.mjs`, byte-parity with `bin/qr`), when it
 holds the pile's `TELL_QR_SECRET` — so an offline operator runs the whole loop (author → mint → answer →
