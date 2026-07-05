@@ -8,8 +8,8 @@
 //   * install: precache the two-file shell. That's the whole unprompted job.
 //   * activate: drop superseded floor-shell-* caches.
 //   * fetch: cache-first for the shell, same-origin GETs only. It NEVER
-//     intercepts cross-origin traffic — the iframe to vanilla Tell and the
-//     polls.json fetch to the mother host pass it untouched.
+//     intercepts cross-origin traffic — the iframe to vanilla Tell passes it
+//     untouched (and the page itself fetches nothing at all).
 //
 // No firmware pin, no message channel, no background sync, no push. The pin
 // machinery (anecdote sw.js checkFirmware) guards an origin that executes
@@ -19,7 +19,8 @@
 // around.
 //
 // Paths are RELATIVE to the registration scope so the same bytes serve both
-// placements: /floor/ on the mother host, / on a wildcard-served name.
+// placements: /floor/ on the mother host, / on the canonical Floor site the
+// wildcard names mask onto.
 
 const VERSION = "floor-shell-v1";
 const SHELL = ["./", "./floor.mjs"];

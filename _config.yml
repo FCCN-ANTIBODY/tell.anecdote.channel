@@ -19,6 +19,7 @@ exclude:
   - test/
   - vendor/
   - README.md
+  - _floor/
 
 # Pretty URLs (/foo/ instead of /foo.html).
 permalink: pretty

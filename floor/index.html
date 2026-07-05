@@ -5,15 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Floor</title>
   <!--
-    The Floor (anecdote.channel#93): a barren template Tell builds and publishes for
-    others to host. Served IDENTICALLY on every <name>.tell.anecdote.channel — the
-    hostname's leading label is the only variable, and it is not content: it is the
-    NAME of the data-pile this room stages for (colloquially anecdote://data/<name>).
+    The Floor (anecdote.channel#93): a barren template Tell builds and publishes.
+    Served IDENTICALLY on every <name>.tell.anecdote.channel — one canonical GitHub
+    Pages site that the wildcard names mask onto. The server has no obligations
+    other than delivering this one page; it is not smart enough to be attacked.
 
-    Deliberately self-contained (no mother-host stylesheet, no third-party bytes):
-    two files + a service worker make the whole offline shell. Anything richer than
-    "switch the question, point the iframe at vanilla Tell" does not live here — the
-    dumb-shell posture from anecdote.channel#92 ("binding the queen").
+    The name is a KEY, not an address: each hostname is its own hermetic browser
+    origin, so making up a name mints a private local vault. By convention the
+    name is the slug of the user's own data-pile (anecdote://data/<name>) — a
+    PRIVATE repo, never deployed, never addressable. Its questions enter the room
+    only by the owner's own gesture (pasted from cold storage, or created here).
+
+    Deliberately self-contained (no mother-host stylesheet, no third-party bytes,
+    no fetches): this page + floor.mjs + sw.js are the entire origin. The one
+    outward surface is the iframe, fixed on vanilla Tell — the dumb-shell posture
+    from anecdote.channel#92 ("binding the queen").
   -->
   <style>
     :root { color-scheme: light dark; }
@@ -25,21 +31,21 @@
     #switcher select { font: inherit; max-width: 100%; }
     main { flex: 1; display: flex; flex-direction: column; }
     #stage { flex: 1; border: 0; width: 100%; min-height: 60vh; display: none; }
-    #creator, #notice { padding: 1rem; max-width: 44rem; }
-    #creator { display: none; }
+    #import, #creator, #notice { padding: 1rem; max-width: 44rem; }
+    #import, #creator { display: none; }
+    #import textarea, #creator input, #creator textarea, #creator select { font: inherit; width: 100%; box-sizing: border-box; }
+    #import textarea { min-height: 5rem; }
     #creator label { display: block; margin-top: .75rem; }
-    #creator input, #creator textarea, #creator select { font: inherit; width: 100%; box-sizing: border-box; }
     #creator textarea { min-height: 4rem; }
     pre.artifact { padding: .6rem; overflow-x: auto; border: 1px dashed color-mix(in srgb, currentColor 35%, transparent); }
     .muted { opacity: .7; font-size: .9rem; }
-    button { font: inherit; }
+    button { font: inherit; margin-top: .5rem; }
   </style>
 </head>
 <body>
   <header>
     <strong>Floor</strong>
     <code id="pile-address" aria-live="polite"></code>
-    <span id="net" class="muted" aria-live="polite"></span>
   </header>
   <div id="switcher">
     <label for="question">Question:</label>
@@ -47,16 +53,17 @@
   </div>
   <main>
     <p id="notice" class="muted">…</p>
-    <div id="creator"></div>
     <iframe id="stage" title="Tell"></iframe>
+    <div id="import"></div>
+    <div id="creator"></div>
   </main>
   <script type="module">
     // The service worker is registered RELATIVE so the same bytes work in both
-    // placements: at /floor/ on the mother host (scope /floor/) and at / on a
-    // wildcard-served name (scope /, mapped by workers/floor-gateway).
+    // placements: at /floor/ on the mother host (scope /floor/) and at / on the
+    // canonical Floor site every wildcard name masks onto (scope /).
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { type: "module" }).catch(() => {});
     import("./floor.mjs").then((m) => m.mountFloor(document, location));
   </script>
-  <noscript><p style="padding:1rem">The Floor needs JavaScript to stage a pile's questions.</p></noscript>
+  <noscript><p style="padding:1rem">The Floor needs JavaScript to open a vault.</p></noscript>
 </body>
 </html>

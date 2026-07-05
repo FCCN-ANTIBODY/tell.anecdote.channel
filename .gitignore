@@ -1,4 +1,6 @@
 _site/
+# The Floor's own Pages site output (bin/floor-build).
+_floor/
 .sass-cache/
 .jekyll-cache/
 .jekyll-metadata

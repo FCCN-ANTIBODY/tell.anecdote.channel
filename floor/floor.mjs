@@ -1,36 +1,36 @@
 // The Floor's one module (anecdote.channel#93).
 //
-// A Floor is the SAME template on every name; the only input is the hostname's
-// leading label, which IS the data-pile's name (the alias rule: no separate
-// registry maps names to piles — the label is the pile-name component itself,
-// colloquially anecdote://data/<name>). Everything else this module does is:
+// The name is a KEY, not an address. Every <name>.tell.anecdote.channel serves
+// this same page; the network's whole job is to hand over the identical clean
+// room for any name, forever. What the name actually does happens HERE, on the
+// client: the browser's same-origin rule makes each hostname its own hermetic
+// local-storage vault, so typing a made-up name MINTS one. By convention the
+// name is the slug of the data-pile the user means — colloquially
+// anecdote://data/<name> — and this page uses it to open that pile's local
+// presence in the vault.
 //
-//   * viewer — list the questions the mother Tell governs for that pile
-//     (polls.json, the public transparency projection) and point the iframe at
-//     VANILLA Tell for whichever one is selected. No token rides the link: the
-//     Floor cannot mint `tok` (that HMAC needs TELL_QR_SECRET, which stays with
-//     the Tell engine), and absent a token Tell falls through to its preview
-//     mode — #93's "mode selection is already free".
-//
-//   * creator — when the pile has no questions yet, emit the artifacts that
-//     would create one: the Tell-side constitution, the pile-side
-//     anecdote.poll/v1 object, and the supporting pile's handshake stanza.
-//     The Floor HOLDS NOTHING and pushes nowhere — it prints data objects the
-//     owner places themselves (custody: four parties, and the Floor is the
-//     room, not a party).
+// The network stays out of the room. Nothing here fetches anything: a
+// data-pile is a PRIVATE repo, never deployed, never addressable — its
+// questions arrive in the vault only by the owner's own gesture (pasted in
+// from cold storage, or created right here). The one outward surface is the
+// iframe, and its destination is not a choice: it points at vanilla Tell,
+// puppeted per-question by display params the way a QR would be — never a
+// tok, never a credential (only the Tell engine can mint those).
 //
 // Pure functions are exported for test/floor.test.mjs; mountFloor() is the page.
 
-export const MOTHER = "https://tell.anecdote.channel";
+export const TELL = "https://tell.anecdote.channel";
 export const FLOOR_BASE = "tell.anecdote.channel";
+export const VAULT_KEY = "floor.questions";
 
-// The pile-slug charset is pinned by data-pile's bin/pile-new; the DNS-label
-// length bound comes with the alias rule (the id doubles as a hostname label).
+// A DNS-legal, pile-slug-shaped label (data-pile bin/pile-new's charset; the
+// 63-char bound is the DNS label rule the alias convention inherits).
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
-// hostname -> pile name, or null when this isn't a named Floor (the template
-// viewed on the mother host, a preview, localhost). Exactly one label deep:
-// a.b.tell.anecdote.channel is not a pile alias.
+// hostname -> the name, or null when this isn't a named Floor (the canonical
+// origin the wildcard masks, the template viewed on the mother host, a local
+// preview). Exactly one label deep — the TLS wildcard covers one label, so
+// deeper names never resolve this far anyway.
 export function floorName(hostname, base = FLOOR_BASE) {
   if (!hostname || !hostname.endsWith("." + base)) return null;
   const label = hostname.slice(0, -(base.length + 1));
@@ -42,23 +42,62 @@ export function pileAddress(name) {
   return "anecdote://data/" + name;
 }
 
-// polls.json rows ({pile, poll, type, text, options, accept_writein, guidance,
-// lifecycle?}) filtered to this pile. A pile's "questions" are its poll slugs —
-// one anecdote.poll/v1 object per question, never a multi-question container.
-export function questionsFor(polls, pile) {
-  return (Array.isArray(polls) ? polls : []).filter(
-    (p) => p && p.pile === pile && typeof p.poll === "string" && typeof p.text === "string",
-  );
+// A question is one anecdote.poll/v1-shaped object (one object = one question;
+// a pile's questions are its poll slugs, never a multi-question container).
+// Minimal shape gate for anything entering the vault.
+export function isQuestion(q) {
+  return !!q && typeof q.poll === "string" && SLUG.test(q.poll) && typeof q.text === "string" && q.text.length > 0;
 }
 
-// The iframe src for one question: vanilla Tell, puppeted by query params the
-// same way a QR does (param order mirrors bin/qr), minus the two credentials a
-// Floor never has — no `tok`, no `post`/`su`. Values are RFC-3986 encoded; this
-// link is CONSTRUCTED, not forwarded, so encoding here is fine (the verbatim
-// rule protects signed QRs in flight, and nothing here is signed).
-export function tellSrc(q, mother = MOTHER) {
+// Parse an owner's paste — one question object, or an array of them (the
+// cold-storage export case). Returns the accepted questions; anything
+// unshaped is dropped, not repaired.
+export function parseImport(text) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (_) {
+    return [];
+  }
+  const list = Array.isArray(data) ? data : [data];
+  return list.filter(isQuestion);
+}
+
+// The vault: this name-origin's own localStorage. Merge by poll slug — a
+// re-import of the same slug replaces (the pile is the truth; the vault is
+// its local presence).
+export function readVault(storage) {
+  try {
+    const raw = storage.getItem(VAULT_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? list.filter(isQuestion) : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+export function mergeVault(existing, incoming) {
+  const bySlug = new Map(existing.map((q) => [q.poll, q]));
+  for (const q of incoming) bySlug.set(q.poll, q);
+  return [...bySlug.values()];
+}
+
+function writeVault(storage, questions) {
+  try {
+    storage.setItem(VAULT_KEY, JSON.stringify(questions));
+    return true;
+  } catch (_) {
+    return false; // quota/private mode: the session still works, persistence doesn't
+  }
+}
+
+// The iframe src for one question: vanilla Tell, and ONLY vanilla Tell —
+// the destination is fixed, the question's fields ride as display params
+// (order mirrors bin/qr, minus the credentials a Floor never has: no tok,
+// no post, no su). Absent a token Tell renders its preview branch.
+export function tellSrc(q, name) {
   const pairs = [
-    ["pile", q.pile],
+    ["pile", q.pile || name],
     ["poll", q.poll],
   ];
   const round = q.lifecycle && q.lifecycle.round;
@@ -67,50 +106,41 @@ export function tellSrc(q, mother = MOTHER) {
   if (q.text) pairs.push(["q", q.text]);
   if (Array.isArray(q.options) && q.options.length) pairs.push(["opts", q.options.join(",")]);
   if (q.guidance) pairs.push(["guidance", q.guidance]);
-  return mother + "/?" + pairs.map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
+  return TELL + "/?" + pairs.map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
 }
 
-// Creator output: the three data objects that make "a poll (and supporting
-// pile)" real, addressed to where each belongs. Emitting them is the whole act
-// here; placing them is the owner's gesture (a PR to the Tell, a commit to the
-// pile repo) — the Floor never holds a credential to do it for them.
+// Creator output: the question as the pile-side anecdote.poll/v1 object, plus
+// the Tell-side constitution for whenever the owner registers it out in the
+// wild. Both are shown for the owner to carry to the private pile repo by
+// their own means — the Floor holds no credential and pushes nothing.
 export function draftArtifacts(name, spec) {
-  const poll = spec.poll;
   const options = (spec.options || []).map((s) => String(s).trim()).filter(Boolean);
+  const type = spec.type === "multichoice" ? "multichoice" : "open";
+  const question = {
+    schema: "anecdote.poll/v1",
+    pile: name,
+    poll: spec.poll,
+    type,
+    text: spec.text,
+    options,
+    guidance: spec.guidance || "",
+    lifecycle: { round: 1 },
+    tell: TELL,
+  };
   const constitution = {
     pile: name,
-    poll,
-    type: spec.type === "multichoice" ? "multichoice" : "open",
+    poll: spec.poll,
+    type,
     text: spec.text,
     options,
     accept_writein: true,
     guidance: spec.guidance || "",
     lifecycle: { round: 1 },
   };
-  const pollObject = {
-    schema: "anecdote.poll/v1",
-    pile: name,
-    poll,
-    type: constitution.type,
-    text: spec.text,
-    options,
-    guidance: constitution.guidance,
-    lifecycle: { round: 1 },
-    tell: MOTHER,
-  };
-  const handshake = {
-    id: name,
-    scope: spec.scope || "",
-    feed: "feed/" + (spec.scope || "<scope>") + "/" + name,
-    age_recipient: "<age1... — mint on the owner's device (anecdote age-mint), never here>",
-    repo_url: spec.repo_url || "",
-  };
   return {
-    constitutionPath: "_data/constitutions/" + name + "/" + poll + ".json",
+    question,
+    constitutionPath: "_data/constitutions/" + name + "/" + spec.poll + ".json",
     constitution,
-    pollPath: "poll.json",
-    pollObject,
-    handshake,
   };
 }
 
@@ -123,32 +153,7 @@ function el(doc, tag, attrs = {}, text) {
   return node;
 }
 
-// polls.json, offline-tolerant: network first (it's tiny and changes), the
-// name-origin's own localStorage as the fallback — which is exactly the per-name
-// storage group #92's wildcard PSL entry carves out for this hostname.
-async function loadPolls(storage, fetcher) {
-  try {
-    const r = await fetcher(MOTHER + "/polls.json");
-    if (!r.ok) throw new Error("polls.json " + r.status);
-    const polls = await r.json();
-    try {
-      storage.setItem("floor.polls", JSON.stringify(polls));
-    } catch (_) {
-      /* quota/private mode: viewing still works, offline revisit won't */
-    }
-    return { polls, offline: false };
-  } catch (_) {
-    try {
-      const cached = storage.getItem("floor.polls");
-      if (cached) return { polls: JSON.parse(cached), offline: true };
-    } catch (_) {
-      /* fall through to empty */
-    }
-    return { polls: [], offline: true };
-  }
-}
-
-function renderViewer(doc, questions) {
+function renderViewer(doc, name, questions) {
   const switcher = doc.getElementById("switcher");
   const select = doc.getElementById("question");
   const stage = doc.getElementById("stage");
@@ -158,7 +163,7 @@ function renderViewer(doc, questions) {
   });
   const show = () => {
     const q = questions[Number(select.value) || 0];
-    if (q) stage.src = tellSrc(q);
+    if (q) stage.src = tellSrc(q, name);
   };
   select.addEventListener("change", show);
   switcher.style.display = "flex";
@@ -166,26 +171,60 @@ function renderViewer(doc, questions) {
   show();
 }
 
-function renderCreator(doc, name, storage) {
+function renderImport(doc, name, storage, onChange) {
+  const mount = doc.getElementById("import");
+  mount.textContent = "";
+  mount.appendChild(el(doc, "h2", {}, "Bring this pile's questions into the room"));
+  mount.appendChild(
+    el(
+      doc,
+      "p",
+      { class: "muted" },
+      "Paste anecdote.poll/v1 question objects (one, or an array) from your own pile — cold storage, " +
+        "the pile repo, wherever you keep it. Nothing typed here leaves this page; the vault is this " +
+        "name's own local storage.",
+    ),
+  );
+  const area = el(doc, "textarea", { placeholder: '{"schema":"anecdote.poll/v1","poll":"…","text":"…"}' });
+  const status = el(doc, "p", { class: "muted" });
+  const button = el(doc, "button", { type: "button" }, "Import into the vault");
+  button.addEventListener("click", () => {
+    const accepted = parseImport(area.value);
+    if (!accepted.length) {
+      status.textContent = "Nothing shaped like a question in that paste.";
+      return;
+    }
+    const merged = mergeVault(readVault(storage), accepted);
+    writeVault(storage, merged);
+    status.textContent = accepted.length + " question(s) in — the room now holds " + merged.length + ".";
+    area.value = "";
+    onChange(merged);
+  });
+  mount.appendChild(area);
+  mount.appendChild(button);
+  mount.appendChild(status);
+  mount.style.display = "block";
+}
+
+function renderCreator(doc, name, storage, onChange) {
   const creator = doc.getElementById("creator");
   creator.textContent = "";
-  creator.appendChild(el(doc, "h2", {}, "No questions on this pile yet — draft one"));
+  creator.appendChild(el(doc, "h2", {}, "Or invent a question here"));
   creator.appendChild(
     el(
       doc,
       "p",
       { class: "muted" },
-      "The Floor drafts the data objects; placing them is your own gesture. Nothing typed here leaves this page.",
+      "A question is a filter for what the pile lets in. Creating one writes it into this room's vault " +
+        "and shows the objects to carry back to the pile by your own means.",
     ),
   );
 
   const fields = [
     ["poll", "Poll slug (lowercase, dashes)", "input"],
     ["text", "The question", "textarea"],
-    ["options", "Suggested answers (comma-separated; always suggestions, a reply is always custom)", "input"],
+    ["options", "Suggested answers (comma-separated; suggestions only — a reply is always custom)", "input"],
     ["guidance", "Guidance shown alongside", "textarea"],
-    ["scope", "Scope (for the supporting pile's feed branch)", "input"],
-    ["repo_url", "Pile repo URL (if it exists yet)", "input"],
   ];
   const inputs = {};
   const draftKey = "floor.draft";
@@ -216,11 +255,19 @@ function renderCreator(doc, name, storage) {
   typeSel.appendChild(el(doc, "option", { value: "open" }, "open"));
   typeSel.appendChild(el(doc, "option", { value: "multichoice" }, "multichoice"));
   if (draft.type) typeSel.value = draft.type;
+  typeSel.addEventListener("change", () => {
+    draft.type = typeSel.value;
+    try {
+      storage.setItem(draftKey, JSON.stringify(draft));
+    } catch (_) {
+      /* ditto */
+    }
+  });
   typeWrap.appendChild(typeSel);
   creator.appendChild(typeWrap);
 
   const out = el(doc, "div", {});
-  const button = el(doc, "button", { type: "button" }, "Draft the artifacts");
+  const button = el(doc, "button", { type: "button" }, "Create in this room");
   button.addEventListener("click", () => {
     out.textContent = "";
     const poll = (inputs.poll.value || "").trim();
@@ -235,51 +282,47 @@ function renderCreator(doc, name, storage) {
       type: typeSel.value,
       options: (inputs.options.value || "").split(","),
       guidance: (inputs.guidance.value || "").trim(),
-      scope: (inputs.scope.value || "").trim(),
-      repo_url: (inputs.repo_url.value || "").trim(),
     });
+    const merged = mergeVault(readVault(storage), [drafted.question]);
+    writeVault(storage, merged);
     const blocks = [
-      ["Tell-side constitution → " + drafted.constitutionPath + " (a PR to the Tell registers governance)", drafted.constitution],
-      ["Pile-side poll object → " + drafted.pollPath + " (on the pile repo)", drafted.pollObject],
-      ["Supporting pile handshake → _data/piles.yml entry (data-pile bin/pile-new prints the same)", drafted.handshake],
+      ["In the vault, and for the pile repo (poll.json / its questions dir)", drafted.question],
+      ["For the Tell, whenever this goes out in the wild → " + drafted.constitutionPath, drafted.constitution],
     ];
     for (const [title, obj] of blocks) {
       out.appendChild(el(doc, "h3", {}, title));
       out.appendChild(el(doc, "pre", { class: "artifact" }, JSON.stringify(obj, null, 2)));
     }
+    onChange(merged);
   });
   creator.appendChild(button);
   creator.appendChild(out);
   creator.style.display = "block";
 }
 
-export async function mountFloor(doc, loc, { fetcher = fetch, storage } = {}) {
-  const local = storage || (typeof localStorage !== "undefined" ? localStorage : { getItem: () => null, setItem: () => {} });
+export function mountFloor(doc, loc, { storage } = {}) {
+  const local =
+    storage || (typeof localStorage !== "undefined" ? localStorage : { getItem: () => null, setItem: () => {} });
   const notice = doc.getElementById("notice");
   const name = floorName(loc.hostname);
 
   if (!name) {
     doc.getElementById("pile-address").textContent = "";
     notice.textContent =
-      "This is the Floor template — the same blank slate every name gets. Open it on a pile's own name " +
-      "(<pile-name>.tell.anecdote.channel) and this room stages that pile: its questions in the switcher, " +
-      "vanilla Tell in the frame. The label IS the pile name — anecdote://data/<pile-name>.";
+      "This is the Floor template — the same blank slate every name gets. Make up a name " +
+      "(<name>.tell.anecdote.channel) and that name is your key: it carves out a local vault of its own, " +
+      "and by convention it is the slug of the data-pile you mean — anecdote://data/<name>.";
     return;
   }
 
   doc.getElementById("pile-address").textContent = pileAddress(name);
-  notice.textContent = "Loading questions…";
-  const { polls, offline } = await loadPolls(local, fetcher);
-  doc.getElementById("net").textContent = offline ? "offline — last known list" : "";
+  notice.style.display = "none";
 
-  const questions = questionsFor(polls, name);
-  if (questions.length) {
-    notice.textContent = "";
-    notice.style.display = "none";
-    renderViewer(doc, questions);
-  } else {
-    notice.textContent = "";
-    notice.style.display = "none";
-    renderCreator(doc, name, local);
-  }
+  const refresh = (questions) => {
+    if (questions.length) renderViewer(doc, name, questions);
+  };
+  const questions = readVault(local);
+  renderImport(doc, name, local, refresh);
+  renderCreator(doc, name, local, refresh);
+  refresh(questions);
 }

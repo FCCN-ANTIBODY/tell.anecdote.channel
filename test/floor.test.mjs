@@ -1,25 +1,27 @@
-// Unit-test the Floor (anecdote.channel#93): the alias rule, the question
-// switcher's iframe link, the creator's drafted artifacts, and the
-// floor-gateway worker. The invariants under test:
-//   (a) the hostname's leading label IS the pile name — one label, pile-slug
-//       charset, DNS-label length; anything else is not a named Floor;
-//   (b) the iframe src is vanilla Tell puppeted by display params ONLY — no
-//       tok, no post, no su can ever appear (the Floor can't mint or hold one);
-//   (c) the gateway serves the SAME bytes on any name (hostname never selects
-//       content), from this repo's own /floor/* on the Pages origin, and 404s
-//       everything outside the template's files;
-//   (d) drafted artifacts land where the custody model says they go.
-import { floorName, pileAddress, questionsFor, tellSrc, draftArtifacts } from "../floor/floor.mjs";
-import worker from "../workers/floor-gateway/worker.js";
+// Unit-test the Floor (anecdote.channel#93). The invariants:
+//   (a) the name is a KEY — the hostname's leading label is the pile name by
+//       convention (one label, pile-slug charset, DNS-label length); anything
+//       else is not a named Floor;
+//   (b) the network stays out of the room — the module exposes no fetch path;
+//       questions enter the vault only by the owner's paste or creation, and
+//       the vault round-trips through the name-origin's own storage;
+//   (c) the iframe destination is not a choice: vanilla Tell, display params
+//       only — no tok, no post, no su can ever appear;
+//   (d) drafted artifacts are the pile-side question object and the Tell-side
+//       constitution, for the owner to carry by their own means.
+import fs from "fs";
+import {
+  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, VAULT_KEY,
+} from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
 
-// (a) the alias rule
+// (a) the alias rule — the key shape
 assert(floorName("some-pile-name.tell.anecdote.channel") === "some-pile-name", "leaf label not taken as the pile name");
 assert(pileAddress("some-pile-name") === "anecdote://data/some-pile-name", "colloquial pile address wrong");
 for (const notAFloor of [
-  "tell.anecdote.channel",                      // the mother host is the template, not a name
-  "a.b.tell.anecdote.channel",                  // exactly one label deep
+  "tell.anecdote.channel",                      // the mother host serves the template, keys nothing
+  "a.b.tell.anecdote.channel",                  // one label deep (the TLS wildcard covers one)
   "Some-Pile.tell.anecdote.channel",            // pile-slug charset (bin/pile-new's rule)
   "-bad.tell.anecdote.channel",
   "x".repeat(64) + ".tell.anecdote.channel",    // DNS label bound
@@ -27,79 +29,57 @@ for (const notAFloor of [
   "localhost",
   "",
 ]) {
-  assert(floorName(notAFloor) === null, "accepted a non-alias hostname: " + notAFloor);
+  assert(floorName(notAFloor) === null, "accepted a non-key hostname: " + notAFloor);
 }
 
-// (b) the switcher's iframe link — display params only, ordered like bin/qr
-const q = {
-  pile: "some-pile-name", poll: "budget", type: "multichoice",
-  text: "Cut or keep?", options: ["Cut", "Keep"], guidance: "Be kind",
-  accept_writein: true, lifecycle: { round: 2 },
-};
-const src = tellSrc(q);
+// (b) no fetch path — the module never reaches for the network
+const source = fs.readFileSync(new URL("../floor/floor.mjs", import.meta.url), "utf8");
+assert(!/\bfetch\s*\(/.test(source) && !/XMLHttpRequest|WebSocket|EventSource|navigator\.sendBeacon/.test(source),
+  "floor.mjs grew a network surface — the network stays out of the room");
+
+// the vault round-trip: paste -> parse -> merge -> storage -> read
+const store = (() => { const m = new Map(); return { getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => m.set(k, v) }; })();
+const paste = JSON.stringify([
+  { schema: "anecdote.poll/v1", pile: "some-pile-name", poll: "budget", text: "Cut or keep?", options: ["Cut", "Keep"], lifecycle: { round: 2 }, type: "multichoice" },
+  { poll: "parks", text: "More parks?" },            // minimal but shaped -> in
+  { poll: "NOPE", text: "bad slug" },                 // unshaped -> dropped, not repaired
+  { poll: "empty", text: "" },
+  "garbage",
+]);
+const accepted = parseImport(paste);
+assert(accepted.length === 2 && accepted[0].poll === "budget" && accepted[1].poll === "parks", "paste parsing wrong");
+assert(parseImport("{not json").length === 0, "bad JSON not tolerated");
+assert(parseImport(JSON.stringify({ poll: "solo", text: "One?" })).length === 1, "single-object paste not accepted");
+
+store.setItem(VAULT_KEY, JSON.stringify(accepted));
+const held = readVault(store);
+assert(held.length === 2, "vault did not round-trip");
+assert(readVault({ getItem: () => "{corrupt", setItem: () => {} }).length === 0, "corrupt vault not tolerated");
+
+// merge is by poll slug — a re-import replaces, never duplicates
+const merged = mergeVault(held, [{ poll: "budget", text: "Cut or keep, revised?" }, { poll: "roads", text: "Fix roads?" }]);
+assert(merged.length === 3, "merge duplicated or dropped");
+assert(merged.find((q) => q.poll === "budget").text === "Cut or keep, revised?", "re-import did not replace by slug");
+
+// (c) the switcher's iframe link — fixed destination, display params only
+const src = tellSrc(held[0], "some-pile-name");
 assert(
-  src === "https://tell.anecdote.channel/?pile=some-pile-name&poll=budget&round=2&type=multichoice&q=Cut%20or%20keep%3F&opts=Cut%2CKeep&guidance=Be%20kind",
+  src === "https://tell.anecdote.channel/?pile=some-pile-name&poll=budget&round=2&type=multichoice&q=Cut%20or%20keep%3F&opts=Cut%2CKeep",
   "iframe src wrong: " + src,
 );
 assert(!/(^|[?&])(tok|post|su)=/.test(src), "a credential-shaped param leaked into the iframe src");
-const bare = tellSrc({ pile: "p", poll: "q", text: "T?" });
-assert(bare === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F", "optional params not omitted cleanly: " + bare);
+const bare = tellSrc({ poll: "q", text: "T?" }, "p");
+assert(bare === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F", "pile did not default to the name: " + bare);
 
-// questions = the pile's poll slugs out of polls.json
-const polls = [
-  { pile: "some-pile-name", poll: "budget", text: "Cut or keep?" },
-  { pile: "other", poll: "budget", text: "Not ours" },
-  { pile: "some-pile-name", poll: 7, text: "bad slug type" },
-  { pile: "some-pile-name", poll: "parks", text: "More parks?" },
-  null,
-];
-const mine = questionsFor(polls, "some-pile-name");
-assert(mine.length === 2 && mine[0].poll === "budget" && mine[1].poll === "parks", "pile filter wrong");
-assert(questionsFor("not-an-array", "x").length === 0, "non-array polls not tolerated");
-
-// (d) creator artifacts — Tell constitution path, pile-side poll object, handshake stanza
+// (d) creator artifacts
 const drafted = draftArtifacts("some-pile-name", {
-  poll: "budget", text: "Cut or keep?", type: "multichoice",
-  options: [" Cut ", "Keep", ""], guidance: "g", scope: "colorado", repo_url: "https://github.com/x/y",
+  poll: "budget", text: "Cut or keep?", type: "multichoice", options: [" Cut ", "Keep", ""], guidance: "g",
 });
+assert(isQuestion(drafted.question) && drafted.question.schema === "anecdote.poll/v1", "created question unshaped");
+assert(drafted.question.pile === "some-pile-name" && drafted.question.tell === "https://tell.anecdote.channel",
+  "question must carry its pile name and addressable Tell");
+assert(drafted.question.options.join(",") === "Cut,Keep", "options not trimmed/filtered");
 assert(drafted.constitutionPath === "_data/constitutions/some-pile-name/budget.json", "constitution path wrong");
 assert(drafted.constitution.accept_writein === true, "a drafted constitution must never close the write-in door");
-assert(drafted.constitution.options.join(",") === "Cut,Keep", "options not trimmed/filtered");
-assert(drafted.pollObject.schema === "anecdote.poll/v1", "poll object schema wrong");
-assert(drafted.pollObject.tell === "https://tell.anecdote.channel", "poll object must name its addressable Tell");
-assert(drafted.handshake.feed === "feed/colorado/some-pile-name", "handshake feed branch wrong");
-assert(drafted.handshake.age_recipient.startsWith("<age1"), "handshake must NOT mint a recipient — owner's device does");
 
-// (c) the gateway worker
-const calls = [];
-globalThis.fetch = async (input) => {
-  calls.push(String(input));
-  const body = String(input).endsWith("index.html") ? "<!doctype html>floor" : "// module";
-  return new Response(body, { status: 200 });
-};
-const req = (host, path, method = "GET") => new Request("https://" + host + path, { method });
-
-let r = await worker.fetch(req("some-pile-name.tell.anecdote.channel", "/"));
-assert(r.status === 200 && (await r.text()).includes("floor"), "root did not serve the template");
-assert(calls[0] === "https://tell.anecdote.channel/floor/index.html", "template not fetched from the mother origin: " + calls[0]);
-
-// same bytes on ANY name: the upstream fetch is identical for two different labels
-calls.length = 0;
-await worker.fetch(req("aaa.tell.anecdote.channel", "/floor.mjs"));
-await worker.fetch(req("zzz.tell.anecdote.channel", "/floor.mjs"));
-assert(calls[0] === calls[1] && calls[0] === "https://tell.anecdote.channel/floor/floor.mjs",
-  "hostname influenced content selection: " + calls.join(" vs "));
-
-r = await worker.fetch(req("a.tell.anecdote.channel", "/sw.js"));
-assert(r.headers.get("Cache-Control") === "no-cache", "sw.js must stay out of edge caches");
-assert(r.headers.get("Content-Type").startsWith("text/javascript"), "sw.js content type wrong");
-
-// blank slate means blank: nothing else is served, and no proxying of the mother site
-for (const path of ["/polls.json", "/piles/x/feed/manifest.json", "/submit", "/anything", "/floor/index.html"]) {
-  r = await worker.fetch(req("a.tell.anecdote.channel", path));
-  assert(r.status === 404, "served a non-template path: " + path);
-}
-r = await worker.fetch(req("a.tell.anecdote.channel", "/", "POST"));
-assert(r.status === 405, "non-GET not refused");
-
-console.log("ok: floor — label is the pile name, iframe carries no credential, gateway is name-blind and blank");
+console.log("ok: floor — the name is a key, the vault is local, the iframe is fixed on Tell and carries no credential");

@@ -1,131 +1,112 @@
-# The Floor — a barren template served on any `<name>.tell.anecdote.channel`
+# The Floor — one page, any name, and the name is a key
 
 Implements the hosting half of anecdote.channel#93 (with #92's wildcard-origin story
-underneath it). The Floor is a template this repo builds and publishes for others to
-host: a blank slate, available offline, **identical on every name a user chooses**.
-The one variable — the hostname's leading label — is not content. It is the **name of
-the data-pile** this room stages for.
+underneath it). The Floor is a template this repo builds and publishes: a blank
+slate, available offline, **identical on every `<name>.tell.anecdote.channel` a user
+makes up**. The server has no obligations other than delivering that one page — it
+is not smart enough to be attacked, because it never learns that the name matters.
 
-## The alias rule
+## The name is a key, not an address
 
-The label **is** the actual pile-name component. No registry maps Floor names to
-piles; the mapping is the identity function. A user who finds a pile in their system
-as `anecdote://data/some-pile-name` reaches its Floor at
-`some-pile-name.tell.anecdote.channel` — same string, no lookup, nothing to attest.
+Typing a made-up name is not navigation; it is minting. The browser's same-origin
+rule makes every distinct hostname its own hermetic local-storage vault, so choosing
+`some-pile-name.tell.anecdote.channel` carves out private, local space anchored to
+that name. Nothing is provisioned — not a DNS record, not a SAN entry, not a repo,
+not a registry row. Ever. That is the enshrined feature, not a compromise.
 
-Consequences, enforced where they bite:
+By convention (the opening exercise), the name is the slug of the user's own
+**data-pile** — colloquially `anecdote://data/<name>`. A data-pile is a **private
+repo**: never deployed, never served, never addressable, never mounted on any
+domain. It is an API-driven object — it pulls encrypted digests down to itself,
+holds the only decrypting identity, and invents questions (which are admission
+filters for what the pile lets in). Because nothing is served under the name,
+name collisions between users are a non-event: two strangers at the same name each
+get their own browser's vault, and the network put nothing in either.
 
-* The label must be a valid pile slug (`^[a-z0-9][a-z0-9-]*$`, data-pile
-  `bin/pile-new`'s rule) **and** a valid DNS label (≤ 63 chars — a bound the alias
-  rule adds to pile naming itself; data-pile's `bin/pile-new` now checks it at mint).
-* Exactly one label deep. `a.b.tell.anecdote.channel` is not a Floor; neither is the
-  bare `tell.anecdote.channel`, which serves the *template* for inspection at
-  `/floor/` but stages no pile.
-* Under #92's `*.anecdote.channel` PSL wildcard submission, the registrable domain of
-  `some-pile-name.tell.anecdote.channel` is the **whole hostname** — every named
-  Floor automatically gets its own browser storage group. The alias rule and the
-  storage-isolation story are the same shape; nothing extra to submit.
+Key shape: one label deep, pile-slug charset (`^[a-z0-9][a-z0-9-]*$`, data-pile
+`bin/pile-new`'s rule), ≤ 63 chars (the DNS-label bound, enforced at pile mint).
+Under #92's `*.anecdote.channel` PSL wildcard, each name is additionally its own
+browser *storage group* — same shape, nothing extra to submit.
 
-## What is served, and what it does
+## What the page does
 
-Three files in `floor/` are the entire origin — `index.html`, `floor.mjs`, `sw.js` —
-plus a 404 for everything else. Self-contained on purpose: no mother-host stylesheet,
-no third-party bytes, nothing the shared template's inspectability doesn't cover
-(#92's "dumb shell" — richer capability only ever arrives iframed-in as a guest).
+Three constant files — `floor/index.html`, `floor.mjs`, `sw.js` — are the whole
+template. Self-contained on purpose: no mother-host stylesheet, no third-party
+bytes, and **no fetches at all** (the test suite greps for a network surface and
+fails if one grows). The network stays out of the room.
 
-When the thing is working the page is one of two rooms:
+* **The vault** — the name-origin's own localStorage holds the pile's local
+  presence: its questions, as `anecdote.poll/v1` objects (one object = one
+  question; a pile's questions are its poll slugs). Questions enter only by the
+  owner's gesture: pasted in from cold storage / the private pile repo, or created
+  right on the page. The owner can keep a hundred piles locally and open any of
+  them by typing its name.
+* **The switcher + iframe** — the questions in the vault populate a switcher;
+  selecting one points the iframe at **vanilla Tell**, puppeted by display params
+  the way a QR would be. The destination is not a choice — the page offers no way
+  to aim the iframe anywhere else — and the link never carries `tok`, `post`, or
+  `su` (only the Tell engine can mint an authorization; the Floor holds no
+  credential of any kind). Absent a token, Tell's landing renders its **preview**
+  branch (the mode selection #93 calls "already free"); the four-param verbatim
+  forward for live QRs is untouched and pinned by `test/landing.test.mjs`.
+* **The creator** — a question is a filter for what the pile lets in. Creating one
+  writes it into the vault and shows the two objects the owner may carry onward by
+  their own means: the pile-side `anecdote.poll/v1` object, and the Tell-side
+  constitution (`_data/constitutions/<pile>/<poll>.json`) for whenever the
+  question is registered out in the wild. The Floor pushes nothing, nowhere.
+* **The service worker** — the minimum unprompted job (#92's open sw-audit,
+  answered for this origin): precache the shell at install, serve it cache-first,
+  same-origin GETs only. No pin, no message channel, no background anything. After
+  first visit, the room is the user's, offline, regardless of the server's fate.
 
-* **Viewer** — the pile has questions. A pile's questions are its poll slugs (one
-  `anecdote.poll/v1` object per question; there is no multi-question container).
-  The Floor lists them from `polls.json` — the mother Tell's public transparency
-  projection of `_data/constitutions/<pile>/*.json` — and points the iframe at
-  **vanilla Tell** for whichever is selected, puppeted by query params the same way
-  a QR does. Switching questions swaps the iframe src; nothing else moves.
-* **Creator** — the pile has no questions. The Floor drafts the three data objects
-  that make "a poll (and supporting pile)" real: the Tell-side constitution
-  (`_data/constitutions/<pile>/<poll>.json`), the pile-side `anecdote.poll/v1`
-  object, and the supporting pile's handshake stanza (`_data/piles.yml` shape,
-  matching what data-pile's `bin/pile-new` prints). Drafts live in the name-origin's
-  own localStorage. **Placing the artifacts is the owner's gesture** — a PR to the
-  Tell, a commit to the pile repo. The Floor holds no credential to do it for them.
+## Hosting: one canonical Pages site, masked by the wildcard
 
-The iframe link carries **no `tok`, no `post`, no `su`** — a Floor cannot mint the
-authorization HMAC (that needs `TELL_QR_SECRET`, which stays with the Tell engine)
-and must never carry a transport credential. Absent a token, Tell's landing falls
-through to its **preview** branch (rendered from `pile`+`poll`+`q` display params) —
-the mode selection #93 calls "already free". The four-param verbatim forward for
-live QRs is untouched; `test/landing.test.mjs` pins both branches.
+The Floor deploys as its **own GitHub Pages site** — a separate site output from
+this repo's Jekyll build:
+
+```
+bin/floor-build [outdir]        # default outdir: _floor
+```
+
+emits the complete, ready-to-publish site: the three template files, `.nojekyll`,
+and a `CNAME` carrying the one canonical hostname (default
+`floor.tell.anecdote.channel`, override with `FLOOR_CNAME`). The canonical name is
+itself just another name under the wildcard — calling it up directly gets the same
+blank slate as any other name, because the page can't do anything else.
+
+Every made-up `<name>.tell.anecdote.channel` is then **masked onto that one site at
+the edge**: a proxied wildcard DNS record (`*.tell`), with Cloudflare routing all
+of it to the single canonical Pages origin underneath. That is DNS/edge
+configuration — one wildcard record, one `*.tell.anecdote.channel` line already in
+anecdote.channel's `config/san-list.txt` for the edge certificate — not a repo
+concern, not compute, and **never per-name**. GitHub hosts exactly one copy; the
+wildcard names are masks over it.
+
+The template also stays served at `tell.anecdote.channel/floor/` (the Jekyll build
+includes `floor/` as static files) so the canonical bytes are always inspectable in
+place, and the build's `cmp` test pins the deployed site byte-identical to them.
 
 ## Custody
 
-Same four-party split as #93, and the Floor stays the room, not a party:
-
-* it serves no secrets and stores none — the floor-gateway Worker holds no
-  credential and performs no admission;
-* it never proxies the mother site under a foreign name (blank slate means blank —
-  the template's files or 404);
-* its service worker does the minimum unprompted job (#92's open audit, answered
-  here for this origin): precache two files at install, serve them cache-first,
-  same-origin GETs only. No firmware pin, no message channel, no background
-  anything. The pin machinery guards origins that execute privileged ops; the Floor
-  executes none. If it ever grows one, it inherits the pin — not the reverse.
-
-## Deploy: one-time provisioning
-
-The Floor mirrors `anecdote.channel/docs/tls-acm.md`'s wildcard-cert-plus-reconcile
-pattern, owned by this repo. Three pieces, in order:
-
-1. **TLS** — add `*.tell.anecdote.channel` to anecdote.channel's
-   `config/san-list.txt` (a TLS wildcard matches exactly one label:
-   `*.anecdote.channel` covers the bare `tell` host but nothing under it). The
-   existing acm-sync reconcile picks it up; well within the 50-host pack cap.
-2. **DNS** — one wildcard record on the `anecdote.channel` zone: `*.tell`,
-   **proxied (orange-cloud)**. Proxied is required, not optional: the Worker route
-   only intercepts proxied traffic, and unlike the per-node Pages onboarding there
-   is no origin behind these names to grey-cloud toward — the Worker *is* the
-   origin. (This is the "made-up-name-on-the-spot" DNS wildcard #92 flags as a
-   bigger change for `*.anecdote.channel` generally; scoped under `tell.` it is one
-   record on infrastructure this repo's Workers already assume.)
-3. **Worker** — `wrangler deploy` in `workers/floor-gateway/` (route
-   `*.tell.anecdote.channel/*`). It fetches the template from this repo's own Pages
-   origin (`/floor/*`) and serves the same bytes on every name; the label never
-   reaches content selection. The bare-host routes (feed-gateway `/piles/*`,
-   submit-gateway `/submit`) are unaffected — the wildcard route does not match the
-   bare host.
-
-No GitHub Pages repo per name, no per-name DNS, no PSL prerequisite (the PSL entry
-improves *storage grouping*; serving works without it).
+Same four-party split as #93, and the Floor stays the room, not a party. It serves
+no secrets and stores none of its own; the vault belongs to the user's browser at
+the user's chosen name. There is no server data. The pile — the party with the
+data and the only reading key — stays a private repo the network cannot call up.
 
 ## Deferred, on purpose
 
-* **Reading the pile itself.** Today's question list comes from the mother Tell's
-  `polls.json` (cached per-name for offline revisit). The real destination is the
-  pile: the Floor as the room where the pile's own decryption/unpacking runs and
-  the question shows with **decrypted answer data** found in the pile. That waits on
-  reconciling two crypto worlds that don't currently meet:
-  - the pile's at-rest model is **age + openssl** (X25519 age identity unwraps
-    `inbox/seed.age`, then an aes-256-ctr hash ratchet; data-pile `CONTRACT.md`),
-    with the identity living in `PILE_AGE_IDENTITY` — a repo-secret posture that
-    could ride Action env vars, but the workflows route stays deliberately
-    downplayed for now;
-  - the browser world is **WebCrypto** — anecdote's `age-mint.mjs` already mints
-    age identities via `crypto.subtle` X25519 and holds them Elevated (device
-    trove), and `system-viewer.md` leaves "decrypt a `tell.digest/v1` manifest into
-    `deliveries/`" explicitly open.
-  The Floor-shaped answer, when it comes: the ratchet (sha256 + aes-ctr) is fully
-  WebCrypto-expressible, the age unwrap is the hard part, and per the dumb-shell
-  rule the keys and subtle work belong to an Elevated guest iframed in — not to
-  Floor-served bytes.
+* **Decryption in the room.** The pile's at-rest model is age + openssl
+  (`PILE_AGE_IDENTITY` unwraps `inbox/seed.age`, then an aes-256-ctr hash
+  ratchet); the browser world is WebCrypto (anecdote's `age-mint.mjs` already
+  mints X25519 identities via `crypto.subtle`, held Elevated). Reconciling the
+  two — so the pile's decryption/unpacking runs observably in the room and the
+  question shows with decrypted answer data — is the staging work #93 tracks.
+  Per the dumb-shell rule, keys and subtle work would arrive as an Elevated
+  guest, never in Floor-served bytes. (A pile repo could in principle carry
+  Action env vars for secrets, but the workflows route stays downplayed.)
 * **The probe-line contract, if any.** Query params suffice for everything the
-  Floor does today (#93 anticipated exactly this). When decrypted pile data needs
-  to reach the question shown on Tell, that becomes the pile's own probe talking to
-  the iframed Tell — not a Floor capability.
+  Floor does today; decrypted pile data reaching the iframed Tell would be the
+  pile's own probe talking to Tell, not a Floor capability.
 * **Tell-side authoring fall-through.** The landing's tokless branch renders a
   preview; growing it into anecdote's full authoring UI (per
-  `docs/system-viewer.md`: "authoring a poll as a data object… is what
-  tell.anecdote.channel is becoming") is Tell/anecdote work the Floor just points
-  at.
-* **The second hosting path.** #93 wants "a couple ways", the alternate being the
-  pile's own bottle domain under `*.anecdote.channel` (#92's jar/bottle infra).
-  The template is placement-agnostic already (relative SW scope, self-contained
-  files), so that path is a second worker/route decision, not a template change.
+  `docs/system-viewer.md`) is Tell/anecdote work the Floor just points at.

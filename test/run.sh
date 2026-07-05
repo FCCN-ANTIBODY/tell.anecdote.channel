@@ -380,12 +380,22 @@ else
 fi
 
 if command -v node >/dev/null 2>&1; then
-  echo "[12d] the Floor: label==pile alias, credential-free iframe links, name-blind gateway"
+  echo "[12d] the Floor: the name is a key, the vault is local, the iframe is fixed on Tell"
   node "$root/test/floor.test.mjs" || fail "floor test failed"
-  ok "floor: same bytes on any name; the leaf label is the pile name; no tok ever rides client-side"
+  ok "floor: local-first vault; no fetch surface; no tok ever rides client-side"
 else
   echo "[12d] SKIPPED — node not available for the floor test"
 fi
+
+echo "[12e] bin/floor-build emits the Floor as its own complete Pages site"
+fbout="$work/floor-site"
+FLOOR_CNAME="floor.tell.anecdote.channel" bin/floor-build "$fbout" 2>/dev/null
+for f in index.html floor.mjs sw.js CNAME .nojekyll; do
+  [ -f "$fbout/$f" ] || fail "floor-build missing $f"
+done
+[ "$(cat "$fbout/CNAME")" = "floor.tell.anecdote.channel" ] || fail "floor-build CNAME wrong"
+cmp -s "$fbout/index.html" floor/index.html || fail "floor-build must ship the template byte-identical"
+ok "floor-build: template + CNAME + .nojekyll, bytes identical to floor/"
 
 echo "[13] bin/register emits this Tell's signed registration entry for an Atlas"
 # keys/tell.fpr is operator-set (bin/tell-bootstrap); stand in the test signer's REAL
