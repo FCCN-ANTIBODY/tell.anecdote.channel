@@ -1,6 +1,7 @@
 ---
 # Build-time manifest: renders the fronted-pile registry to a small, cacheable JSON
-# list. The feed-gateway Worker reads it to resolve a pile's id -> feed branch.
+# list — a public transparency/discovery projection. The feed itself needs no
+# resolver: a pile's chain is served at piles/<id>/feed/* (disk path == URL path).
 # No network IO at build.
 layout: null
 permalink: /piles.json
@@ -11,7 +12,7 @@ permalink: /piles.json
   {
     "id": {{ pile.id | jsonify }},
     "scope": {{ pile.scope | jsonify }},
-    "feed": {{ pile.feed | jsonify }}
+    "feed": {{ "piles/" | append: pile.id | append: "/feed/" | jsonify }}
   }{%- unless forloop.last -%},{%- endunless -%}
 {%- endfor -%}
 ]

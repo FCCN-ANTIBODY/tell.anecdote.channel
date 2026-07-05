@@ -14,17 +14,19 @@ them, piles) and reflects coarse public maps. Atlas never fronts pile data; Tell
 
 ## Direction: Tell publishes, the pile pulls
 
-Tell **never reaches into a pile's repo**. It produces each fronted pile's chain on a
-`feed/<scope>/<id>` branch in **this** repo and serves it at `/piles/<id>/feed/*`; the pile pulls,
-verifies, and stores it. There is **no GitHub App, no cross-repo token** — Tell writes only its own
-repo with the built-in `GITHUB_TOKEN`.
+Tell **never reaches into a pile's repo**. It produces each fronted pile's chain at
+`piles/<id>/feed/*` in **this** repo's served tree — disk path == URL path — and GitHub Pages serves
+it; the pile pulls, verifies, and stores it. There is **no GitHub App, no cross-repo token** — Tell
+writes only its own repo with the built-in `GITHUB_TOKEN`.
 
-- **Store.** `bin/deliver` builds/extends the chain; `deliver.yml` commits it to `feed/<scope>/<id>`
-  via a temp index + `commit-tree` (so the Pages build is untouched); `prune-pile-history.yml` bounds
-  it. Each block is `age`-encrypted under its ratchet key `K_seq`; the manifest head is signed.
-- **Serve.** `workers/feed-gateway/` serves `/piles/<id>/feed/<file>` from the feed branch's `inbox/`,
-  CORS-open and cached. The payload is encrypted, so open serving leaks nothing. (No-Cloudflare dev
-  fallback: pull the same files from `raw.githubusercontent.com` of this repo's feed branch.)
+- **Store.** `bin/deliver` builds/extends the chain; the deliver action commits it to
+  `piles/<id>/feed/` as ordinary commits on the default branch (the Pages deploy that follows IS the
+  publish step). Each block is `age`-encrypted under its ratchet key `K_seq`; the manifest head is
+  signed. (Feed branches are retired: they made the forge itself too crucial for pickup access. If
+  the branch paradigm returns, it returns better than that implementation.)
+- **Serve.** GitHub Pages serves `piles/<id>/feed/<file>` as plain static files — CORS-open, normal
+  edge caching, no worker, no resolver. The payload is encrypted, so open serving leaks nothing.
+  (Forge-independent fallback: the same files at the same paths from any mirror/clone of this repo.)
 - **Pull.** The pile's `ingest` workflow fetches `/piles/<id>/feed/*`, verifies the signed manifest
   against the Tell signer it pinned, and persists the blocks into its own repo. No credential — the
   signature, not the transport, is what makes it safe.
@@ -44,8 +46,8 @@ repo with the built-in `GITHUB_TOKEN`.
 ## Registration (the consent gesture)
 
 A pile registers with this Tell by opening a PR that appends its entry to `_data/piles.yml` (the
-data-pile `handshake` workflow does this): `id`, `scope`, `feed/<scope>/<id>`, and the pile's
-`age_recipient`. Accepting the PR is, for now, the whole of "attestation" — no formal attestation
+data-pile `handshake` workflow does this): `id`, `scope`, and the pile's `age_recipient` (the chain
+is served at `piles/<id>/feed/*`, derived from the id — nothing else to declare). Accepting the PR is, for now, the whole of "attestation" — no formal attestation
 layer yet. The pile separately pins this Tell's published signer fingerprint (`keys/tell.fpr`). No
 write access to the pile is ever requested.
 
@@ -220,15 +222,15 @@ it **factorizes what it knows with what it has, attaches the measurement, and le
   manifest entry** (`entries[].vouch`), where `head.sig` covers it (the digest hashes the whole entries
   array). So the coarse measurement is **signed and attestable wherever the bytes are served** — raw
   GitHub, the gateway Worker, or a future edge.
-- **Tag at the edge, optionally police.** The kept feed-gateway Worker reads that signed summary off the
-  head and stamps **`X-Tell-Vouch`** (a convenience projection a static cache rule could also set). A
-  *strict* Tell **may** turn it into a gate (404 an unvouched pickup); the default **serves-and-tags**.
-  The voucher is signed data in the artifact — the edge enforces a policy expressed there, it is never
-  the source of truth, so this capability is architectural and not tied to any one host.
+- **Tag at the edge, optionally police.** An edge in front of the static files **may** read that signed
+  summary off the head and stamp a header like `X-Tell-Vouch`, or even gate a pickup on it — but none
+  is required and none is deployed: the default is plain static serving. The voucher is signed data in
+  the artifact — any edge enforces a policy expressed there, it is never the source of truth, so this
+  capability is architectural and not tied to any host or worker.
 
 ## What Tell guarantees a pile
 
-Each delivery on `feed/<scope>/<id>` MUST: `age`-encrypt every block to the pile's registered
+Each delivery at `piles/<id>/feed/*` MUST: `age`-encrypt every block to the pile's registered
 `age_recipient`; hash every block into the signed `manifest.json` chain with a `ratchet_pub`
 commitment; sign the manifest head with the key whose fingerprint the pile pinned; and stay reachable
 at `/piles/<id>/feed/*`. The pile's `bin/verify` rejects anything else and fails closed. The coarse

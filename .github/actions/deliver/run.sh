@@ -43,39 +43,45 @@ echo "using rollup: $rollup"
 git config user.name  "tell-deliver"
 git config user.email "tell-deliver@users.noreply.github.com"
 
-# Parse the simple registry shape (id / scope / age_recipient / feed) without a YAML dep.
+# Parse the simple registry shape (id / scope / age_recipient) without a YAML dep.
 targets="$(mktemp)"
 python3 - "$registry" "${ONLY_ID:-}" > "$targets" <<'PY'
 import sys, re
 reg, only = sys.argv[1], sys.argv[2].strip()
 cur, out = {}, []
 def flush():
-    if cur.get("id") and cur.get("age_recipient") and cur.get("feed"):
-        out.append((cur["id"], cur.get("scope",""), cur["age_recipient"], cur["feed"]))
+    if cur.get("id") and cur.get("age_recipient"):
+        out.append((cur["id"], cur.get("scope",""), cur["age_recipient"]))
 for line in open(reg):
     m = re.match(r'\s*-\s*id:\s*"?([^"\n]+)"?', line)
     if m:
         flush(); cur = {"id": m.group(1).strip()}; continue
-    for k in ("scope","age_recipient","feed"):
+    for k in ("scope","age_recipient"):
         mm = re.match(r'\s*%s:\s*"?([^"\n]+)"?' % k, line)
         if mm: cur[k] = mm.group(1).strip()
 flush()
-for id_, scope, recip, feed in out:
+for id_, scope, recip in out:
     if only and id_ != only: continue
-    print("\t".join([id_, scope, recip, feed]))
+    print("\t".join([id_, scope, recip]))
 PY
 
-[ -s "$targets" ] || { echo "no deliverable piles (need id + age_recipient + feed)"; exit 0; }
+[ -s "$targets" ] || { echo "no deliverable piles (need id + age_recipient)"; exit 0; }
 
-while IFS=$'\t' read -r id scope recip feed; do
-  echo "::group::deliver $id -> $feed"
+# The chain lives WHERE IT IS SERVED: piles/<id>/feed/ in this repo's tree (disk
+# path == URL path; GitHub Pages publishes it, plain static files, CORS-open).
+# No feed branches, no gateway — the branch paradigm made the forge itself too
+# crucial for pickup access. Ordinary commits on the current branch; the Pages
+# deploy that follows is the publish step.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+[ "$branch" != "HEAD" ] || branch="${GITHUB_REF_NAME:?detached checkout and no GITHUB_REF_NAME}"
+
+delivered=0
+while IFS=$'\t' read -r id scope recip; do
+  serve="piles/$id/feed"
+  echo "::group::deliver $id -> $serve"
   work="$(mktemp -d)"; mkdir -p "$work/inbox"
-  parent=""
-  if git rev-parse -q --verify "origin/$feed" >/dev/null; then
-    git fetch --quiet origin "$feed"
-    git archive "origin/$feed" inbox 2>/dev/null | tar -x -C "$work" 2>/dev/null || true
-    parent="-p origin/$feed"
-  fi
+  # Resume from the served tree itself (manifest + seeds + blocks all live there).
+  [ -d "$serve" ] && cp -a "$serve/." "$work/inbox/"
 
   block="$(mktemp)"
   "$rollup" "$id" "$scope" > "$block" || { echo "rollup failed for $id; skipping"; echo "::endgroup::"; continue; }
@@ -87,15 +93,21 @@ while IFS=$'\t' read -r id scope recip feed; do
   [ -n "$signkey" ] && args+=(--signkey "$signkey")
   "$BIN/deliver" "${args[@]}"
 
-  # Commit ONLY inbox/ to the feed branch via a temp index (never touch the work tree).
-  idx="$(mktemp)"; export GIT_INDEX_FILE="$idx"
-  git read-tree --empty
-  git --work-tree="$work" add -A inbox
-  tree="$(git write-tree)"
-  head_seq="$(jq -r '.head.seq' "$work/inbox/manifest.json")"
-  commit="$(git commit-tree "$tree" $parent -m "deliver: $id seq $head_seq $(date -u +%FT%TZ)")"
-  git push origin "$commit:refs/heads/$feed"
-  unset GIT_INDEX_FILE
-  echo "pushed $feed @ seq $head_seq"
+  mkdir -p "$serve"
+  cp -a "$work/inbox/." "$serve/"
+  git add "$serve"
+  head_seq="$(jq -r '.head.seq' "$serve/manifest.json")"
+  git commit -q -m "deliver: $id seq $head_seq $(date -u +%FT%TZ)"
+  delivered=1
+  echo "committed $serve @ seq $head_seq"
   echo "::endgroup::"
 done < "$targets"
+
+# One push for the whole window; rebase-retry against concurrent Tell writes.
+if [ "$delivered" = 1 ]; then
+  for attempt in 1 2 3; do
+    git push origin "HEAD:$branch" && break
+    [ "$attempt" = 3 ] && { echo "::error::push failed after $attempt attempts"; exit 1; }
+    git pull --rebase origin "$branch"
+  done
+fi

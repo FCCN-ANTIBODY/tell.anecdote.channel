@@ -30,11 +30,12 @@ A respondent scans a QR and lands in the **answer runtime — `anecdote.channel/
 composes the reply and posts it into the Tell's mailbox as a GitHub Issue or comment carrying an HMAC
 token bound to a specific pile and poll. Tell **authorizes** the reply against that token (`bin/authz`),
 **governs** it when the pile delegated a constitution (`bin/govern`, before sealing, on the still-public
-plaintext), **seals** it `age`-encrypted to the pile and signed, and **publishes** it on a
-`feed/<scope>/<id>` branch. The pile **pulls**; Tell never reaches into it.
+plaintext), **seals** it `age`-encrypted to the pile and signed, and **publishes** it at
+`piles/<id>/feed/*` in its own served tree (disk path == URL path — GitHub Pages serves the files
+as-is). The pile **pulls**; Tell never reaches into it.
 
 ```
-QR (token) ──▶ answer runtime ──▶ public Issue ──▶ authorize ──▶ govern (when delegated) ──▶ seal + sign ──▶ feed/<scope>/<id>
+QR (token) ──▶ answer runtime ──▶ public Issue ──▶ authorize ──▶ govern (when delegated) ──▶ seal + sign ──▶ piles/<id>/feed/*
                                                                                                       │  the pile PULLS
                                                                                                       ▼
                                                                                transparency report (reports/govern-…)
