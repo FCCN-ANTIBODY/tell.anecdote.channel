@@ -52,4 +52,24 @@ function run(search, hash = "") {
   assert(/No poll loaded/.test(html), "missing empty state");
 }
 
+// 5. A self-naming question WITHOUT a token → preview mode (the Floor's iframe branch,
+//    #93's free fall-through), and NO redirect. Display fields render escaped.
+{
+  const raw = "pile=cd04-q1&poll=bikes&round=1&q=Expand%20%3Cbike%3E%20lanes%3F&opts=Yes%2CNo&guidance=Be%20kind";
+  const { html, replaced } = run("?" + raw);
+  assert(replaced === null, "preview redirected without a token");
+  assert(/Preview — no live token/.test(html), "missing the preview banner");
+  assert(html.includes("Expand &lt;bike&gt; lanes?"), "question not rendered escaped: " + html);
+  assert(/<li>Yes<\/li>/.test(html) && /<li>No<\/li>/.test(html), "options not listed");
+  assert(/Be kind/.test(html), "guidance not shown");
+  assert(!/No poll loaded/.test(html), "preview fell through to the empty state");
+}
+
+// 6. tok present but round missing → still NOT a forward, and only a preview if it self-names.
+{
+  const { html, replaced } = run("?pile=p&poll=q&tok=t");
+  assert(replaced === null, "forwarded an incomplete token set");
+  assert(/No poll loaded/.test(html), "tokless partial did not show the empty state");
+}
+
 console.log("landing forward test passed");

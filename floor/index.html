@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Floor</title>
+  <!--
+    The Floor (anecdote.channel#93): a barren template Tell builds and publishes for
+    others to host. Served IDENTICALLY on every <name>.tell.anecdote.channel — the
+    hostname's leading label is the only variable, and it is not content: it is the
+    NAME of the data-pile this room stages for (colloquially anecdote://data/<name>).
+
+    Deliberately self-contained (no mother-host stylesheet, no third-party bytes):
+    two files + a service worker make the whole offline shell. Anything richer than
+    "switch the question, point the iframe at vanilla Tell" does not live here — the
+    dumb-shell posture from anecdote.channel#92 ("binding the queen").
+  -->
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; font: 16px/1.5 system-ui, sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
+    header { padding: .6rem 1rem; border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
+             display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
+    header code { font-size: .95rem; opacity: .8; }
+    #switcher { padding: .5rem 1rem; display: none; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    #switcher select { font: inherit; max-width: 100%; }
+    main { flex: 1; display: flex; flex-direction: column; }
+    #stage { flex: 1; border: 0; width: 100%; min-height: 60vh; display: none; }
+    #creator, #notice { padding: 1rem; max-width: 44rem; }
+    #creator { display: none; }
+    #creator label { display: block; margin-top: .75rem; }
+    #creator input, #creator textarea, #creator select { font: inherit; width: 100%; box-sizing: border-box; }
+    #creator textarea { min-height: 4rem; }
+    pre.artifact { padding: .6rem; overflow-x: auto; border: 1px dashed color-mix(in srgb, currentColor 35%, transparent); }
+    .muted { opacity: .7; font-size: .9rem; }
+    button { font: inherit; }
+  </style>
+</head>
+<body>
+  <header>
+    <strong>Floor</strong>
+    <code id="pile-address" aria-live="polite"></code>
+    <span id="net" class="muted" aria-live="polite"></span>
+  </header>
+  <div id="switcher">
+    <label for="question">Question:</label>
+    <select id="question"></select>
+  </div>
+  <main>
+    <p id="notice" class="muted">…</p>
+    <div id="creator"></div>
+    <iframe id="stage" title="Tell"></iframe>
+  </main>
+  <script type="module">
+    // The service worker is registered RELATIVE so the same bytes work in both
+    // placements: at /floor/ on the mother host (scope /floor/) and at / on a
+    // wildcard-served name (scope /, mapped by workers/floor-gateway).
+    if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { type: "module" }).catch(() => {});
+    import("./floor.mjs").then((m) => m.mountFloor(document, location));
+  </script>
+  <noscript><p style="padding:1rem">The Floor needs JavaScript to stage a pile's questions.</p></noscript>
+</body>
+</html>

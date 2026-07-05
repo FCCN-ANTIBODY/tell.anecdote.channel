@@ -1,0 +1,20 @@
+# Cloudflare Worker that serves the Floor template (floor/ in this repo, via the
+# Pages origin) identically on every <name>.tell.anecdote.channel. Deploy:
+# wrangler deploy.
+#
+# Requires (one-time, see docs/floor.md):
+#   * a proxied (orange-cloud) wildcard DNS record `*.tell` on the anecdote.channel
+#     zone — the route below can only intercept proxied traffic;
+#   * `*.tell.anecdote.channel` in anecdote.channel's config/san-list.txt so the
+#     ACM edge certificate covers the names (a TLS wildcard matches ONE label —
+#     `*.anecdote.channel` covers tell.anecdote.channel but nothing under it).
+#
+# The wildcard route does NOT match the bare tell.anecdote.channel host, so the
+# feed-gateway / submit-gateway routes and the Pages shell are untouched.
+name = "tell-floor-gateway"
+main = "worker.js"
+compatibility_date = "2026-06-01"
+
+routes = [
+  { pattern = "*.tell.anecdote.channel/*", zone_name = "anecdote.channel" }
+]

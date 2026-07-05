@@ -379,6 +379,14 @@ else
   echo "[12c] SKIPPED — node not available for the submit-gateway test"
 fi
 
+if command -v node >/dev/null 2>&1; then
+  echo "[12d] the Floor: label==pile alias, credential-free iframe links, name-blind gateway"
+  node "$root/test/floor.test.mjs" || fail "floor test failed"
+  ok "floor: same bytes on any name; the leaf label is the pile name; no tok ever rides client-side"
+else
+  echo "[12d] SKIPPED — node not available for the floor test"
+fi
+
 echo "[13] bin/register emits this Tell's signed registration entry for an Atlas"
 # keys/tell.fpr is operator-set (bin/tell-bootstrap); stand in the test signer's REAL
 # fingerprint as the published anchor, via the TELL_FPR_FILE seam.
