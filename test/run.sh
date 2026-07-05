@@ -387,6 +387,14 @@ else
   echo "[12d] SKIPPED — node not available for the floor test"
 fi
 
+if command -v node >/dev/null 2>&1; then
+  echo "[12f] sealed credential: the submit worker holds one secret and zero tokens"
+  node "$root/test/sealed-credential.test.mjs" || fail "sealed-credential test failed"
+  ok "seal: binding vetted before the token acts; foreign ciphers are noise"
+else
+  echo "[12f] SKIPPED — node not available for the sealed-credential test"
+fi
+
 echo "[12e] bin/floor-build emits the Floor as its own complete Pages site"
 fbout="$work/floor-site"
 FLOOR_CNAME="floor.tell.anecdote.channel" bin/floor-build "$fbout" 2>/dev/null

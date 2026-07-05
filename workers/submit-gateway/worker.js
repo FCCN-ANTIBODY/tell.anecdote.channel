@@ -27,11 +27,15 @@
 const OWNER = "FCCN-ANTIBODY";
 const REPO = "tell.anecdote.channel";
 const API = "https://api.github.com";
+import { unseal } from "./seal.mjs";
 
 // POST /repos/OWNER/REPO/issues  |  POST /repos/OWNER/REPO/issues/<n>/comments — nothing else.
 const PATH_OK = new RegExp(
   `^/repos/${OWNER}/${REPO}/issues(/[0-9]{1,10}/comments)?$`
 );
+// Any relay target must at least be SOME repo's issues surface; the sealed branch then
+// narrows to its exact binding, the legacy branch to this repo (PATH_OK).
+const PATH_SHAPE = /^\/repos\/[\w.-]+\/[\w.-]+\/issues(\/[0-9]{1,10}\/comments)?$/;
 const MAX_BODY = 64 * 1024; // a submission block is small; a relay stays polite
 
 const CORS = {
@@ -55,9 +59,6 @@ export default {
 
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (request.method !== "POST") return reply(405, { error: "POST only" });
-    if (!env.TELL_POST_TOKEN) {
-      return reply(503, { error: "relay not provisioned (wrangler secret put TELL_POST_TOKEN)" });
-    }
 
     const raw = await request.text();
     if (raw.length > MAX_BODY) return reply(413, { error: "body too large" });
@@ -67,12 +68,42 @@ export default {
     } catch {
       return reply(400, { error: "body must be JSON: { path, body }" });
     }
+    // Unprovisioned fails closed BEFORE anything else is judged: a legacy request needs
+    // TELL_POST_TOKEN; a sealed one needs TELL_SEAL_KEY (checked in its branch below).
+    if (typeof req.sc !== "string" && !env.TELL_POST_TOKEN) {
+      return reply(503, { error: "relay not provisioned (wrangler secret put TELL_POST_TOKEN)" });
+    }
     const path = typeof req.path === "string" ? req.path : "";
-    if (!PATH_OK.test(path)) {
-      return reply(403, { error: "path not allowed", allowed: PATH_OK.source });
+    if (!PATH_SHAPE.test(path)) {
+      return reply(403, { error: "path not allowed" });
     }
     if (typeof req.body !== "object" || req.body === null) {
       return reply(400, { error: "body.body must be the GitHub request object" });
+    }
+
+    // The sealed path (docs/sealed-credential.md): the request CARRIES its credential as a
+    // cipher only this Tell's seal opens. Vet, refuse on binding mismatch, act on the asker's
+    // authority — the worker holds one secret and zero tokens. The path must be EXACTLY the
+    // bound poll's one issue (comment mode; one poll, one issue, all chatter on it).
+    let bearer = null;
+    if (typeof req.sc === "string") {
+      if (!env.TELL_SEAL_KEY) return reply(503, { error: "sealed relay not provisioned (wrangler secret put TELL_SEAL_KEY)" });
+      const sealed = await unseal(req.sc, env.TELL_SEAL_KEY);
+      if (!sealed) return reply(400, { error: "cipher does not open here" });
+      // The binding IS the allowlist here: exactly the bound poll's one comment thread,
+      // and only if what was sealed even has that shape.
+      const bound = `/repos/${sealed.repo}/issues/${sealed.issue}/comments`;
+      if (path !== bound || !path.endsWith("/comments")) {
+        return reply(403, { error: "path is not the sealed binding" });
+      }
+      bearer = sealed.token;
+    } else {
+      // The canonical Tell's own mailbox — the original single-token posture, unchanged:
+      // this repo's issues surface and nothing else.
+      if (!PATH_OK.test(path)) {
+        return reply(403, { error: "path not allowed", allowed: PATH_OK.source });
+      }
+      bearer = env.TELL_POST_TOKEN;
     }
 
     // Relay verbatim; inject the credential HEADER-ONLY (the three-token discipline —
@@ -81,7 +112,7 @@ export default {
     const gh = await fetch(API + path, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${env.TELL_POST_TOKEN}`,
+        Authorization: `Bearer ${bearer}`,
         Accept: "application/vnd.github+json",
         "Content-Type": "application/json",
         "User-Agent": `tell-submit-gateway (${OWNER}/${REPO})`,
