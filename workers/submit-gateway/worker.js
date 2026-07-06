@@ -5,7 +5,7 @@
 // The answer runtime (anecdote.channel/poll.html) sends the same GitHub-API-shaped request it
 // would have sent to api.github.com — { path, body } — and this worker relays it with the
 // Tell's credential injected server-side. The QR then carries only a non-secret address
-// (`su=`), never a token: see bin/qr and docs/submission-credential.md.
+// (`submit=`), never a token: see bin/qr and docs/submission-credential.md.
 //
 // CUSTODY (this is the constellation's first secret-bearing worker — say it out loud):
 //   - env.TELL_POST_TOKEN (via `wrangler secret put TELL_POST_TOKEN`): the same repo-scoped,
@@ -75,7 +75,7 @@ export default {
     }
     // Unprovisioned fails closed BEFORE anything else is judged: a legacy request needs
     // TELL_POST_TOKEN; a sealed one needs TELL_SEAL_KEY (checked in its branch below).
-    if (typeof req.sc !== "string" && !env.TELL_POST_TOKEN) {
+    if (typeof req.sealed !== "string" && !env.TELL_POST_TOKEN) {
       return reply(503, { error: "relay not provisioned (wrangler secret put TELL_POST_TOKEN)" });
     }
     const path = typeof req.path === "string" ? req.path : "";
@@ -91,9 +91,9 @@ export default {
     // authority — the worker holds one secret and zero tokens. The path must be EXACTLY the
     // bound poll's one issue (comment mode; one poll, one issue, all chatter on it).
     let bearer = null;
-    if (typeof req.sc === "string") {
+    if (typeof req.sealed === "string") {
       if (!env.TELL_SEAL_KEY) return reply(503, { error: "sealed relay not provisioned (wrangler secret put TELL_SEAL_KEY)" });
-      const sealed = await unseal(req.sc, env.TELL_SEAL_KEY);
+      const sealed = await unseal(req.sealed, env.TELL_SEAL_KEY);
       if (!sealed) return reply(400, { error: "cipher does not open here" });
       // The binding IS the allowlist here: exactly the bound poll's one comment thread,
       // and only if what was sealed even has that shape.

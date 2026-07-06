@@ -24,17 +24,17 @@ const post = (body) => worker.fetch(new Request("https://tell.anecdote.channel/s
 
 // sealed path: exact bound issue only, inner token header-only
 const GOOD = "/repos/someone/their-poll/issues/7/comments";
-let r = await post({ path: GOOD, body: { body: "c" }, sc });
+let r = await post({ path: GOOD, body: { body: "c" }, sealed: sc });
 assert(r.status === 201, "sealed relay reaches the bound issue");
 let gh = calls.pop();
 assert(gh.init.headers.Authorization === "Bearer ghp_asker", "the ASKER'S token acted, header-only");
 for (const bad of ["/repos/someone/their-poll/issues/8/comments", "/repos/someone/their-poll/issues", "/repos/FCCN-ANTIBODY/tell.anecdote.channel/issues"]) {
-  r = await post({ path: bad, body: {}, sc });
+  r = await post({ path: bad, body: {}, sealed: sc });
   assert(r.status === 403, "binding mismatch not refused: " + bad);
 }
-r = await post({ path: GOOD, body: {}, sc: "sc1.garbage.garbage" });
+r = await post({ path: GOOD, body: {}, sealed: "sc1.garbage.garbage" });
 assert(r.status === 400, "an unopenable cipher not refused");
-r = await worker.fetch(new Request("https://tell.anecdote.channel/submit", { method: "POST", body: JSON.stringify({ path: GOOD, body: {}, sc }) }), { TELL_POST_TOKEN: "x" });
+r = await worker.fetch(new Request("https://tell.anecdote.channel/submit", { method: "POST", body: JSON.stringify({ path: GOOD, body: {}, sealed: sc }) }), { TELL_POST_TOKEN: "x" });
 assert(r.status === 503, "sealed path without a seal key fails closed");
 
 // legacy path: the canonical Tell's own comment threads, and ONLY those — mode=issue is
@@ -44,7 +44,7 @@ r = await post({ path: "/repos/FCCN-ANTIBODY/tell.anecdote.channel/issues/7/comm
 assert(r.status === 201 && calls[0].init.headers.Authorization === "Bearer ghp_tell", "the canonical Tell's own comment path still relays");
 r = await post({ path: "/repos/FCCN-ANTIBODY/tell.anecdote.channel/issues", body: { title: "t" } });
 assert(r.status === 403, "the retired new-issue path is refused on the legacy branch too");
-const out = await (await post({ path: GOOD, body: {}, sc })).text();
+const out = await (await post({ path: GOOD, body: {}, sealed: sc })).text();
 assert(!out.includes("ghp_asker") && !out.includes(KEY), "neither token nor key ever echoes");
 
 console.log("ok: sealed credential — one secret, zero tokens; binding vetted before the token acts");

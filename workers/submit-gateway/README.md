@@ -3,7 +3,7 @@
 The Tell's own Cloudflare Worker at **`POST <tell-domain>/submit`**. It holds the Tell's POST
 credential (`TELL_POST_TOKEN`, the `bin/submit-bootstrap` PAT) as a **worker secret** and relays
 the answer runtime's GitHub-API-shaped request with the credential injected server-side. The QR
-then carries only a non-secret address (`su=`, minted by `bin/qr --submit-url`), never a token —
+then carries only a non-secret address (`submit=`, minted by `bin/qr --submit-url`), never a token —
 this is the graduated form of the QR-embedded credential
 ([`docs/submission-credential.md`](../../docs/submission-credential.md)).
 

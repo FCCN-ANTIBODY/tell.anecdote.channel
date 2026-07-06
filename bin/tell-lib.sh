@@ -48,10 +48,12 @@ TL_QR_SIG_NS="tell-poll"
 # URL-encoded exactly as they ride in the URL — robust to newlines / & / =), drops the
 # signature metadata (`sig`, `kid` are never self-signed), the `post` credential (a
 # semi-public, rotatable GitHub write token that must never be part of the provenance
-# preimage — see bin/qr / docs/issue-ingress.md), and the `su` submit-gateway address (a
+# preimage — see bin/qr / docs/issue-ingress.md), the `submit` submit-gateway address (a
 # non-secret transport hint that must rotate as freely as the credential it replaces —
-# see workers/submit-gateway), and emits them sorted by key so signer and verifier agree
-# regardless of URL param order. Both sides pipe through this.
+# see workers/submit-gateway), and the `sealed` credential (the AEAD `sc1.` bundle, opaque
+# and per-recipient), and emits them sorted by key so signer and verifier agree
+# regardless of URL param order. Both sides pipe through this — this set is byte-identical
+# to anecdote.channel's composer/qr-mint.mjs qrCanon; the two MUST move together.
 tl_qr_canon() {
-  grep -vE '^(sig|kid|post|su)=' | LC_ALL=C sort
+  grep -vE '^(sig|kid|post|submit|sealed)=' | LC_ALL=C sort
 }

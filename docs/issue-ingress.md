@@ -39,7 +39,7 @@ prints its number for `bin/qr --canonical`.
 ## bin/qr — the new fields
 
 - `--mode comment` (the default, and the only mode; `--mode issue` is refused — the retirement above);
-  `--canonical <n>` — required for any **credentialed** QR (`su=`/`post=`), since the runtime refuses a
+  `--canonical <n>` — required for any **credentialed** QR (`submit=`/`post=`), since the runtime refuses a
   credentialed submit with no canonical thread. Omit it and the QR carries only the `issueUrl` fallback.
 - `--run <id>` — a **non-secret** id that tells QRs/runs apart ("identify the semi-public token"). It is
   provenance-covered (signed with the rest of the payload) and serialized onto each submission. Defaults

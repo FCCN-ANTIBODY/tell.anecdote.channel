@@ -61,7 +61,7 @@ needs none of the paths below).
 
 1. **Worker-injected (the graduated form)** — the Tell's own **submit-gateway worker**
    ([`workers/submit-gateway/`](../workers/submit-gateway/)) holds the credential as a worker secret and
-   injects it server-side; the QR carries only the worker's non-secret address (`su=`, minted by
+   injects it server-side; the QR carries only the worker's non-secret address (`submit=`, minted by
    `bin/qr --submit-url`, dropped from the signed canon like `post`). Nothing durable rides in the QR.
    Custody stays per-Tell — the worker is the Tell's own — and the worker stays a **relay, not a
    gatekeeper**: it holds no `TELL_QR_SECRET` and performs no admission; `tok` still decides at ingest.
@@ -94,7 +94,7 @@ needs none of the paths below).
    reads it and strips it from the provenance field before submitting (`poll-answer.mjs`).
 4. ~~**The worker shield**~~ — **built** (rework slice 1,
    [civic-node#57](https://github.com/FCCN-ANTIBODY/civic-node/issues/57)): `workers/submit-gateway/`
-   holds the PAT server-side; `bin/qr --submit-url` mints `su=` instead of a credential; the runtime
+   holds the PAT server-side; `bin/qr --submit-url` mints `submit=` instead of a credential; the runtime
    POSTs through the worker. The QR-embed remains the workers-less fallback.
 5. **Judge summoning** — when the summonable judge lands (civic-node `OPEN-QUESTIONS.md` §A), the worker
    summons it over the `{verdict, reason}` contract before relaying; it never decides itself.

@@ -6,7 +6,7 @@
 //       questions enter the vault only by the owner's paste or creation, and
 //       the vault round-trips through the name-origin's own storage;
 //   (c) the iframe destination is not a choice: vanilla Tell, display params
-//       only — no tok, no post, no su can ever appear;
+//       only — no tok, no post, no submit can ever appear;
 //   (d) drafted artifacts are the pile-side question object and the Tell-side
 //       constitution, for the owner to carry by their own means.
 import fs from "fs";
@@ -67,7 +67,7 @@ assert(
   src === "https://tell.anecdote.channel/?pile=some-pile-name&poll=budget&round=2&type=multichoice&q=Cut%20or%20keep%3F&opts=Cut%2CKeep",
   "iframe src wrong: " + src,
 );
-assert(!/(^|[?&])(tok|post|su)=/.test(src), "a credential-shaped param leaked into the iframe src");
+assert(!/(^|[?&])(tok|post|submit)=/.test(src), "a credential-shaped param leaked into the iframe src");
 const bare = tellSrc({ poll: "q", text: "T?" }, "p");
 assert(bare === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F", "pile did not default to the name: " + bare);
 
