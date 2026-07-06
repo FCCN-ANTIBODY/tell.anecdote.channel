@@ -85,7 +85,7 @@ therefore structurally require the canonical-issue comment paradigm (`mode=comme
 (`mode=issue`) for everything except the credential-free `issueUrl` fallback, where the
 respondent's own click is the authority. **Retired, done:** `bin/qr` (and anecdote's mirror
 `qr-mint.mjs`) defaults to comment mode and refuses to mint `mode=issue`; a credentialed QR
-(`su=`/`post=`) mints only against a `--canonical` thread; the runtime's credentialed submit
+(`submit=`/`post=`) mints only against a `--canonical` thread; the runtime's credentialed submit
 targets only that thread's comments and falls back to `issueUrl` without one; and the
 submit-gateway's allowlist is comments-only on both branches. Historical issues still sweep —
 `bin/collect-submissions` ingests both shapes unchanged.
@@ -108,7 +108,7 @@ from working that assumption over:
 operator deploys an edge — most Tells deploy nothing anywhere. The real shape: one worker per
 **workspace**, holding one sealing secret per Tell it services. That custody is exactly as
 wide as TENANCY already declared hosting to be (the workspace owner has access-auth over the
-Tells it runs, never the piles). A Tell with no edge at all simply doesn't offer `sc=` — the
+Tells it runs, never the piles). A Tell with no edge at all simply doesn't offer `sealed=` — the
 credential-free `issueUrl` fallback remains. Which makes the offline case the primary case,
 not the exotic one.
 
@@ -170,10 +170,10 @@ choices — not missing cryptography.
 
 1. ~~**The mint gesture**~~ — **built** (`bin/seal-credential`: mint/peek/mint-key, run
    wherever the operator holds `TELL_SEAL_KEY`; the confirm-gated browser op can follow).
-2. **The `sc=` param** — the sealed cipher riding the poll's routing; dropped from the signed
-   canon like `post`/`su`; stripped from provenance by the client the same way. (Client-side,
-   anecdote `poll-answer.mjs` + `bin/qr` — the remaining wiring.)
-3. ~~**The worker change**~~ — **built** (`workers/submit-gateway/seal.mjs` + the `sc` branch:
+2. **The `sealed=` param** — the sealed cipher riding the poll's routing; dropped from the signed
+   canon like `post`/`submit`; stripped from provenance by the client the same way. (Client-side,
+   anecdote `submission.mjs` + `bin/qr` — the remaining wiring.)
+3. ~~**The worker change**~~ — **built** (`workers/submit-gateway/seal.mjs` + the `sealed` branch:
    AES-256-GCM, refuse-on-binding-mismatch to the bound poll's ONE issue, relay header-only,
    fails closed unprovisioned; the canonical Tell's own `TELL_POST_TOKEN` path unchanged).
 4. ~~**Retire `mode=issue` for hosted polls**~~ — **done**: the comment paradigm is the paradigm

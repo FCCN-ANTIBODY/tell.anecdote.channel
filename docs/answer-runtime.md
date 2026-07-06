@@ -41,7 +41,7 @@ poll in the URL, the page shows the empty state and does not redirect.
 anecdote.channel serves `poll.html`: it reads the query and hands it to a powerless `data:` chamber over the
 probe line, which renders the question and — **always offering a custom answer, options only as
 suggestions** — composes the reply carrying a `tell.submission/v1` block. A **credentialed** submit (the
-host-injected token, the `su=` relay, or a QR-carried `post=`) only ever lands as a **comment on the poll's
+host-injected token, the `submit=` relay, or a QR-carried `post=`) only ever lands as a **comment on the poll's
 canonical issue** (`canonical=`, opened by `bin/open-poll`) — issue-per-response is retired; with no
 canonical thread the runtime refuses the credentialed route and offers the pre-filled `issues/new` link
 instead, where the respondent's own click is the authority. The block's wire format is held

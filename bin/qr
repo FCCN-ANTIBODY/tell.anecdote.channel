@@ -71,11 +71,11 @@ fi
 if [ -n "$submit_url" ] && ! printf '%s' "$submit_url" | grep -Eq '^https://[A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._/-]*)?$'; then
   echo "bin/qr: --submit-url must be a plain https URL (got: $submit_url)" >&2; exit 1
 fi
-# A credentialed route (su= relay or embedded post=) can only ever land a COMMENT on the poll's
+# A credentialed route (submit= relay or embedded post=) can only ever land a COMMENT on the poll's
 # canonical issue — the runtime refuses a credentialed submit with no canonical thread, so minting
 # one would mint a dead route. Without --canonical only the issueUrl fallback rides.
 if [ -z "$canonical" ] && { [ -n "$submit_url" ] || [ -n "${TELL_POST_TOKEN:-}" ]; }; then
-  echo "bin/qr: a credentialed QR (su=/post=) needs --canonical <issue#> — run bin/open-poll first (a canonical-less QR carries only the issueUrl fallback)" >&2; exit 1
+  echo "bin/qr: a credentialed QR (submit=/post=) needs --canonical <issue#> — run bin/open-poll first (a canonical-less QR carries only the issueUrl fallback)" >&2; exit 1
 fi
 [ -n "$pile" ] && [ -n "$poll" ] || { echo "usage: bin/qr --pile ID --poll POLL [--round R] [--type T] [--asker A] [--question Q] [--opts CSV] [--guidance TEXT] [--signkey PATH]" >&2; exit 1; }
 : "${TELL_QR_SECRET:?set TELL_QR_SECRET (see bin/tell-bootstrap)}"
@@ -104,7 +104,7 @@ pairs+=( "mode=$(enc "$mode")" "run=$(enc "$run")" )
 # The SUBMIT URL (preferred) or POST CREDENTIAL (legacy): how a respondent with no GitHub
 # account gets their reply posted.
 #
-# `su=` — the Tell's own submit-gateway worker (workers/submit-gateway): the credential stays
+# `submit=` — the Tell's own submit-gateway worker (workers/submit-gateway): the credential stays
 # server-side as a worker secret and the QR carries only a non-secret address. Like `post`, it
 # is added AFTER the signature preimage and dropped from canon (tl_qr_canon), so the worker can
 # move/rotate without re-minting printed QRs. When set, no credential is embedded.
@@ -113,9 +113,9 @@ pairs+=( "mode=$(enc "$mode")" "run=$(enc "$run")" )
 # $TELL_POST_TOKEN from a repo-scoped, issues-only, short-expiry fine-grained PAT. Semi-public
 # by design (it rides in the QR); keep its scope tiny. Superseded by the worker; kept for
 # workers-less deployments (see docs/submission-credential.md).
-post_pair=""; su_pair=""
+post_pair=""; submit_pair=""
 if [ -n "$submit_url" ]; then
-  su_pair="su=$(enc "$submit_url")"
+  submit_pair="submit=$(enc "$submit_url")"
   if [ -n "${TELL_POST_TOKEN:-}" ]; then
     echo "bin/qr: note — --submit-url set; NOT embedding TELL_POST_TOKEN (the worker holds it)" >&2
   fi
@@ -155,7 +155,7 @@ fi
 # The submit address / credential ride AFTER the signature preimage and are dropped by
 # tl_qr_canon, so they are never part of the signed payload (moving the worker or rotating
 # the credential doesn't break provenance).
-[ -n "$su_pair" ] && pairs+=( "$su_pair" )
+[ -n "$submit_pair" ] && pairs+=( "$submit_pair" )
 [ -n "$post_pair" ] && pairs+=( "$post_pair" )
 
 # Assemble the URL from the (possibly signed) pairs, preserving order.
