@@ -150,6 +150,23 @@ printf '%s\n' "$params" | tl_qr_canon | \
   && fail "signature verified under the wrong namespace" || true
 ok "signed QR keeps its token, carries a verifying namespace-separated provenance signature; tamper breaks it"
 
+echo "[8b2] the terms pointer mints INSIDE the signed canon (antidote docs/faces.md handoff)"
+CHASH="sha256:$(printf 'terms' | sha256sum | cut -d' ' -f1)"
+curl2="$(bin/qr --pile cd04-q1 --poll bikes --round 1 --constitution "$CHASH" --signkey "$work/sign" 2>/dev/null)"
+echo "$curl2" | grep -q "[?&]constitution=${CHASH}" || fail "minted QR does not carry the constitution"
+cparams="$(printf '%s' "${curl2#*\?}" | tr '&' '\n')"
+urldec "$(printf '%s\n' "$cparams" | sed -n 's/^sig=//p')" | base64 -d > "$work/qr2.sig"
+printf '%s\n' "$cparams" | tl_qr_canon | \
+  ssh-keygen -Y verify -n tell-poll -I tell -f "$work/qr.signers" -s "$work/qr2.sig" >/dev/null 2>&1 \
+  || fail "constitution-bearing QR signature does not verify"
+# Swap the terms pointer => the signature must break: the law is inside the canon, never strippable.
+printf '%s\n' "$cparams" | sed "s/^constitution=.*/constitution=sha256:$(printf 'x%.0s' 1 | sha256sum | cut -d' ' -f1)/" | tl_qr_canon | \
+  ssh-keygen -Y verify -n tell-poll -I tell -f "$work/qr.signers" -s "$work/qr2.sig" >/dev/null 2>&1 \
+  && fail "a swapped constitution still verified" || true
+bin/qr --pile cd04-q1 --poll bikes --round 1 --constitution "sha256:short" >/dev/null 2>&1 \
+  && fail "a malformed terms pointer was minted" || true
+ok "the constitution rides the QR inside the provenance signature; swapping it breaks the sig; malformed refused"
+
 echo "[8c] authz verifies the carried QR signature as a worth-processing gate"
 qrpayload="${surl#*\?}"                                  # what the landing carries as block.qr
 qrtok="$(printf '%s\n' "$params" | sed -n 's/^tok=//p')"

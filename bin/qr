@@ -31,7 +31,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/tell-lib.sh"
 
 pile=""; poll=""; round="1"; type="open"; asker=""; question=""; opts=""; guidance=""; repo="${TELL_REPO:-}"
-signkey_arg=""; mode="comment"; canonical=""; run=""; submit_url="${TELL_SUBMIT_URL:-}"
+signkey_arg=""; mode="comment"; canonical=""; run=""; submit_url="${TELL_SUBMIT_URL:-}"; constitution=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --pile) pile="$2"; shift 2;;
@@ -42,6 +42,7 @@ while [ $# -gt 0 ]; do
     --question) question="$2"; shift 2;;
     --opts) opts="$2"; shift 2;;
     --guidance) guidance="$2"; shift 2;;
+    --constitution) constitution="$2"; shift 2;; # the TERMS pointer (antidote docs/faces.md): the sha256 content hash of the constitution governing answers — rides INSIDE the signed canon, so it can never be stripped or swapped in transit; the runtime shows it and every answer wears it
     --repo) repo="$2"; shift 2;;
     --signkey) signkey_arg="$2"; shift 2;;
     --mode) mode="$2"; shift 2;;          # comment (onto the canonical poll issue) — the paradigm; issue is retired
@@ -62,6 +63,9 @@ case "$mode" in
 esac
 if [ -n "$canonical" ] && ! printf '%s' "$canonical" | grep -Eq '^[0-9]+$'; then
   echo "bin/qr: --canonical must be an issue number (got: $canonical)" >&2; exit 1
+fi
+if [ -n "$constitution" ] && ! printf '%s' "$constitution" | grep -Eq '^sha256:[0-9a-f]{64}$'; then
+  echo "bin/qr: --constitution must be a sha256:<64-hex> content hash (the terms pointer) — a malformed pointer is no terms at all" >&2; exit 1
 fi
 # Sanitize repo to OWNER/NAME so it can only ever address a github.com repo path.
 if [ -n "$repo" ] && ! printf '%s' "$repo" | grep -Eq '^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$'; then
@@ -99,6 +103,7 @@ pairs+=( "mode=$(enc "$mode")" "run=$(enc "$run")" )
 [ -n "$question" ] && pairs+=( "q=$(enc "$question")" )
 [ -n "$opts" ]     && pairs+=( "opts=$(enc "$opts")" )
 [ -n "$guidance" ] && pairs+=( "guidance=$(enc "$guidance")" )
+[ -n "$constitution" ] && pairs+=( "constitution=${constitution}" )
 [ -n "$repo" ]     && pairs+=( "repo=$(enc "$repo")" )
 
 # The SUBMIT URL (preferred) or POST CREDENTIAL (legacy): how a respondent with no GitHub
