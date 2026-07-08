@@ -71,6 +71,15 @@ assert(!/(^|[?&])(tok|post|submit)=/.test(src), "a credential-shaped param leake
 const bare = tellSrc({ poll: "q", text: "T?" }, "p");
 assert(bare === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F", "pile did not default to the name: " + bare);
 
+// (c2) a question authored under a bottle carries its constitution forward — the inverse-of-Tell
+// handoff (antidote docs/faces.md slice 4). A well-formed pointer rides; a malformed one never does.
+const C = "sha256:" + "a".repeat(64);
+const worn = tellSrc({ poll: "q", text: "T?", constitution: C }, "p");
+assert(worn === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F&constitution=" + encodeURIComponent(C),
+  "the bottle's constitution did not ride the iframe src: " + worn);
+const faked = tellSrc({ poll: "q", text: "T?", constitution: "sha256:short" }, "p");
+assert(!/constitution=/.test(faked), "a malformed constitution pointer must not be carried: " + faked);
+
 // (d) creator artifacts
 const drafted = draftArtifacts("some-pile-name", {
   poll: "budget", text: "Cut or keep?", type: "multichoice", options: [" Cut ", "Keep", ""], guidance: "g",

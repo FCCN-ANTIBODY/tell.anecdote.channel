@@ -106,6 +106,10 @@ export function tellSrc(q, name) {
   if (q.text) pairs.push(["q", q.text]);
   if (Array.isArray(q.options) && q.options.length) pairs.push(["opts", q.options.join(",")]);
   if (q.guidance) pairs.push(["guidance", q.guidance]);
+  // The bottle's law (antidote docs/faces.md, face 2 → slice 4): a question authored under a
+  // constitution carries that constitution's content hash forward, so the answer wears it. Only a
+  // well-formed sha256 pointer rides — a malformed one is no terms at all and is simply not carried.
+  if (q.constitution && /^sha256:[0-9a-f]{64}$/.test(q.constitution)) pairs.push(["constitution", q.constitution]);
   return TELL + "/?" + pairs.map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
 }
 

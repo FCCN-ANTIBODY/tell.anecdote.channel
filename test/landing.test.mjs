@@ -72,4 +72,29 @@ function run(search, hash = "") {
   assert(/No poll loaded/.test(html), "tokless partial did not show the empty state");
 }
 
+// 7. A preview carrying a bottle's constitution surfaces the forced terms (antidote faces.md slice 4):
+//    even tokenless, the law every answer will wear is named. A malformed pointer is not shown.
+{
+  const C = "sha256:" + "b".repeat(64);
+  const raw = "pile=p&poll=q&q=Cut%20or%20keep%3F&constitution=" + C;
+  const { html, replaced } = run("?" + raw);
+  assert(replaced === null, "constitution preview redirected without a token");
+  assert(/answers here wear these terms/.test(html), "the forced constitution was not surfaced in preview");
+  assert(html.includes("sha256:" + "b".repeat(16)), "the terms pointer was not shown: " + html);
+}
+{
+  const raw = "pile=p&poll=q&q=Q%3F&constitution=sha256:short";
+  const { html } = run("?" + raw);
+  assert(!/answers here wear these terms/.test(html), "a malformed constitution was surfaced — must be ignored");
+}
+
+// 8. The forward branch carries a constitution VERBATIM (a live poll under a bottle): the terms ride
+//    to anecdote untouched, where they are read into the ballot inside the signature.
+{
+  const C = "sha256:" + "c".repeat(64);
+  const raw = "pile=p&poll=q&round=1&tok=t&constitution=" + C;
+  const { replaced } = run("?" + raw);
+  assert(replaced === RUNTIME + "?" + raw, "constitution not forwarded verbatim on a live poll: " + replaced);
+}
+
 console.log("landing forward test passed");

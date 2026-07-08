@@ -44,6 +44,13 @@ Nothing here phones home: the reply is a GitHub issue you review and submit your
       var html = '<p class="tell-preview-tag">Preview — no live token rides this link, so no reply can be composed. A live poll’s QR carries its <code>tok</code>.</p>';
       html += '<h2 class="tell-question">' + esc(p.get("q")) + "</h2>";
       if (p.get("guidance")) html += '<p class="tell-guidance">' + esc(p.get("guidance")) + "</p>";
+      // The forced law (antidote docs/faces.md, slice 4): when a question rides under a bottle's
+      // constitution, show it here so the preview makes the inversion visible — even tokenless, the
+      // terms every answer will wear are named. Only a well-formed pointer surfaces.
+      var terms = p.get("constitution") || "";
+      if (/^sha256:[0-9a-f]{64}$/.test(terms)) {
+        html += '<p class="tell-constitution">⚖ answers here wear these terms, inside the signature: <code>' + esc(terms.slice(0, 23)) + "…</code></p>";
+      }
       if (opts.length) {
         html += '<ul class="tell-opts">';
         for (var i = 0; i < opts.length; i++) html += "<li>" + esc(opts[i]) + "</li>";
