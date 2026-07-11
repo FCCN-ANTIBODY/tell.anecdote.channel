@@ -521,6 +521,28 @@ if command -v node >/dev/null 2>&1; then
   ok "per-tenant size matches git, blocks from manifest, over-bucket flagged, pooled union = dedup-aware total"
 fi
 
+echo "[17] bin/placement: pooled bin-pack vs silo over the accounting (fixed-bucket scheduling)"
+if command -v node >/dev/null 2>&1; then
+  cat > "$work/tt.json" <<'JSON'
+{ "schema": "tell.tenants/v1", "bucket": {"size_bytes":10000,"blocks":1000},
+  "tenants": [
+    { "id":"small-a","scope":"co","present":true,"size_bytes":3000,"blocks":10,"over":false },
+    { "id":"small-b","scope":"co","present":true,"size_bytes":3500,"blocks":12,"over":false },
+    { "id":"whale","scope":"co","present":true,"size_bytes":9000,"blocks":40,"over":false },
+    { "id":"spilled","scope":"co","present":true,"size_bytes":2000,"blocks":5,"over":true },
+    { "id":"absent","scope":"co","present":false,"size_bytes":0,"blocks":0,"over":false }
+  ], "totals": {} }
+JSON
+  plan="$(node bin/placement.mjs --pool-bytes 8000 --silo-frac 0.5 < "$work/tt.json")"
+  [ "$(printf '%s' "$plan" | jq -r '.pools | length')" = 1 ] || fail "placement did not pool the small tenants into one pool"
+  [ "$(printf '%s' "$plan" | jq -r '.pools[0].tenants | sort | join(",")')" = "small-a,small-b" ] || fail "small tenants did not pool together"
+  [ "$(printf '%s' "$plan" | jq -r '[.silos[].id] | sort | join(",")')" = "spilled,whale" ] || fail "silo policy wrong (expected whale + the over-bucket one)"
+  [ "$(printf '%s' "$plan" | jq -r '.placements[] | select(.id=="spilled") | .placement')" = siloed ] || fail "the over-bucket tenant was not siloed"
+  [ "$(printf '%s' "$plan" | jq -r '.pools[].size_bytes' | sort -n | tail -1)" -le 8000 ] || fail "a pool exceeded its byte cap"
+  echo '{"schema":"tell.tenants/v1","tenants":[],"totals":{}}' | node bin/placement.mjs >/dev/null || fail "placement failed on an empty tenant set"
+  ok "placement: packs small tenants under the cap, silos the too-big + the over-bucket, plan is the ledger shape"
+fi
+
 echo "ALL TESTS PASSED"
 
 echo "[15] custody: the declared boundary holds; bootstraps never echo a secret"
