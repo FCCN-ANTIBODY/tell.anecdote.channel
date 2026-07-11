@@ -494,6 +494,33 @@ fi
 bin/widget --atlas 'a/b' --scope colorado >/dev/null 2>&1 && fail "widget: accepted a non-DNS-label moniker" || true
 ok "data-filled fragment: tell contract preserved, geo-less locator handed to the hub, label-guarded"
 
+echo "[16] bin/tenants: per-tenant accounting (size via git-objects, blocks via manifest, pooled dedup)"
+if command -v node >/dev/null 2>&1; then
+  acct="$work/acct"; git init -q -b main "$acct"
+  mkdir -p "$acct/_data"; printf -- '- id: cd04-q1\n  scope: "colorado"\n- id: cd04-q2\n  scope: "colorado"\n' > "$acct/_data/piles.yml"
+  git -C "$acct" add _data; git -C "$acct" -c user.name=t -c user.email=t@t commit -q -m reg
+  # tenant 1: an orphan feed branch with two encrypted blocks
+  git -C "$acct" checkout -q --orphan feed/colorado/cd04-q1; git -C "$acct" rm -rq --cached . >/dev/null 2>&1; rm -rf "$acct/_data"
+  mkdir -p "$acct/inbox"; printf '{"entries":[{"seq":0,"block":"0.enc"},{"seq":1,"block":"1.enc"}]}' > "$acct/inbox/manifest.json"
+  head -c 5000 /dev/urandom > "$acct/inbox/0.enc"; head -c 5000 /dev/urandom > "$acct/inbox/1.enc"
+  git -C "$acct" add inbox; git -C "$acct" -c user.name=t -c user.email=t@t commit -q -m blocks
+  # tenant 2: branched FROM tenant 1 (shares those blobs — the pooled dedup case), one extra block
+  git -C "$acct" checkout -q -b feed/colorado/cd04-q2
+  printf '{"entries":[{"seq":0,"block":"0.enc"},{"seq":1,"block":"1.enc"},{"seq":2,"block":"2.enc"}]}' > "$acct/inbox/manifest.json"
+  head -c 5000 /dev/urandom > "$acct/inbox/2.enc"; git -C "$acct" add inbox; git -C "$acct" -c user.name=t -c user.email=t@t commit -q -m +1
+  git -C "$acct" checkout -qf main
+  rep="$(node bin/tenants.mjs --dir "$acct" --budget-bytes 12000)"
+  oracle="$(git -C "$acct" rev-list --disk-usage --objects refs/heads/feed/colorado/cd04-q1)"
+  [ "$(printf '%s' "$rep" | jq -r '.tenants[] | select(.id=="cd04-q1") | .size_bytes')" = "$oracle" ] || fail "tenants size_bytes != git rev-list --disk-usage --objects"
+  [ "$(printf '%s' "$rep" | jq -r '.tenants[] | select(.id=="cd04-q1") | .blocks')" = 2 ] || fail "tenants miscounted blocks from the manifest"
+  [ "$(printf '%s' "$rep" | jq -r '.tenants[] | select(.id=="cd04-q2") | .over')" = true ] || fail "tenants did not flag the over-bucket tenant"
+  pooled="$(printf '%s' "$rep" | jq -r '.totals.size_pooled_bytes')"
+  union="$(git -C "$acct" rev-list --disk-usage --objects refs/heads/feed/colorado/cd04-q1 refs/heads/feed/colorado/cd04-q2)"
+  [ "$pooled" = "$union" ] || fail "pooled total is not the object union (dedup accounting wrong)"
+  [ "$(printf '%s' "$rep" | jq -r '.totals.dedup_saved_bytes')" -gt 0 ] || fail "shared history was not detected as dedup savings"
+  ok "per-tenant size matches git, blocks from manifest, over-bucket flagged, pooled union = dedup-aware total"
+fi
+
 echo "ALL TESTS PASSED"
 
 echo "[15] custody: the declared boundary holds; bootstraps never echo a secret"
