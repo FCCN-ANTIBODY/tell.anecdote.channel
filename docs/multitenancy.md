@@ -62,6 +62,49 @@ Structurally the Tell is already the multitenant manager: it runs per-pile **fee
 - **Cross-tenant limits** (repo-size ceilings, a noisy neighbor's traffic) — fixed-bucket bounds the write
   side; the read/serve side is the host's problem above.
 
+## Two models for what a branch *is*
+
+The section above treats a branch as a tenant's private **namespace** — isolation between tenants, often
+from a clean state. There is a second, complementary model where the branch is a **versioned read-cursor**
+into an *already-used* source, and it is where this pattern earns its keep for aggregation.
+
+- **Clean-state tenancy (namespace).** Each tenant branches from empty; the branch isolates one tenant's
+  data + feed + lifecycle. This is the pooled/siloed model above.
+- **Live-source cursors (revision).** A data-pile has already accumulated real blocks. A consumer branches
+  it (or branches a branch) not for isolation but because it cares about **the state at that revision** —
+  the commit it branched. The branch point *is* the "as-of" handle. Leased copies and snapshots live here.
+
+### Report cursors: asynchronous, verifiable, non-blocking
+
+Give each report backend ("research account") its own branch off a live source and the whole aggregation
+tier decouples:
+
+- **The report attests to the source hash.** A backend that branches at `sha:X` emits *"computed over
+  source at X,"* signed. Anyone re-runs against X and verifies; no report is authoritative over another —
+  verify-from-anyone applied to *analysis*, on the existing content-addressing + attestation spine. This is
+  the "democratic reports" property: many independent, individually-checkable claims pinned to a revision.
+- **Append-only ⇒ fast-forward only ⇒ no rebase.** A data-pile never rewrites; a backend just **advances
+  its cursor along one lineage**, `X → Y`. The delta `X..Y` is exactly the new blocks to fold in, so a slow
+  backend catches up **incrementally** at its own pace. History rewrite (rebase) never enters the picture.
+- **Readers vs writers is why nothing bogs down.** The feed branch is owner-append-only; report branches
+  are **read cursors that emit their derived artifacts elsewhere**, never writing back to the source. Zero
+  write contention by construction — the slowest algorithm you own can grind for hours against its snapshot
+  and block **nothing**. State this as a rule: a report branch reads a pinned revision and writes only its
+  own output.
+- **This is consumer-groups over an append-only log — git-native and signed.** Each backend is an
+  independent consumer tracking its own offset (the branch point) over the pile's block log, fanning out and
+  advancing when ready — the event-sourcing pattern, except every offset is a verifiable content hash and
+  every output a signed attestation.
+
+### Tags vs branches, and who hosts it
+
+- **A tag (or a bare commit hash) is a frozen lease** — an "as-of X" snapshot that never moves; right for a
+  leased copy you hand out. **A branch is a moving cursor** — right for a backend that keeps up. Different
+  lifetimes, no conflict: tags/hashes for leases and snapshots, branches for report accounts.
+- **Antidote is the natural host.** Aggregation moved off Atlas to Antidote, so Antidote becomes the
+  *report/aggregation control plane* — research accounts attached to the branches of an existing data-pile —
+  complementary to the Tell as the *pile/tenant control plane*. Same model, one tier over.
+
 ## The bricks, in order
 
 1. **Per-tenant accounting** on the Tell — size (`rev-list --disk-usage`) and traffic per tenant-branch,
@@ -69,3 +112,5 @@ Structurally the Tell is already the multitenant manager: it runs per-pile **fee
 2. **Placement** over that accounting — pooled bin-pack vs silo, writing to the placement ledger.
 3. **Graduation** — wire the King's Leap lift as the pooled→siloed operation (the tooling already exists;
    this makes it a named tenant action).
+4. **Report cursors** (Antidote) — attach a research account to a source branch, attest each report to its
+   branched source hash, fast-forward the cursor to fold `X..Y` incrementally. The async aggregation tier.
