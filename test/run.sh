@@ -267,6 +267,15 @@ TELL_SUBMISSIONS_DIR="$work/cstage" TELL_FINALIZE_DRYRUN=1 bin/finalize-submissi
   | grep -q 'issues/comments/1001/reactions -f content=+1' || fail "finalize did not react on the accepted comment"
 ok "comment thread staged with nonce/run/anecdote; anchor ignored; sealed by rollup; finalize reacts"
 
+if command -v node >/dev/null 2>&1; then
+  # the on-device port (bin/rollup.mjs) must fold this rich stage (nonce/run/anecdote/governed/voucher)
+  # into the identical digest — everything but window_end, which is a timestamp.
+  crbm="$work/crb-mjs.json"; TELL_SUBMISSIONS_DIR="$work/cstage" node bin/rollup.mjs cd04-q1 colorado > "$crbm"
+  diff <(jq -S 'del(.window_end)' "$crb") <(jq -S 'del(.window_end)' "$crbm") >/dev/null \
+    || fail "rollup.mjs digest differs from bin/rollup"
+  ok "rollup.mjs port matches bin/rollup (records + vouch summary, minus window_end)"
+fi
+
 echo "[9] govern judges staged answers against constitutions/<pile>/<poll>.json (pre-seal, no key)"
 # Real stage (budget=Cut, bikes=Yes — both listed options) gets accepted mechanically and
 # annotated in place, so the rollup below seals the verdict into the digest.
@@ -381,6 +390,7 @@ ok "promoted vouch is inside the signed digest; signature verifies and rejects a
 
 echo "[11] empty stage => rollup emits nothing (deliver would skip)"
 [ -z "$(TELL_SUBMISSIONS_DIR="$work/empty" bin/rollup cd04-q1 colorado)" ] || fail "rollup emitted on empty stage"
+command -v node >/dev/null 2>&1 && { [ -z "$(TELL_SUBMISSIONS_DIR="$work/empty" node bin/rollup.mjs cd04-q1 colorado)" ] || fail "rollup.mjs emitted on empty stage"; }
 ok "no staged submissions -> no block"
 
 if command -v node >/dev/null 2>&1; then
