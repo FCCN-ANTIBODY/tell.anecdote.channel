@@ -543,6 +543,26 @@ JSON
   ok "placement: packs small tenants under the cap, silos the too-big + the over-bucket, plan is the ledger shape"
 fi
 
+echo "[18] bin/graduate: King's Leap lift (pooled tenant -> its own sovereign repo)"
+if command -v node >/dev/null 2>&1; then
+  gp="$work/gpool"; git init -q -b main "$gp"
+  mkdir -p "$gp/_data"; printf -- '- id: cd04-q9\n  scope: "colorado"\n' > "$gp/_data/piles.yml"
+  git -C "$gp" add -A; git -C "$gp" -c user.name=t -c user.email=t@t commit -q -m reg
+  git -C "$gp" checkout -q --orphan feed/colorado/cd04-q9; git -C "$gp" rm -rq --cached . >/dev/null 2>&1; rm -rf "$gp/_data"
+  mkdir -p "$gp/inbox"; printf '{"entries":[{"seq":0,"block":"0.enc"}]}' > "$gp/inbox/manifest.json"; head -c 4000 /dev/urandom > "$gp/inbox/0.enc"
+  git -C "$gp" add -A; git -C "$gp" -c user.name=t -c user.email=t@t commit -q -m b0
+  git -C "$gp" checkout -qf main
+  node bin/graduate.mjs --dir "$gp" --out "$work/gsilo" --id cd04-q9 --scope colorado >/dev/null || fail "graduate lift failed"
+  gnew="$work/gsilo/cd04-q9"
+  [ "$(git -C "$gp" rev-parse refs/heads/feed/colorado/cd04-q9^{tree})" = "$(git -C "$gnew" rev-parse main^{tree})" ] || fail "graduated tree != source tree (content changed)"
+  [ "$(git -C "$gnew" rev-list --count main)" = 1 ] || fail "graduated repo is not a fresh root commit"
+  [ "$(comm -12 <(git -C "$gp" rev-list --all | sort) <(git -C "$gnew" rev-list --all | sort) | wc -l | tr -d ' ')" = 0 ] || fail "graduated repo shares history with the pool (not sovereign)"
+  git -C "$gnew" fsck --strict >/dev/null 2>&1 || fail "graduated repo fails git fsck"
+  echo '{"schema":"tell.placement/v1","placements":[{"id":"cd04-q9","scope":"colorado","placement":"siloed"}]}' | node bin/graduate.mjs --dir "$gp" --out "$work/gplan" --from-plan >/dev/null || fail "graduate --from-plan failed"
+  [ -f "$work/gplan/cd04-q9/inbox/manifest.json" ] || fail "graduate --from-plan did not lift the siloed tenant"
+  ok "King's Leap: content preserved (tree ==), fresh lineage, zero shared history, composes from a placement plan"
+fi
+
 echo "ALL TESTS PASSED"
 
 echo "[15] custody: the declared boundary holds; bootstraps never echo a secret"
