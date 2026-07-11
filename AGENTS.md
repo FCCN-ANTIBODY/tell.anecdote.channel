@@ -1,76 +1,80 @@
 # Orientation
 
-This repository is one **Tell**: a jurisdiction's hub meant to be copied. The README and
-`CONTRACT.md` cover *what* this is and *how* the wire works; `CONSTITUTION.md` is the binding
-law; `ROADMAP.md` is where this is going. This file is the why-shaped map — the ideas
-underneath that the others won't lead with.
+This repository is one **Tell**: a jurisdiction's hub meant to be copied — the addressable node.
+A data-pile is a mailbox plus a reader; on its own it has no address. The Tell is the party an
+assembly *tells its data to*: it authorizes each reply, judges it against the constitution the
+pile delegated, seals it encrypted to the pile alone, and publishes it for the pile to pull. A
+pile registers *to a Tell*; a Tell registers *to Atlas(es)*.
 
-## The thrust
+## Where the truth is, in reading order
 
-- **Tell is the addressable node.** A data-pile is a mailbox plus a reader; on its own it has
-  no address and nothing to receive for it. The Tell is both the party an assembly *tells its
-  data to* and the unit a directory (Atlas) can list and address. A pile registers *to a Tell*;
-  a Tell registers *to Atlas(es)*. Being your own Tell is fine technically — but a pile without
-  a Tell is not discoverable, because there is no node to answer for it.
-- **Authorize, judge-when-delegated, seal, publish — and never hold a reading key.** Three
-  distinct gates, kept distinct: a token authorizes, a *delegated* constitution governs, and the
-  pile's own key is the only thing that decrypts what Tell sealed. Tell holds a signer key, a
-  ratchet seed, and a QR secret — none of which read the digest back.
-- **Narrow the exposure window.** Replies enter today as public GitHub Issues, world-readable
-  between posting and sealing. That is a named, *transitional* edge — not the destination. The
-  direction (`ROADMAP.md`) is to judge before anything is public and seal at pickup, closing the
-  window. Don't entrench the public-Issue mailbox as if it were the endpoint.
-- **Replicable by design.** Fork it and stay a compatible Tell, or diverge and be your own group
-  with the same socialization architecture and constitutions in flight. The PR layer is
-  load-bearing: it is how humans consent to association. Keep identity out of the core.
+1. **Demos before docs.** The constellation's capability index is the demo shelf in
+   [`anecdote.channel`](https://github.com/FCCN-ANTIBODY/anecdote.channel) (`composer/*-demo.html`,
+   `viewer/`, `git-enough/`, `reducer/demo.mjs` — its `AGENTS.md` carries the table). The QR mint,
+   the poll-answer view, the gesture gate, and the submission tunnel this Tell depends on are all
+   demoed there. Before designing a capability, look for its demo — if the need category is
+   represented, the machinery exists. This repo's own executable truth is `test/run.sh`, the
+   `bin/` tools, and `workers/submit-gateway/`.
+2. **Open issues are urgent** — a live problem with the current implementation, ahead of the
+   deferred backlog. Roadmapping does *not* live in issues; it lives in the documents
+   (`ROADMAP.md`, civic-node `VISION.md`), and design writing is moving back into repo files, off
+   the public issue surface.
+3. **The deferred half lives in one place** — civic-node
+   [`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md).
+   Record a deferral there rather than threading a caveat through the law or the spec.
+4. **The law, then the wire.** `CONSTITUTION.md` binds what Tell does; `CONTRACT.md` pins the
+   wire; `docs/` holds the shaping notes (qr-provenance, submission-credential, reporting,
+   issue-ingress, per-poll-registry).
 
-## The shape of the system
+## The offline origin is the destination
 
-- **Two directions, mirror images.** Inbound: Issues → authorize → govern (when delegated) →
-  seal → publish at `piles/<id>/feed/*` in the served tree. The pile **pulls**; Tell never reaches into it.
-  Tell writes only its own repo with the built-in `GITHUB_TOKEN` — no GitHub App, no cross-repo
-  token.
-- **Three secrets, none of them decrypt.** `TELL_SIGNER_KEY` signs manifests, `TELL_SEED_IDENTITY`
-  resumes each pile's one-way ratchet, `TELL_QR_SECRET` mints poll tokens. The owner's pile holds
-  the only key that reads the sealed digest.
-- **The token is the authority.** A QR carries an HMAC bound to `{pile, poll, round}`; a valid
-  token *is* the authorization, so Tell keeps no poll/asker registry and no per-respondent
-  identity. Keep it that way — identity stays out of this layer.
-- **Logic in scripts and local actions; workflows stay thin.** `deliver` and `ingress` are
-  composite actions; `ingest-submissions.yml` is a manual-dispatch template whose cron/issues
-  triggers are commented suggestions an adopter edits. Cron is a knob, not a default.
-- **Vendored crypto, guarded against drift.** `bin/pile-lib.sh` is data-pile's `bin/lib.sh`
-  verbatim; `bin/check-pile-lib` fails CI on divergence. Producer (here) and consumer (the pile)
-  must agree on the ratchet/manifest byte-for-byte.
+Capability is migrating off GitHub and down to the operator's device — the anecdote.channel PWA,
+where signing happens (the device is the second factor). The workflows and composite actions here
+(`deliver`, `ingress`, `ingest-submissions.yml`) are being **kept as a declarative definition of
+the pipeline** — a configuration input an operator or the offline origin can read and mirror —
+not as the presumed runtime. Support them; don't deepen reliance on them. Whether or not GitHub
+holds the secrets to run a workflow, the offline origin does.
 
-## The constellation (pile ↔ Tell ↔ Atlas)
+## Invariants — violate these and you're building the wrong system
 
+1. **Neighbors, not a graph.** No central authority; one hop; identity stays out of the core.
+2. **Verify-from-anyone; trust decides *action*, not *admission*.** Anyone can check a signature;
+   `keys/tell.signers` and the friend list decide whether to act.
+3. **Witness, not judge — and never withhold.** Tell *attaches* a `governed` verdict before
+   sealing; it never decides what the pile keeps and never withholds an authorized answer. `held`
+   is the honest "unjudged" verdict, never a throttle.
+4. **Sign ≠ decrypt.** Three secrets — `TELL_SIGNER_KEY`, `TELL_SEED_IDENTITY`, `TELL_QR_SECRET` —
+   and none of them reads a sealed digest back. Only the pile's own key decrypts.
+5. **Honest defaults fire nothing.** Cron triggers ship commented out; `bin/authz` defaults
+   enforce nothing extra; automation is a knob an adopter turns.
+6. **Attest before you run.** New conduct goes into `CONSTITUTION.md` in plain words before it is
+   coded.
+7. **The token is the authority.** A QR carries an HMAC bound to `{pile, poll, round}`; a valid
+   token *is* the authorization, so Tell keeps no asker registry and no per-respondent identity.
+8. **No new cryptography without cause.** `age`, `openssl`, `ssh-keygen -Y` (vendored via
+   `bin/pile-lib.sh`, guarded by `bin/check-pile-lib`), `sha256`. Producer and consumer must agree
+   byte-for-byte.
+
+## Where intuition goes wrong here
+
+- **Don't entrench the transitional.** Replies enter today as public GitHub Issues,
+  world-readable between posting and sealing. That is a named *transitional* edge, not the
+  destination — a change should *shrink* the exposure window, never deepen reliance on it.
+- **Two directions, mirror images.** Inbound: authorize → govern-when-delegated → seal → publish
+  at `piles/<id>/feed/*`. The pile **pulls**; Tell never reaches into it, and writes only its own
+  repo with the built-in `GITHUB_TOKEN`.
 - **The pile is the principal; Tell is its agent.** The per-poll constitution lives here
-  (`_data/constitutions/<pile>/<poll>.json`), but the pile *delegated* it and revokes it by leaving.
-  Tell attaches a verdict before sealing; it never decides what the pile keeps, and it withholds
-  nothing it authorized.
-- **Atlas is the reporting-law layer.** An Atlas lists Tells to make them discoverable, and
-  discoverability is not free: to be listed is to be addressable and to report in the shape that Atlas
-  requires, because an Atlas aggregates the Tells it lists into constituency/jurisdiction reports. A
-  Tell lists itself with `bin/register` — a signed PR on a `tell/<scope>/<id>` branch that proves its
-  ownership — and the Atlas anchors that with the Tell's `signer` fingerprint. See `CONTRACT.md` →
-  "Registering with an Atlas".
-- **Constitutions all the way up.** Each layer binds itself in the open and constrains the next:
-  a pile's constitution delegates to a Tell's; an Atlas's constitution can require a Tell's to
-  describe its transparency reports. Copyable constitutions are the point — a few sound ones let
-  one careful operator serve many.
+  (`_data/constitutions/<pile>/<poll>.json`) but the pile delegated it and revokes it by leaving.
+- **Logic in scripts and local actions; workflows stay thin.**
 
-## Working here
+## Built here — reuse, don't rebuild
 
-- **Mirror the constellation's idioms.** Signed branches + a registry anchor, vendored crypto,
-  PR-as-consent, thin workflows. Prefer the patterns already in the sibling repos
-  (`data-pile`, Atlas) over new machinery, and keep dependencies near zero (`age`, `openssl`,
-  `jq`, `git`).
-- **Don't entrench the transitional.** The public-Issue mailbox and its plaintext window are
-  named edges on a path (`ROADMAP.md`), not load-bearing assumptions. A change should *shrink*
-  the exposure window, never deepen reliance on it.
-- **Read the law, then the spec.** `CONSTITUTION.md` binds what Tell does; `CONTRACT.md` pins the
-  wire; `ROADMAP.md` holds where this is going. What's deferred for the whole constellation lives in
-  one place, the workspace's
-  [`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md) —
-  record a deferral there rather than threading a caveat through the law or the spec.
+`bin/qr` (mint; `--signkey` adds provenance signature; `--mode comment --canonical` targets the
+one-thread mailbox), `bin/open-poll` / `bin/collect-submissions` / `bin/rollup` /
+`bin/finalize-submissions` (the ingress loop), `bin/govern` (delegated judging), `bin/deliver`
+(seal + signed manifest), `bin/register` (the canonical signed-PR registration — the idiom the
+whole constellation mirrors), `workers/submit-gateway/` (the kiosk POST path),
+`keys/custody.yml` + `bin/check-custody` (declared secret custody, enforced in CI).
+
+House test style: `test/run.sh`, ssh-optional, dependencies near zero (`age`, `openssl`, `jq`,
+`git`). Verify locally; CI is the final gate.
