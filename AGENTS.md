@@ -23,8 +23,8 @@ pile registers *to a Tell*; a Tell registers *to Atlas(es)*.
    [`OPEN-QUESTIONS.md`](https://github.com/FCCN-ANTIBODY/civic-node/blob/main/OPEN-QUESTIONS.md).
    Record a deferral there rather than threading a caveat through the law or the spec.
 4. **The law, then the wire.** `CONSTITUTION.md` binds what Tell does; `CONTRACT.md` pins the
-   wire; `docs/` holds the shaping notes (qr-provenance, submission-credential, reporting,
-   issue-ingress, per-poll-registry).
+   wire; `docs/` holds the shaping notes (solicitation — what a poll *is* and who frames one;
+   qr-provenance, submission-credential, reporting, issue-ingress, per-poll-registry).
 
 ## The offline origin is the destination
 

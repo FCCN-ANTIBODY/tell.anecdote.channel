@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# Author a poll — Layer 1 of docs/per-poll-registry.md: write the governing constitution for one
+# poll on one pile this Tell fronts (_data/constitutions/<pile>/<poll>.json). This is the AUTHORING
+# gesture — "a poll is a data pile with the question attached" (docs/solicitation.md). It attaches the
+# QUESTION to the pile; it does NOT mint the QR. The QR (Layer 2, bin/qr) is DEFERRED to SIGNING —
+# minting it is the act of declaring the poll shareable, so it is a separate, later step.
+#
+# The defining bit of a poll is SOLICITATION, and its signal is a PREFAB ANSWER. A multichoice poll
+# MUST carry at least one option (that signal); a payload with no prefab answer is an unsolicited
+# statement — an anecdote, not a poll.
+#
+#   bin/poll --pile ID --poll POLL --question Q
+#            [--type multichoice|open]     default: multichoice if --opts given, else open
+#            [--opts "A,B,C"]              the prefab answers — their PRESENCE makes it a solicitation
+#            [--guidance TEXT]             the rule bin/govern applies
+#            [--accept-writein]            count write-ins too (default: off for multichoice, on for open)
+#            [--round R] [--opens ISO] [--closes ISO] [--one-per respondent]
+#            [--out PATH|-]                default: _data/constitutions/<pile>/<poll>.json ; "-" = stdout
+#
+# Prints the path written (or the JSON, for --out -) and the deferred next step (sign -> bin/qr).
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+repo="$(cd "$here/.." && pwd)"
+die() { echo "bin/poll: $*" >&2; exit 1; }
+
+pile=""; poll=""; question=""; type=""; opts=""; guidance=""; accept_writein=""
+round="1"; opens=""; closes=""; one_per="respondent"; out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pile) pile="$2"; shift 2;;
+    --poll) poll="$2"; shift 2;;
+    --question) question="$2"; shift 2;;
+    --type) type="$2"; shift 2;;
+    --opts) opts="$2"; shift 2;;
+    --guidance) guidance="$2"; shift 2;;
+    --accept-writein) accept_writein="1"; shift;;
+    --round) round="$2"; shift 2;;
+    --opens) opens="$2"; shift 2;;
+    --closes) closes="$2"; shift 2;;
+    --one-per) one_per="$2"; shift 2;;
+    --out) out="$2"; shift 2;;
+    *) die "unknown arg: $1";;
+  esac
+done
+[ -n "$pile" ] && [ -n "$poll" ] && [ -n "$question" ] || \
+  die "usage: bin/poll --pile ID --poll POLL --question Q [--type multichoice|open] [--opts CSV] [--guidance G] [--accept-writein] [--out PATH|-]"
+
+# Default the type from whether prefab answers were supplied: options => a solicitation.
+[ -n "$type" ] || { [ -n "$opts" ] && type="multichoice" || type="open"; }
+
+# Turn the CSV into a JSON array: trim each option, drop empties.
+opts_json="[]"
+[ -n "$opts" ] && opts_json="$(printf '%s' "$opts" | jq -R 'split(",") | map(gsub("^\\s+|\\s+$";"")) | map(select(length>0))')"
+nopts="$(printf '%s' "$opts_json" | jq 'length')"
+
+case "$type" in
+  multichoice)
+    # THE INVARIANT: a poll solicits feedback, and the signal of solicitation is a prefab answer.
+    [ "$nopts" -ge 1 ] || die "a multichoice poll needs at least one prefab answer — a prefab answer is what makes a payload a SOLICITATION (docs/solicitation.md). For an unsolicited statement, use an anecdote, not a poll."
+    [ -n "$accept_writein" ] && aw=true || aw=false ;;   # write-ins off by default; --accept-writein counts them
+  open)
+    [ "$nopts" -eq 0 ] || die "an open poll carries no prefab options (got $nopts) — use --type multichoice for a fixed-answer poll"
+    aw=true ;;                                            # an open poll is answered by write-in by nature
+  *) die "unknown --type: $type (expected multichoice|open)" ;;
+esac
+
+# Guidance default — honest, never empty.
+if [ -z "$guidance" ]; then
+  if [ "$type" = multichoice ]; then
+    guidance="One of the listed options."; [ "$aw" = false ] && guidance="$guidance Write-ins are not counted for this poll."
+  else
+    guidance="An open answer; the judge decides what abides."
+  fi
+fi
+
+lifecycle="$(jq -n --arg r "$round" --arg o "$opens" --arg c "$closes" --arg op "$one_per" \
+  '{round: ($r|tonumber? // $r)}
+   + (if $o != "" then {opens_at:$o} else {} end)
+   + (if $c != "" then {closes_at:$c} else {} end)
+   + {one_per: $op}')"
+
+doc="$(jq -n \
+  --arg pile "$pile" --arg poll "$poll" --arg type "$type" --arg text "$question" \
+  --argjson options "$opts_json" --argjson aw "$aw" --arg guidance "$guidance" \
+  --argjson lifecycle "$lifecycle" \
+  '{pile:$pile, poll:$poll, type:$type, text:$text, options:$options, accept_writein:$aw, guidance:$guidance, lifecycle:$lifecycle}')"
+
+# Notice (never fail) whether the pile is registered — the question attaches now; the pile enters the
+# registry through its own handshake, separately (bin/register / register-exchange).
+if [ -f "$repo/_data/piles.yml" ] && ! grep -qE "id:[[:space:]]*\"?${pile}\"?([[:space:]]|\"|$)" "$repo/_data/piles.yml"; then
+  echo "bin/poll: note — pile '$pile' is not yet in _data/piles.yml; it enters the registry via its handshake PR (bin/register / register-exchange)." >&2
+fi
+
+if [ "$out" = "-" ]; then
+  printf '%s\n' "$doc"
+  exit 0
+fi
+dest="${out:-$repo/_data/constitutions/$pile/$poll.json}"
+mkdir -p "$(dirname "$dest")"
+printf '%s\n' "$doc" > "$dest"
+echo "bin/poll: wrote $dest" >&2
+echo "  next — the QR is DEFERRED to signing (minting it declares the poll shareable):" >&2
+echo "         bin/qr --pile $pile --poll $poll --round $round${opts:+ --opts \"$opts\"} --signkey <key>" >&2

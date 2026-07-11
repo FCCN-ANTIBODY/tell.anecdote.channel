@@ -312,6 +312,26 @@ jrep="$(TELL_JUDGE_CMD="$work/yes" TELL_SUBMISSIONS_DIR="$work/gstage" TELL_REPO
 [ "$(jq -r '.records[]|select(.issue==3)|.verdict' "$jrep")" = accept ] || fail "TELL_JUDGE_CMD override not honored"
 ok "verdicts accept/reject/needs-judgment/held; staged records annotated; judge seam plugs in"
 
+echo "[9b] bin/poll authors a Layer-1 constitution that governs; the solicitation invariant holds"
+pc="$work/pcons/cd04-q1"; mkdir -p "$pc"
+# Author a multichoice poll — the prefab answers ARE the solicitation signal (docs/solicitation.md).
+bin/poll --pile cd04-q1 --poll parks --question "Fund the parks?" --opts "Yes, No" --out "$pc/parks.json" >/dev/null 2>&1
+[ "$(jq -r '.type' "$pc/parks.json")" = multichoice ] || fail "bin/poll did not author a multichoice poll"
+[ "$(jq -r '.options|length' "$pc/parks.json")" = 2 ] || fail "bin/poll dropped the prefab answers"
+[ "$(jq -r '.accept_writein' "$pc/parks.json")" = false ] || fail "bin/poll defaulted write-ins ON for a multichoice poll"
+# It governs: a listed-option answer is accepted mechanically against the authored file.
+ps="$work/pstage/cd04-q1"; mkdir -p "$ps"
+jq -n '{number:1,pile:"cd04-q1",poll:"parks",type:"multichoice",asker:"a",shown_guidance:"g",round:"1",answer:"Yes",ts:"t"}' > "$ps/1.json"
+prep="$(TELL_SUBMISSIONS_DIR="$work/pstage" TELL_CONSTITUTIONS_DIR="$work/pcons" TELL_REPORTS_DIR="$work/reports" bin/govern)"
+[ "$(jq -r '.records[]|select(.issue==1)|.verdict' "$prep")" = accept ] || fail "an authored constitution did not govern a listed-option answer"
+# THE INVARIANT: a poll solicits; a multichoice with no prefab answer is refused (that would be an anecdote).
+bin/poll --pile cd04-q1 --poll void --question "thoughts?" --type multichoice --out - >/dev/null 2>&1 \
+  && fail "bin/poll authored a multichoice poll with no prefab answer" || true
+# An open poll carries no prefab options.
+bin/poll --pile cd04-q1 --poll bad --question q --type open --opts "A,B" --out - >/dev/null 2>&1 \
+  && fail "bin/poll authored an open poll with prefab options" || true
+ok "bin/poll writes Layer-1 that governs; prefab-answer invariant enforced (poll vs anecdote boundary)"
+
 echo "[10] rollup tags each record with its poll, carries the verdict; deliver seals it; consumer verifies"
 rb="$work/rollup.block"
 TELL_SUBMISSIONS_DIR="$work/stage" bin/rollup cd04-q1 colorado > "$rb"

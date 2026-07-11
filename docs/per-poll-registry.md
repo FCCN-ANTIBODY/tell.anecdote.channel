@@ -1,5 +1,10 @@
 # The per-poll registry
 
+> The *ideological* framing above this data model — what a poll **is** (solicitation; the prefab
+> answer is the signal), how it differs from a statement or a need, and who frames one (Antidote
+> authors, Tell presents, Anecdote holds the unsolicited half) — lives in
+> [`solicitation.md`](solicitation.md). This note is the mechanics; that one is the why.
+
 A poll has three kinds of data, with three different trust and write models. Today they are
 scattered, and that scattering touches several open questions at once (`OPEN-QUESTIONS.md`
 §J, §F, §K). This note is the consolidating design.
