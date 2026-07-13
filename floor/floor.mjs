@@ -148,6 +148,12 @@ export function draftArtifacts(name, spec) {
   };
 }
 
+// One question's one-line label for the pile panel (slug — question). Exported so
+// the panel and the test agree on exactly what a row reads.
+export function questionLabel(q) {
+  return q.poll + " — " + q.text;
+}
+
 // --- page wiring below; everything above is the testable surface -------------
 
 function el(doc, tag, attrs = {}, text) {
@@ -157,22 +163,28 @@ function el(doc, tag, attrs = {}, text) {
   return node;
 }
 
+// The pile view: a SCROLLING PANEL of this pile's questions beside a single Tell
+// stage. Picking a question re-aims the one iframe — one page, no navigation, so a
+// pile of a hundred questions stays one view (the panel scrolls, the stage swaps).
 function renderViewer(doc, name, questions) {
-  const switcher = doc.getElementById("switcher");
-  const select = doc.getElementById("question");
+  const viewer = doc.getElementById("viewer");
+  const panel = doc.getElementById("panel");
   const stage = doc.getElementById("stage");
-  select.textContent = "";
-  questions.forEach((q, i) => {
-    select.appendChild(el(doc, "option", { value: String(i) }, q.poll + " — " + q.text));
-  });
-  const show = () => {
-    const q = questions[Number(select.value) || 0];
+  panel.textContent = "";
+  const rows = [];
+  const select = (i) => {
+    rows.forEach((r, j) => r.setAttribute("aria-current", j === i ? "true" : "false"));
+    const q = questions[i];
     if (q) stage.src = tellSrc(q, name);
   };
-  select.addEventListener("change", show);
-  switcher.style.display = "flex";
-  stage.style.display = "block";
-  show();
+  questions.forEach((q, i) => {
+    const row = el(doc, "button", { type: "button", "aria-current": "false" }, questionLabel(q));
+    row.addEventListener("click", () => select(i));
+    panel.appendChild(row);
+    rows.push(row);
+  });
+  viewer.style.display = "flex";
+  if (questions.length) select(0);
 }
 
 function renderImport(doc, name, storage, onChange) {
@@ -322,7 +334,9 @@ export function mountFloor(doc, loc, { storage } = {}) {
   doc.getElementById("pile-address").textContent = pileAddress(name);
   notice.style.display = "none";
 
+  const count = doc.getElementById("pile-count");
   const refresh = (questions) => {
+    if (count) count.textContent = questions.length ? questions.length + (questions.length === 1 ? " question" : " questions") : "";
     if (questions.length) renderViewer(doc, name, questions);
   };
   const questions = readVault(local);
