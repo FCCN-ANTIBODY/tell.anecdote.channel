@@ -11,7 +11,7 @@
 //       constitution, for the owner to carry by their own means.
 import fs from "fs";
 import {
-  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, VAULT_KEY,
+  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, carryBlocks, VAULT_KEY,
 } from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
@@ -97,5 +97,13 @@ assert(drafted.question.pile === "some-pile-name" && drafted.question.tell === "
 assert(drafted.question.options.join(",") === "Cut,Keep", "options not trimmed/filtered");
 assert(drafted.constitutionPath === "_data/constitutions/some-pile-name/budget.json", "constitution path wrong");
 assert(drafted.constitution.accept_writein === true, "a drafted constitution must never close the write-in door");
+
+// (d2) the carry blocks — exactly the two artifacts, each carriable as its own bytes; the Tell
+// block names its destination path, and both round-trip back to the drafted objects.
+const carried = carryBlocks(drafted);
+assert(carried.length === 2, "a created question carries exactly two artifacts");
+assert(JSON.parse(carried[0].json).schema === "anecdote.poll/v1", "first carry block is the pile-side question");
+assert(carried[1].title.includes(drafted.constitutionPath), "the Tell carry block names its destination path");
+assert(JSON.parse(carried[1].json).accept_writein === true, "the carried constitution is the drafted one");
 
 console.log("ok: floor — the name is a key, the vault is local, the iframe is fixed on Tell and carries no credential");
