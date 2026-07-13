@@ -11,7 +11,7 @@
 //       constitution, for the owner to carry by their own means.
 import fs from "fs";
 import {
-  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, VAULT_KEY,
+  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, VAULT_KEY,
 } from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
@@ -82,6 +82,10 @@ assert(!/constitution=/.test(faked), "a malformed constitution pointer must not 
 
 // (c3) the pile panel row label — the scrolling switcher and the test agree on the row text
 assert(questionLabel(held[0]) === "budget — Cut or keep?", "pile panel row label wrong: " + questionLabel(held[0]));
+
+// (c4) the creator heading opens an empty pile straight into its first question, then offers more
+assert(creatorHeading("some-pile-name", 0) === "Ask some-pile-name's first question", "empty pile must open into its first question: " + creatorHeading("some-pile-name", 0));
+assert(creatorHeading("some-pile-name", 3) === "Add another question", "a populated pile offers another question: " + creatorHeading("some-pile-name", 3));
 
 // (d) creator artifacts
 const drafted = draftArtifacts("some-pile-name", {
