@@ -161,6 +161,17 @@ export function creatorHeading(name, count) {
   return count ? "Add another question" : "Ask " + name + "'s first question";
 }
 
+// The two artifacts a created question produces, each ready to CARRY to where it
+// belongs — the pile-side object for the private pile repo, and the Tell-side
+// constitution for whenever it goes out in the wild (with its destination path in
+// the title). The Floor pushes nothing; it hands the owner exactly these bytes.
+export function carryBlocks(drafted) {
+  return [
+    { title: "In the vault, and for the pile repo (poll.json / its questions dir)", json: JSON.stringify(drafted.question, null, 2) },
+    { title: "For the Tell, whenever this goes out in the wild → " + drafted.constitutionPath, json: JSON.stringify(drafted.constitution, null, 2) },
+  ];
+}
+
 // --- page wiring below; everything above is the testable surface -------------
 
 function el(doc, tag, attrs = {}, text) {
@@ -308,13 +319,21 @@ function renderCreator(doc, name, storage, onChange) {
     });
     const merged = mergeVault(readVault(storage), [drafted.question]);
     writeVault(storage, merged);
-    const blocks = [
-      ["In the vault, and for the pile repo (poll.json / its questions dir)", drafted.question],
-      ["For the Tell, whenever this goes out in the wild → " + drafted.constitutionPath, drafted.constitution],
-    ];
-    for (const [title, obj] of blocks) {
-      out.appendChild(el(doc, "h3", {}, title));
-      out.appendChild(el(doc, "pre", { class: "artifact" }, JSON.stringify(obj, null, 2)));
+    for (const block of carryBlocks(drafted)) {
+      out.appendChild(el(doc, "h3", {}, block.title));
+      out.appendChild(el(doc, "pre", { class: "artifact" }, block.json));
+      // Carry it by the owner's own means — the Floor holds no credential and
+      // pushes nowhere, so "carry" is a clipboard copy, never a network call.
+      const copy = el(doc, "button", { type: "button", class: "copy" }, "Copy");
+      copy.addEventListener("click", () => {
+        try {
+          navigator.clipboard.writeText(block.json);
+          copy.textContent = "Copied — carry it to your pile";
+        } catch (_) {
+          copy.textContent = "Copy unavailable — select the text above";
+        }
+      });
+      out.appendChild(copy);
     }
     onChange(merged);
   });
