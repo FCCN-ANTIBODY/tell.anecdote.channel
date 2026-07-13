@@ -154,6 +154,13 @@ export function questionLabel(q) {
   return q.poll + " — " + q.text;
 }
 
+// The creator's heading adapts to the pile's state: an empty pile opens STRAIGHT
+// into asking its first question (the name was just minted; there is nothing to
+// browse yet), while a pile that already holds questions offers to add another.
+export function creatorHeading(name, count) {
+  return count ? "Add another question" : "Ask " + name + "'s first question";
+}
+
 // --- page wiring below; everything above is the testable surface -------------
 
 function el(doc, tag, attrs = {}, text) {
@@ -225,7 +232,7 @@ function renderImport(doc, name, storage, onChange) {
 function renderCreator(doc, name, storage, onChange) {
   const creator = doc.getElementById("creator");
   creator.textContent = "";
-  creator.appendChild(el(doc, "h2", {}, "Or invent a question here"));
+  creator.appendChild(el(doc, "h2", { id: "creator-heading" }, creatorHeading(name, readVault(storage).length)));
   creator.appendChild(
     el(
       doc,
@@ -337,6 +344,8 @@ export function mountFloor(doc, loc, { storage } = {}) {
   const count = doc.getElementById("pile-count");
   const refresh = (questions) => {
     if (count) count.textContent = questions.length ? questions.length + (questions.length === 1 ? " question" : " questions") : "";
+    const ch = doc.getElementById("creator-heading");
+    if (ch) ch.textContent = creatorHeading(name, questions.length);
     if (questions.length) renderViewer(doc, name, questions);
   };
   const questions = readVault(local);
