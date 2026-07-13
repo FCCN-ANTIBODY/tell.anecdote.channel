@@ -12,7 +12,7 @@
 import fs from "fs";
 import {
   floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, carryBlocks,
-  storageRequest, floorRole, boot, VAULT_KEY,
+  storageRequest, floorRole, engineBottleUrl, boot, VAULT_KEY,
 } from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
@@ -116,6 +116,13 @@ assert(floorRole("/").role === "pile" && floorRole("/index.html").role === "pile
 const gitRole = floorRole("/storage/.git");
 assert(gitRole.role === "adapter" && gitRole.adapter === "git", "the /storage/.git facet → the git adapter role");
 
+// (e2) the adapter → engine bottle resolution — canonical names, no registry. The adapter facet name IS the
+// engine's own provisioned origin under bottles.anecdote.channel; the floor iframes THIS and never vendors it.
+assert(engineBottleUrl("git-enough") === "https://git-enough.bottles.anecdote.channel/", "the canonical git engine resolves to its own bottle: " + engineBottleUrl("git-enough"));
+assert(engineBottleUrl("opfs") === "https://opfs.bottles.anecdote.channel/", "any adapter name resolves by identity — no alias table");
+for (const bad of ["", null, undefined, ".git", "UP", "a/b", "x".repeat(64)])
+  assert(engineBottleUrl(bad) === null, "a non-slug engine name resolves to no bottle: " + JSON.stringify(bad));
+
 // boot dispatches on the path: an adapter path does NOT mount the pile UI; the pile path does.
 (() => {
   const nodes = {};
@@ -125,7 +132,17 @@ assert(gitRole.role === "adapter" && gitRole.adapter === "git", "the /storage/.g
   };
   const adapter = boot(doc, { hostname: "cd04-q1.tell.anecdote.channel", pathname: "/storage/.git" });
   assert(adapter && adapter.role === "adapter" && adapter.adapter === "git", "boot on /storage/.git → adapter role");
+  assert(adapter.engine === "https://git.bottles.anecdote.channel/", "the adapter resolves the engine bottle it would consume: " + adapter.engine);
+  assert(adapter.handle === null, "an adapter with no open seam wired reaches for nothing (the safe default)");
   assert((nodes["pile-count"] === undefined) || nodes["pile-count"].textContent === "", "adapter mode does not mount the pile UI");
+
+  // wired: the injected `open` seam (the vendored consumer bootstrap) is handed the engine url + adapter name,
+  // and ONLY when the engine name resolves. This is the one place the floor reaches outward — by iframe, never fetch.
+  let opened = null;
+  const wired = boot(doc, { hostname: "cd04-q1.tell.anecdote.channel", pathname: "/storage/.git-enough" }, { open: (spec) => { opened = spec; return { spec }; } });
+  assert(opened && opened.url === "https://git-enough.bottles.anecdote.channel/" && opened.adapter === "git-enough", "the open seam is handed the canonical engine url + adapter name");
+  assert(wired.handle && wired.handle.spec === opened, "the adapter hands back the bootstrap handle");
+
   const pile = boot(doc, { hostname: "cd04-q1.tell.anecdote.channel", pathname: "/" }, { storage: { getItem: () => null, setItem() {} } });
   assert(pile && pile.role === "pile", "boot on / → pile floor role");
 })();
