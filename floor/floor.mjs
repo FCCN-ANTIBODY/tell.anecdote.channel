@@ -46,6 +46,20 @@ export function floorRole(pathname) {
   return s ? { role: "adapter", adapter: s.adapter } : { role: "pile" };
 }
 
+// The canonical engine bottle an adapter consumes. Canonical names, NO registry: the `.<adapter>` facet names
+// the engine, and that engine lives at its own isolated, provisioned origin <adapter>.bottles.anecdote.channel
+// (composer/bottle-uri grammar: label = the engine name, storage = "bottles"; kept in sync by hand, the
+// constellation's mirror discipline). The floor-as-adapter iframes THIS url and drives the client the bottle
+// delivers — it never enumerates engines (no leak) and never vendors one. An adapter name that isn't a
+// DNS-legal slug resolves to no engine (null).
+export const BOTTLES = "bottles";
+export const APEX = "anecdote.channel";
+export function engineBottleUrl(adapter, { storage = BOTTLES, apex = APEX } = {}) {
+  const a = String(adapter == null ? "" : adapter);
+  if (!SLUG.test(a) || a.length > 63) return null;
+  return "https://" + a + "." + storage + "." + apex + "/";
+}
+
 // hostname -> the name, or null when this isn't a named Floor (the canonical
 // origin the wildcard masks, the template viewed on the mother host, a local
 // preview). Exactly one label deep — the TLS wildcard covers one label, so
@@ -392,25 +406,35 @@ export function mountFloor(doc, loc, { storage } = {}) {
   refresh(questions);
 }
 
-// Adapter mode: this template was loaded on a /storage/.<adapter> path, so it IS that adapter — not the pile
-// UI. The adapter's runtime (git-enough via serveOnHello, vendored in) is wired here in the next gap; until
-// then an unwired adapter offers nothing (the safe default, exactly like an unprovisioned bottle) and only
-// names the role. Returns { role, adapter } so a test can see the dispatch.
-function mountAdapter(doc, loc, role) {
+// Adapter mode: this template was loaded on a /storage/.<adapter> path, so it IS that adapter — a storage
+// CONSUMER, not the pile UI. Post-glove (the anecdote.channel install grammar): the adapter does NOT vendor a
+// storage engine. It iframes the engine's OWN canonical bottle (engineBottleUrl) and drives the client that
+// bottle DELIVERS over the install handshake — embed → hello → install → verify against the pinned platform
+// key → wear the entry (composer/open-engine). That consumer bootstrap is the injected `open` seam, supplied
+// by the served page where the vendored bootstrap lives, and kept out of this pure module so the floor stays
+// self-contained and fetch-free. An adapter whose name resolves to no engine, or with no `open` seam wired,
+// reaches for nothing (the safe default, exactly like an unprovisioned bottle) and only names its role + the
+// engine it would consume. Returns { role, adapter, engine, handle } so a test can see the dispatch resolve.
+function mountAdapter(doc, loc, role, { open } = {}) {
+  const engine = engineBottleUrl(role.adapter);
   const notice = doc.getElementById("notice");
   if (notice) {
     notice.style.display = "block";
-    notice.textContent = "storage adapter: " + role.adapter + " — served over the probe (runtime not yet wired here).";
+    notice.textContent = engine
+      ? "storage adapter: " + role.adapter + " — consuming " + engine + " over the probe" + (open ? "" : " (bootstrap not wired here)") + "."
+      : "storage adapter: " + role.adapter + " — not a resolvable engine name.";
   }
   const addr = doc.getElementById("pile-address");
   if (addr) addr.textContent = "";
-  return { role: "adapter", adapter: role.adapter };
+  // Only a resolvable engine with a wired `open` seam actually reaches for its bottle; else just name the role.
+  const handle = engine && typeof open === "function" ? open({ url: engine, adapter: role.adapter }) : null;
+  return { role: "adapter", adapter: role.adapter, engine, handle };
 }
 
 // THE ENTRY: every wildcard path loads this same template; boot reads the path and takes its role. A
 // /storage/.<adapter> path → the adapter; anything else → the pile floor.
 export function boot(doc, loc, opts = {}) {
   const role = floorRole(loc.pathname || "/");
-  if (role.role === "adapter") return mountAdapter(doc, loc, role);
+  if (role.role === "adapter") return mountAdapter(doc, loc, role, opts);
   return mountFloor(doc, loc, opts) || { role: "pile" };
 }
