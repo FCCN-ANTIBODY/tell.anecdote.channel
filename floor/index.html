@@ -27,10 +27,23 @@
     header { padding: .6rem 1rem; border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent);
              display: flex; gap: .75rem; align-items: baseline; flex-wrap: wrap; }
     header code { font-size: .95rem; opacity: .8; }
-    #switcher { padding: .5rem 1rem; display: none; gap: .5rem; align-items: center; flex-wrap: wrap; }
-    #switcher select { font: inherit; max-width: 100%; }
     main { flex: 1; display: flex; flex-direction: column; }
-    #stage { flex: 1; border: 0; width: 100%; min-height: 60vh; display: none; }
+    /* The pile view: a scrolling panel of this pile's questions beside the Tell stage.
+       One page, no navigation — picking a question just re-aims the iframe. Stacks on narrow. */
+    #viewer { display: none; flex: 1; flex-direction: column; min-height: 60vh; }
+    #panel { overflow-y: auto; max-height: 30vh; border-bottom: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+    #panel button { display: block; width: 100%; margin: 0; padding: .5rem 1rem; text-align: left;
+                    border: 0; border-bottom: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+                    background: transparent; color: inherit; cursor: pointer; }
+    #panel button:hover { background: color-mix(in srgb, currentColor 8%, transparent); }
+    #panel button[aria-current="true"] { font-weight: 600; background: color-mix(in srgb, currentColor 14%, transparent); }
+    #stage { flex: 1; border: 0; width: 100%; min-height: 40vh; }
+    @media (min-width: 48rem) {
+      #viewer { flex-direction: row; }
+      #panel { max-height: none; width: 16rem; flex: 0 0 16rem; border-bottom: 0;
+               border-right: 1px solid color-mix(in srgb, currentColor 25%, transparent); }
+      #stage { min-height: 60vh; }
+    }
     #import, #creator, #notice { padding: 1rem; max-width: 44rem; }
     #import, #creator { display: none; }
     #import textarea, #creator input, #creator textarea, #creator select { font: inherit; width: 100%; box-sizing: border-box; }
@@ -46,14 +59,14 @@
   <header>
     <strong>Floor</strong>
     <code id="pile-address" aria-live="polite"></code>
+    <span id="pile-count" class="muted" aria-live="polite"></span>
   </header>
-  <div id="switcher">
-    <label for="question">Question:</label>
-    <select id="question"></select>
-  </div>
   <main>
     <p id="notice" class="muted">…</p>
-    <iframe id="stage" title="Tell"></iframe>
+    <div id="viewer">
+      <aside id="panel" aria-label="Questions in this pile"></aside>
+      <iframe id="stage" title="Tell"></iframe>
+    </div>
     <div id="import"></div>
     <div id="creator"></div>
   </main>

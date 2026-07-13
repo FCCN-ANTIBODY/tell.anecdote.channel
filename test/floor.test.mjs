@@ -11,7 +11,7 @@
 //       constitution, for the owner to carry by their own means.
 import fs from "fs";
 import {
-  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, VAULT_KEY,
+  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, VAULT_KEY,
 } from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
@@ -79,6 +79,9 @@ assert(worn === "https://tell.anecdote.channel/?pile=p&poll=q&q=T%3F&constitutio
   "the bottle's constitution did not ride the iframe src: " + worn);
 const faked = tellSrc({ poll: "q", text: "T?", constitution: "sha256:short" }, "p");
 assert(!/constitution=/.test(faked), "a malformed constitution pointer must not be carried: " + faked);
+
+// (c3) the pile panel row label — the scrolling switcher and the test agree on the row text
+assert(questionLabel(held[0]) === "budget — Cut or keep?", "pile panel row label wrong: " + questionLabel(held[0]));
 
 // (d) creator artifacts
 const drafted = draftArtifacts("some-pile-name", {
