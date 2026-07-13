@@ -27,6 +27,25 @@ export const VAULT_KEY = "floor.questions";
 // 63-char bound is the DNS label rule the alias convention inherits).
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
+// The wildcard sub-sub-domain serves THIS SAME template on every path, so the path it loaded on IS the whole
+// initial instruction. storageRequest recognizes a storage-adapter request — /storage/.<adapter> — purely by
+// that path (mirrors composer/bottle-uri.mjs storageRequest; kept in sync by hand, the constellation's mirror
+// discipline). No storage path → not an adapter request.
+const STORAGE = "storage";
+export function storageRequest(pathname) {
+  const segs = String(pathname == null ? "" : pathname).split("/").filter(Boolean);
+  if (segs.length !== 2 || segs[0] !== STORAGE || !segs[1].startsWith(".")) return null;
+  const adapter = segs[1].slice(1);
+  return SLUG.test(adapter) ? { capability: STORAGE, adapter } : null;
+}
+
+// The role this template takes from the path it was loaded on: a storage ADAPTER (/storage/.<adapter>) or the
+// PILE floor (anything else). Every wildcard path serves this one file; the path selects the role.
+export function floorRole(pathname) {
+  const s = storageRequest(pathname);
+  return s ? { role: "adapter", adapter: s.adapter } : { role: "pile" };
+}
+
 // hostname -> the name, or null when this isn't a named Floor (the canonical
 // origin the wildcard masks, the template viewed on the mother host, a local
 // preview). Exactly one label deep — the TLS wildcard covers one label, so
@@ -371,4 +390,27 @@ export function mountFloor(doc, loc, { storage } = {}) {
   renderImport(doc, name, local, refresh);
   renderCreator(doc, name, local, refresh);
   refresh(questions);
+}
+
+// Adapter mode: this template was loaded on a /storage/.<adapter> path, so it IS that adapter — not the pile
+// UI. The adapter's runtime (git-enough via serveOnHello, vendored in) is wired here in the next gap; until
+// then an unwired adapter offers nothing (the safe default, exactly like an unprovisioned bottle) and only
+// names the role. Returns { role, adapter } so a test can see the dispatch.
+function mountAdapter(doc, loc, role) {
+  const notice = doc.getElementById("notice");
+  if (notice) {
+    notice.style.display = "block";
+    notice.textContent = "storage adapter: " + role.adapter + " — served over the probe (runtime not yet wired here).";
+  }
+  const addr = doc.getElementById("pile-address");
+  if (addr) addr.textContent = "";
+  return { role: "adapter", adapter: role.adapter };
+}
+
+// THE ENTRY: every wildcard path loads this same template; boot reads the path and takes its role. A
+// /storage/.<adapter> path → the adapter; anything else → the pile floor.
+export function boot(doc, loc, opts = {}) {
+  const role = floorRole(loc.pathname || "/");
+  if (role.role === "adapter") return mountAdapter(doc, loc, role);
+  return mountFloor(doc, loc, opts) || { role: "pile" };
 }
