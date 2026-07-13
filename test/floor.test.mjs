@@ -11,7 +11,8 @@
 //       constitution, for the owner to carry by their own means.
 import fs from "fs";
 import {
-  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, carryBlocks, VAULT_KEY,
+  floorName, pileAddress, isQuestion, parseImport, readVault, mergeVault, tellSrc, draftArtifacts, questionLabel, creatorHeading, carryBlocks,
+  storageRequest, floorRole, boot, VAULT_KEY,
 } from "../floor/floor.mjs";
 
 function assert(c, m) { if (!c) { console.error("FAIL: " + m); process.exit(1); } }
@@ -106,4 +107,27 @@ assert(JSON.parse(carried[0].json).schema === "anecdote.poll/v1", "first carry b
 assert(carried[1].title.includes(drafted.constitutionPath), "the Tell carry block names its destination path");
 assert(JSON.parse(carried[1].json).accept_writein === true, "the carried constitution is the drafted one");
 
-console.log("ok: floor — the name is a key, the vault is local, the iframe is fixed on Tell and carries no credential");
+// (e) path-dispatch — every wildcard path serves this one template; the path it loads on selects its role.
+assert(storageRequest("/storage/.git") && storageRequest("/storage/.git").adapter === "git", "storageRequest(/storage/.git) → git");
+assert(storageRequest("/storage/.opfs").adapter === "opfs", "storageRequest recognizes other adapters");
+for (const p of ["/", "", "/storage/", "/storage/git", "/.git", "/index.html", "/storage/.git/extra", "/store/.git"])
+  assert(storageRequest(p) === null, "not a storage facet → null: " + JSON.stringify(p));
+assert(floorRole("/").role === "pile" && floorRole("/index.html").role === "pile", "a non-facet path → the pile floor role");
+const gitRole = floorRole("/storage/.git");
+assert(gitRole.role === "adapter" && gitRole.adapter === "git", "the /storage/.git facet → the git adapter role");
+
+// boot dispatches on the path: an adapter path does NOT mount the pile UI; the pile path does.
+(() => {
+  const nodes = {};
+  const doc = {
+    createElement: () => ({ style: {}, appendChild() {}, setAttribute() {}, addEventListener() {} }),
+    getElementById: (id) => (nodes[id] = nodes[id] || { style: {}, textContent: "", appendChild() {}, setAttribute() {}, addEventListener() {} }),
+  };
+  const adapter = boot(doc, { hostname: "cd04-q1.tell.anecdote.channel", pathname: "/storage/.git" });
+  assert(adapter && adapter.role === "adapter" && adapter.adapter === "git", "boot on /storage/.git → adapter role");
+  assert((nodes["pile-count"] === undefined) || nodes["pile-count"].textContent === "", "adapter mode does not mount the pile UI");
+  const pile = boot(doc, { hostname: "cd04-q1.tell.anecdote.channel", pathname: "/" }, { storage: { getItem: () => null, setItem() {} } });
+  assert(pile && pile.role === "pile", "boot on / → pile floor role");
+})();
+
+console.log("ok: floor — the name is a key, the vault is local, the iframe is fixed on Tell, and the path selects the role");

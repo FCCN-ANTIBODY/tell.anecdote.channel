@@ -75,7 +75,7 @@
     // placements: at /floor/ on the mother host (scope /floor/) and at / on the
     // canonical Floor site every wildcard name masks onto (scope /).
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { type: "module" }).catch(() => {});
-    import("./floor.mjs").then((m) => m.mountFloor(document, location));
+    import("./floor.mjs").then((m) => m.boot(document, location));
   </script>
   <noscript><p style="padding:1rem">The Floor needs JavaScript to open a vault.</p></noscript>
 </body>
