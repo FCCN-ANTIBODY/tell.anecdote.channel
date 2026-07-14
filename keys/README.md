@@ -55,6 +55,14 @@ the phone to mint a signed poll. `bin/authz` verifies either — same `tell.sign
 `TELL_REQUIRE_SIG=1` demands one). Because provenance is optional, `sig` is also the field you
 **drop to shrink a QR** — a token-only QR is short.
 
+**Pinned foreign identity — Anecdote's platform key.** `keys/anecdote.fpr` is *not* one of the
+Tell's own identities: it is the **public** fingerprint (`key:sha256:…`, `composer/sign.mjs`) of the
+**Anecdote platform identity** — the module-loader root of trust whose private half the platform
+operator holds on-device, never here. The Floor's storage-adapter seam pins it to verify the client
+an engine bottle delivers over `install` (`floor/pin.mjs`; `bin/floor-build` stamps it into the built
+site — see `docs/floor.md`). It is exactly analogous to a pile pinning `tell.fpr`: a public
+fingerprint committed so verification needs no registry. Absent → the Floor's adapter stays inert.
+
 ### 2 · Capability secret — no public half
 
 | Secret | What it is | Provisioned by |

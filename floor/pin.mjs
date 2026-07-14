@@ -18,9 +18,11 @@
 // apex trusts the same Anecdote identity, so the pin is a build-time constant of the constellation, not a
 // per-name runtime seam. A different apex is a different platform identity, floor, and pin.
 //
-// NULL until set. With no key the floor wires no `open` seam (floor/adapter/open-seam makeOpen returns null)
-// and an adapter load reaches for nothing — the safe default. Set this to the Anecdote platform identity's
-// fingerprint (the key a bottle's install manifests are signed under) and the adapter comes alive.
+// NULL in source, STAMPED at build. This literal is the dev/default (no key → the floor wires no `open` seam,
+// floor/adapter/open-seam makeOpen returns null, and an adapter load reaches for nothing — the safe default).
+// bin/floor-build fills the deployed pin from the Anecdote platform identity's fingerprint — `keys/anecdote.fpr`
+// (a key:sha256:… file, like keys/boundary.fpr), or `FLOOR_PLATFORM_KEY` for a one-off build. It is a public
+// verification key, never a secret. To bring a floor alive, drop that fingerprint in and rebuild.
 export const PLATFORM_KEY = null;
 
 export default PLATFORM_KEY;
