@@ -88,8 +88,8 @@
       const m = await import(base + "floor.mjs");
       let open = null;
       if (m.floorRole(location.pathname || "/").role === "adapter") {
-        const [{ makeOpen }, { PLATFORM_KEY }] = await Promise.all([import(base + "adapter/open-seam.mjs"), import(base + "pin.mjs")]);
-        open = makeOpen({ platformKey: PLATFORM_KEY });
+        const [{ makeOpen }, { GLEBE_KEY }] = await Promise.all([import(base + "adapter/open-seam.mjs"), import(base + "pin.mjs")]);
+        open = makeOpen({ platformKey: GLEBE_KEY });
       }
       m.boot(document, location, { open });
     })();
