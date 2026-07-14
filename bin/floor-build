@@ -24,6 +24,12 @@ mkdir -p "$out"
 cp "$here/floor/index.html" "$out/index.html"
 cp "$here/floor/floor.mjs" "$out/floor.mjs"
 cp "$here/floor/sw.js" "$out/sw.js"
+cp "$here/floor/pin.mjs" "$out/pin.mjs"
+# The storage-adapter consumer bootstrap (the glove): the floor's own machinery to install, verify against the
+# pin, and drive an engine's delivered client. Static like the rest — no per-name provisioning. See
+# floor/adapter/MIRROR.md.
+mkdir -p "$out/adapter"
+cp "$here"/floor/adapter/*.mjs "$out/adapter/"
 printf '%s\n' "$cname" > "$out/CNAME"
 # Pages must not run the output through Jekyll — serve the bytes as-is.
 : > "$out/.nojekyll"

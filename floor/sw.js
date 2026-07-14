@@ -5,7 +5,11 @@
 // once "the queen only acts when visited" is the rule. This one is written to
 // that floor (pun intended):
 //
-//   * install: precache the two-file shell. That's the whole unprompted job.
+//   * install: precache the shell — the page + floor.mjs, plus the storage
+//     -adapter consumer bootstrap (pin + adapter/*.mjs) so an adapter load is
+//     offline-whole too. Still the whole unprompted job; still no fetches of
+//     its own (the adapter's one outward surface is the iframe, cross-origin,
+//     which this sw never touches).
 //   * activate: drop superseded floor-shell-* caches.
 //   * fetch: cache-first for the shell, same-origin GETs only. It NEVER
 //     intercepts cross-origin traffic — the iframe to vanilla Tell passes it
@@ -22,8 +26,20 @@
 // placements: /floor/ on the mother host, / on the canonical Floor site the
 // wildcard names mask onto.
 
-const VERSION = "floor-shell-v1";
-const SHELL = ["./", "./floor.mjs"];
+const VERSION = "floor-shell-v2";
+const SHELL = [
+  "./",
+  "./floor.mjs",
+  "./pin.mjs",
+  "./adapter/open-seam.mjs",
+  "./adapter/open-engine.mjs",
+  "./adapter/install.mjs",
+  "./adapter/install-loader.mjs",
+  "./adapter/bottle-uri.mjs",
+  "./adapter/sign.mjs",
+  "./adapter/anecdote.mjs",
+  "./adapter/probe-client.mjs",
+];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(
