@@ -26,6 +26,8 @@ jobs:
           submodules: recursive   # bring in .judge-engine (FCCN-ANTIBODY/judgement) for the live adapter test
       - name: Judge adapter transform + live engine (bin/judge-via-judgement)
         run: test/judge-via-judgement.test.sh
+      - name: Floor build pin stamp (bin/floor-build)
+        run: test/floor-build.test.sh
       - name: Install age (ssh-keygen, openssl, jq are preinstalled on the runner)
         run: sudo apt-get update && sudo apt-get install -y age
       - name: Clone the data-pile consumer (the real verifier)
