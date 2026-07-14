@@ -26,7 +26,9 @@ engine="${JUDGEMENT_JUDGE:-$here/../.judge-engine/bin/judge}"
 
 nj() { jq -n --arg r "$1" '{verdict:"needs-judgment", reason:$r}'; }
 
-[ -x "$engine" ] || { nj "judgement engine not present (set JUDGEMENT_JUDGE or add the .judge-engine submodule)"; exit 0; }
+# Invoked via `bash` so a fresh submodule checkout works even though its bin/ carries no +x bit
+# (judgement's own action chmods at runtime); we only need the file present and readable.
+[ -f "$engine" ] || { nj "judgement engine not present (set JUDGEMENT_JUDGE or add the .judge-engine submodule)"; exit 0; }
 
 # Map the seam in. The whole poll constitution is the governing text (lossless: type/options/text/
 # guidance all ride along); A=B because there is one board. subject=the answer; guidance=the narrowing.
@@ -39,7 +41,7 @@ req="$(printf '%s' "$in" | jq -c '
     context:  { caller: "tell", intake: "govern", item_id: ((.record.id // .record.ts // "") | tostring) } }
 ')" || { nj "malformed seam input"; exit 0; }
 
-out="$(printf '%s' "$req" | "$engine" 2>/dev/null)" || { nj "judgement engine failed"; exit 0; }
+out="$(printf '%s' "$req" | bash "$engine" 2>/dev/null)" || { nj "judgement engine failed"; exit 0; }
 
 # Map the verdict back, dropping confidence. A missing/garbled verdict degrades to needs-judgment.
 printf '%s' "$out" | jq -e 'has("verdict")' >/dev/null 2>&1 || { nj "judgement engine returned no verdict"; exit 0; }

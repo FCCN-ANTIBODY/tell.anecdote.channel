@@ -67,4 +67,19 @@ out4="$(printf '%s' "$seam" | JUDGEMENT_JUDGE="$work/rej" "$adapter")"
 [ "$(jq -r '.verdict' <<<"$out4")" = "reject" ] && [ "$(jq -r '.reason' <<<"$out4")" = "off-topic" ] || fail "a real reject must pass through"
 ok "a reject verdict passes through unchanged"
 
+# 6. LIVE: if the .judge-engine submodule is checked out, drive the adapter against the REAL
+# judgement/bin/judge. Without agent credentials the engine honestly returns needs-judgment — so we
+# assert only that the plumbing yields a VALID verdict and drops confidence (the real end-to-end path).
+if [ -f "$root/.judge-engine/bin/judge" ]; then
+  live="$(printf '%s' "$seam" | JUDGEMENT_JUDGE="$root/.judge-engine/bin/judge" "$adapter")"
+  lv="$(jq -r '.verdict' <<<"$live")"
+  case "$lv" in
+    accept|reject|needs-judgment) ok "real engine via .judge-engine submodule returns a valid verdict ($lv)";;
+    *) fail "real engine returned an invalid verdict: $lv";;
+  esac
+  [ "$(jq -r 'has("confidence")' <<<"$live")" = "false" ] || fail "confidence not dropped on the real engine path"
+else
+  echo "  (skip: .judge-engine submodule not checked out — live engine test skipped)"
+fi
+
 echo "all judge-via-judgement tests passed"

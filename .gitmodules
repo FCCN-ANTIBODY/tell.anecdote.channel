@@ -1,0 +1,3 @@
+[submodule ".judge-engine"]
+	path = .judge-engine
+	url = https://github.com/FCCN-ANTIBODY/judgement
