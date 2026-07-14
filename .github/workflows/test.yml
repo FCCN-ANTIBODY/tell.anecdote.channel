@@ -22,6 +22,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Judge adapter transform (bin/judge-via-judgement, stubbed engine — no judgement checkout)
+        run: test/judge-via-judgement.test.sh
       - name: Install age (ssh-keygen, openssl, jq are preinstalled on the runner)
         run: sudo apt-get update && sudo apt-get install -y age
       - name: Clone the data-pile consumer (the real verifier)
