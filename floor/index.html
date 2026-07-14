@@ -75,7 +75,19 @@
     // placements: at /floor/ on the mother host (scope /floor/) and at / on the
     // canonical Floor site every wildcard name masks onto (scope /).
     if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js", { type: "module" }).catch(() => {});
-    import("./floor.mjs").then((m) => m.boot(document, location));
+    // A /storage/.<adapter> load makes this page a storage CONSUMER. Build the `open` seam from the floor's
+    // pinned platform key (floor/pin.mjs) so the adapter can iframe the engine's bottle, install its client,
+    // verify it against the pin, and drive it. With no pin the seam is null and the adapter reaches for
+    // nothing — the safe default; a plain pile load never touches this. The adapter modules load lazily.
+    (async () => {
+      const m = await import("./floor.mjs");
+      let open = null;
+      if (m.floorRole((location.pathname || "/")).role === "adapter") {
+        const [{ makeOpen }, { PLATFORM_KEY }] = await Promise.all([import("./adapter/open-seam.mjs"), import("./pin.mjs")]);
+        open = makeOpen({ platformKey: PLATFORM_KEY });
+      }
+      m.boot(document, location, { open });
+    })();
   </script>
   <noscript><p style="padding:1rem">The Floor needs JavaScript to open a vault.</p></noscript>
 </body>
