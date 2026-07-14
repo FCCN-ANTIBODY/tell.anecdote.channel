@@ -86,6 +86,34 @@ The template also stays served at `tell.anecdote.channel/floor/` (the Jekyll bui
 includes `floor/` as static files) so the canonical bytes are always inspectable in
 place, and the build's `cmp` test pins the deployed site byte-identical to them.
 
+## Storage adapters — the glebe pin
+
+Every wildcard path serves this one page; a `/storage/.<adapter>` path makes it a storage
+**consumer** instead of the pile UI (`floorRole`). In that role the floor iframes the engine's own
+canonical bottle (`<adapter>.bottles.anecdote.channel`), asks it to `install`, and drives the client
+that bottle *delivers over the wire* — verified, mounted as a Blob URL, and dropped on reload. This
+is **the glove**: the engine's code is borrowed at runtime, never vendored. What the floor *does*
+vendor (`floor/adapter/`) is only its own consumer machinery — verify the signed manifest, mount +
+import the entry, and the probe transport — byte-mirrored from `anecdote.channel/composer` (see
+`floor/adapter/MIRROR.md`). No fetch grows: the one outward surface stays the iframe.
+
+The trust rule is a **glebe**. A storage engine is a powerless glove with no inherent authority;
+what it has is a glebe — the provisioned origin it was granted to occupy. The floor trusts a
+delivered client not because of the engine but because of the **office that granted it that land**:
+the apex/constellation identity that provisioned `bottles` and signs each engine's `install`. So
+trust is *served-from-the-glebe* (the iframed canonical origin; if DNS/cert resolve, the land is
+real — `bottle-attest`'s domain anchor) **and** *signed-by-its-office* (the pinned key).
+
+That pin — `floor/pin.mjs` `GLEBE_KEY` — is the glebe-holder's public fingerprint, and it is
+deliberately **per-apex, not per-name**: every `*.tell.anecdote.channel` floor and every
+`*.bottles.anecdote.channel` engine are co-tenants of one glebe (`anecdote.channel`), so they pin
+the same office. That is *why* one constant floor works — it's constant because the glebe is
+constant; a different apex is a different glebe, floor, and pin. It is **not** the Tell's own key
+(`keys/tell.fpr` is the delivery signer — a different office that never signs installs; pinning it
+would force every Tell to re-mint every engine, breaking the shared canonical `git-enough`). Until
+the operator sets it the key is `null`, the floor wires no seam, and an adapter load reaches for
+nothing — the safe default, exactly like an unprovisioned bottle.
+
 ## Custody
 
 Same four-party split as #93, and the Floor stays the room, not a party. It serves
