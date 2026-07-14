@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# bin/judge-via-judgement — delegate Tell's acceptance judge to the shared FCCN-ANTIBODY/judgement
+# engine, retiring the per-repo idiom (judgement/OPEN-QUESTIONS #3). Opt in at the seam bin/govern
+# already exposes:
+#
+#   TELL_JUDGE_CMD="$PWD/bin/judge-via-judgement" bin/govern …
+#
+# The shapes differ, so this is the small ADAPTER OQ#3 anticipated ("the adapter and the call site
+# move together"), not a zero-code pointer:
+#   Tell's seam       : {record, constitution}                                   -> {verdict, reason}
+#   judgement/bin/judge: {constitution_a, constitution_b, subject, guidance, context} -> {verdict, reason, confidence}
+#
+# A Tell poll has ONE governing constitution, so it is the A=B special case of judgement's
+# two-constitution compare: the answer (subject) must be permitted by the poll's constitution, as
+# narrowed by its guidance. The verdict words already MATCH (accept | reject | needs-judgment — the
+# reason Tell's set was chosen); judgement's extra `confidence` is dropped. The honest default is
+# preserved end to end: if the engine is absent, errors, or returns no verdict, we return
+# `needs-judgment` (route to a human) — never a faked accept.
+#
+# Engine binary: $JUDGEMENT_JUDGE, defaulting to the .judge-engine submodule's bin/judge (the mount
+# convention; the submodule + a live run land when judgement is vendored into this repo).
+set -euo pipefail
+in="$(cat)"
+here="$(cd "$(dirname "$0")" && pwd)"
+engine="${JUDGEMENT_JUDGE:-$here/../.judge-engine/bin/judge}"
+
+nj() { jq -n --arg r "$1" '{verdict:"needs-judgment", reason:$r}'; }
+
+[ -x "$engine" ] || { nj "judgement engine not present (set JUDGEMENT_JUDGE or add the .judge-engine submodule)"; exit 0; }
+
+# Map the seam in. The whole poll constitution is the governing text (lossless: type/options/text/
+# guidance all ride along); A=B because there is one board. subject=the answer; guidance=the narrowing.
+req="$(printf '%s' "$in" | jq -c '
+  (.constitution // {}) as $c |
+  { constitution_a: { text: ($c | tojson) },
+    constitution_b: { text: ($c | tojson) },
+    subject:  (.record.answer // ""),
+    guidance: ($c.guidance // ""),
+    context:  { caller: "tell", intake: "govern", item_id: ((.record.id // .record.ts // "") | tostring) } }
+')" || { nj "malformed seam input"; exit 0; }
+
+out="$(printf '%s' "$req" | "$engine" 2>/dev/null)" || { nj "judgement engine failed"; exit 0; }
+
+# Map the verdict back, dropping confidence. A missing/garbled verdict degrades to needs-judgment.
+printf '%s' "$out" | jq -e 'has("verdict")' >/dev/null 2>&1 || { nj "judgement engine returned no verdict"; exit 0; }
+printf '%s' "$out" | jq '{verdict: .verdict, reason: (.reason // "")}'
