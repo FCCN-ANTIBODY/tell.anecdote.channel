@@ -80,15 +80,16 @@
     // module + service-worker paths resolve to the real files instead of the wildcard-masked page.
     const base = location.pathname.replace(/\/storage\/\.[a-z0-9-]+\/?$/, "/").replace(/[^/]*$/, "") || "/";
     if ("serviceWorker" in navigator) navigator.serviceWorker.register(base + "sw.js", { type: "module" }).catch(() => {});
-    // A /storage/.<adapter> load makes this page a storage CONSUMER. Build the `open` seam from the floor's
-    // pinned platform key (floor/pin.mjs) so the adapter can iframe the engine's bottle, install its client,
-    // verify it against the pin, and drive it. With no pin the seam is null and the adapter reaches for
-    // nothing — the safe default; a plain pile load never touches this. The adapter modules load lazily.
+    // A /storage/.<adapter> load makes this page a storage CONSUMER. Build the `open` seam from the canonical
+    // platform key (floor/adapter/platform-key.mjs — mirrored from anecdote.channel/composer, one source of
+    // truth) so the adapter can iframe the engine's bottle, install its client, verify it against the pin, and
+    // drive it. With no key the seam is null and the adapter reaches for nothing — the safe default; a plain
+    // pile load never touches this. The adapter modules load lazily.
     (async () => {
       const m = await import(base + "floor.mjs");
       let open = null;
       if (m.floorRole(location.pathname || "/").role === "adapter") {
-        const [{ makeOpen }, { PLATFORM_KEY }] = await Promise.all([import(base + "adapter/open-seam.mjs"), import(base + "pin.mjs")]);
+        const [{ makeOpen }, { PLATFORM_KEY }] = await Promise.all([import(base + "adapter/open-seam.mjs"), import(base + "adapter/platform-key.mjs")]);
         open = makeOpen({ platformKey: PLATFORM_KEY });
       }
       m.boot(document, location, { open });

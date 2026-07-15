@@ -24,6 +24,7 @@ discipline — the same hand-sync that keeps `floor.mjs` storageRequest in step 
 | `install-loader.mjs`  | `composer/install-loader.mjs`  (byte-identical) |
 | `bottle-uri.mjs`      | `composer/bottle-uri.mjs`      (byte-identical) |
 | `open-engine.mjs`     | `composer/open-engine.mjs`     (byte-identical) |
+| `platform-key.mjs`    | `composer/platform-key.mjs`    (byte-identical) — the canonical pin |
 
 `probe-client.mjs` is the one deliberate exception: it is the CONSUMER SUBSET of
 `composer/probe-line.mjs` + `git-enough/bottle.mjs` embedBottle — constants, request/cancel,

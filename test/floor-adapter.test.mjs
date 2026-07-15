@@ -64,7 +64,7 @@ async function run() {
   }
 
   // 4. no network surface anywhere in the vendored adapter tree (the floor's promise, extended to the glove).
-  for (const f of ["floor/pin.mjs", ...fs.readdirSync(new URL("../floor/adapter/", import.meta.url)).filter((n) => n.endsWith(".mjs")).map((n) => "floor/adapter/" + n)]) {
+  for (const f of fs.readdirSync(new URL("../floor/adapter/", import.meta.url)).filter((n) => n.endsWith(".mjs")).map((n) => "floor/adapter/" + n)) {
     const src = fs.readFileSync(new URL("../" + f, import.meta.url), "utf8");
     ok(!/\bfetch\s*\(/.test(src) && !/XMLHttpRequest|WebSocket|EventSource|navigator\.sendBeacon/.test(src), f + " has no network surface (the iframe is the only outward surface)");
   }

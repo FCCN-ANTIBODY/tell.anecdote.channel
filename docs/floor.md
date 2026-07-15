@@ -97,12 +97,12 @@ vendor (`floor/adapter/`) is only its own consumer machinery — verify the sign
 import the entry, and the probe transport — byte-mirrored from `anecdote.channel/composer` (see
 `floor/adapter/MIRROR.md`). No fetch grows: the one outward surface stays the iframe.
 
-The pin — `floor/pin.mjs` `PLATFORM_KEY` — is the **Anecdote platform identity**, and it is not a new
-key: it is the identity `composer/sign` already mints and that `install` / `bottle-attest` already
-expect. Anecdote signs it because Anecdote is *the one loading modules* — the root of trust for code
-that runs, in every bottle. Trust is *served-from-the-bottle* (the iframed canonical origin; if the
-DNS/cert resolve, the land is real — `bottle-attest`'s domain anchor) **and** *signed-by-Anecdote*
-(this key).
+The pin is the **Anecdote platform identity** — `floor/adapter/platform-key.mjs` `PLATFORM_KEY`,
+byte-mirrored from `anecdote.channel/composer/platform-key.mjs` (one source of truth, vendored like
+the rest of the glove). Anecdote signs bottle installs because Anecdote is *the one loading modules* —
+the root of trust for code that runs, in every bottle. Trust is *served-from-the-bottle* (the iframed
+canonical origin; if the DNS/cert resolve, the land is real — `bottle-attest`'s domain anchor) **and**
+*signed-by-Anecdote* (this key).
 
 It is **one office for every bottle**, on purpose. The pile floors on `*.tell.anecdote.channel` sit
 on Tell's subdomain, so signing them once felt Tell-ish — but Tell's office is *collection* (it
@@ -111,11 +111,16 @@ installs), and that never generalized to the free-form bottles on `bottles.anecd
 (arbitrary cubbies: user data, code blocks, engines like `git-enough`). Rather than carve Tell-land
 from bottles-land and ask two offices to sign, Anecdote — the module loader — signs them all.
 
-The pin is **per-apex, not per-name**: every `*.tell` and `*.bottles` origin under one apex trusts
-the same Anecdote identity, which is why one constant floor works. A different apex is a different
-platform identity, floor, and pin. Until the operator sets it the key is `null`, the floor wires no
-seam, and an adapter load reaches for nothing — the safe default, exactly like an unprovisioned
-bottle.
+Crucially the pin is **not a per-node key**, and it is **not committed** — see `anecdote.channel`
+`docs/decisions.md` **D1** (environment-sourced identity) and **D3** (the platform pin). The mirrored
+`platform-key.mjs` is an empty *slot*; the value is supplied by the operator's **environment**
+(`ANECDOTE_PLATFORM_KEY`) — the on-device offline origin, mirrored into a Secret under Actions. Since a
+Pages site has no runtime env, `bin/floor-build` **stamps** that public fingerprint into the built
+`adapter/platform-key.mjs`; absent, the slot stays `null` and the adapter is inert (the safe default,
+like an unprovisioned bottle). Nothing operator-specific lives in the repo, so a fork inherits a clean
+slot and the site is single-operator: only whoever holds the environment can bring it alive. **To bring
+floors alive:** set `ANECDOTE_PLATFORM_KEY` in the build environment and rebuild — no committed value,
+no per-node file.
 
 ## Custody
 

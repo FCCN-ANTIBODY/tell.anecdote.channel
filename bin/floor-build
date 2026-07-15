@@ -24,30 +24,26 @@ mkdir -p "$out"
 cp "$here/floor/index.html" "$out/index.html"
 cp "$here/floor/floor.mjs" "$out/floor.mjs"
 cp "$here/floor/sw.js" "$out/sw.js"
-
-# The storage-adapter PIN: the Anecdote platform identity's PUBLIC fingerprint (key:sha256:…), stamped into the
-# static site at build. It is a VERIFICATION key, never a secret (like keys/*.fpr), so it lives in the clear —
-# not a GitHub Secret, not a runtime env at serve time (there is no server). Source, in precedence order:
-# $FLOOR_PLATFORM_KEY, else keys/anecdote.fpr. Absent → the built pin stays null and the adapter is inert (the
-# safe default). Present-but-malformed → the build FAILS rather than shipping a broken pin.
-fpr="${FLOOR_PLATFORM_KEY:-}"
-if [ -z "$fpr" ] && [ -f "$here/keys/anecdote.fpr" ]; then
-  fpr="$(tr -d '[:space:]' < "$here/keys/anecdote.fpr")"
-fi
-if [ -n "$fpr" ]; then
-  [[ "$fpr" =~ ^key:sha256:[0-9a-f]{64}$ ]] || { echo "floor-build: pin must be a key:sha256:<64-hex> fingerprint (got: ${fpr:0:24}…)" >&2; exit 1; }
-  sed "s#export const PLATFORM_KEY = null;#export const PLATFORM_KEY = \"$fpr\";#" "$here/floor/pin.mjs" > "$out/pin.mjs"
-  grep -q "\"$fpr\"" "$out/pin.mjs" || { echo "floor-build: failed to stamp the pin into pin.mjs" >&2; exit 1; }
-  echo "floor-build: pinned Anecdote platform identity ${fpr:0:20}…" >&2
-else
-  cp "$here/floor/pin.mjs" "$out/pin.mjs"
-  echo "floor-build: no pin set (FLOOR_PLATFORM_KEY / keys/anecdote.fpr) — adapter inert" >&2
-fi
 # The storage-adapter consumer bootstrap (the glove): the floor's own machinery to install, verify against the
-# pin, and drive an engine's delivered client. Static like the rest — no per-name provisioning. See
-# floor/adapter/MIRROR.md.
+# canonical platform key, and drive a bottle's delivered client. Byte-mirrored from anecdote.channel/composer
+# (one source of truth). Static like the rest — no per-name provisioning. See floor/adapter/MIRROR.md.
 mkdir -p "$out/adapter"
 cp "$here"/floor/adapter/*.mjs "$out/adapter/"
+
+# The platform PIN is environment-sourced, never committed (docs/decisions.md D1/D3). A static site has no
+# runtime env, so if the operator's environment provides ANECDOTE_PLATFORM_KEY, stamp that PUBLIC fingerprint
+# into the built adapter/platform-key.mjs. Absent → the mirrored slot stays null and the adapter is inert (the
+# safe default). Present-but-malformed → FAIL the build rather than ship a broken pin.
+fpr="${ANECDOTE_PLATFORM_KEY:-}"
+pk="$out/adapter/platform-key.mjs"
+if [ -n "$fpr" ]; then
+  [[ "$fpr" =~ ^key:sha256:[0-9a-f]{64}$ ]] || { echo "floor-build: ANECDOTE_PLATFORM_KEY must be a key:sha256:<64-hex> fingerprint (got: ${fpr:0:24}…)" >&2; exit 1; }
+  sed "s#export const PLATFORM_KEY = .*;#export const PLATFORM_KEY = \"$fpr\";#" "$pk" > "$pk.stamped" && mv "$pk.stamped" "$pk"
+  grep -q "\"$fpr\"" "$pk" || { echo "floor-build: failed to stamp the platform pin" >&2; exit 1; }
+  echo "floor-build: pinned Anecdote platform identity ${fpr:0:20}… (from ANECDOTE_PLATFORM_KEY)" >&2
+else
+  echo "floor-build: no ANECDOTE_PLATFORM_KEY in the environment — adapter pin stays null (inert)" >&2
+fi
 printf '%s\n' "$cname" > "$out/CNAME"
 # Pages must not run the output through Jekyll — serve the bytes as-is.
 : > "$out/.nojekyll"

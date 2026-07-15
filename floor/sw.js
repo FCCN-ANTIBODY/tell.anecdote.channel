@@ -26,11 +26,11 @@
 // placements: /floor/ on the mother host, / on the canonical Floor site the
 // wildcard names mask onto.
 
-const VERSION = "floor-shell-v2";
+const VERSION = "floor-shell-v3";
 const SHELL = [
   "./",
   "./floor.mjs",
-  "./pin.mjs",
+  "./adapter/platform-key.mjs",
   "./adapter/open-seam.mjs",
   "./adapter/open-engine.mjs",
   "./adapter/install.mjs",
