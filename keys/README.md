@@ -55,13 +55,14 @@ the phone to mint a signed poll. `bin/authz` verifies either — same `tell.sign
 `TELL_REQUIRE_SIG=1` demands one). Because provenance is optional, `sig` is also the field you
 **drop to shrink a QR** — a token-only QR is short.
 
-**Not a Tell key — the Anecdote platform pin lives elsewhere.** The Floor's storage-adapter seam
-verifies delivered bottle clients against the **Anecdote platform identity**, which is *not* one of
-the Tell's own keys and is not provisioned here. It is the one canonical constellation key, defined
-once in `anecdote.channel/composer/platform-key.mjs` and vendored into the floor byte-identically
-(`floor/adapter/platform-key.mjs`, see `docs/floor.md`) — one source of truth, mirrored, never a
-per-node value. So there is nothing to bootstrap or commit under `keys/` for it; a sovereign Tell's
-own keys (below) are the only per-node material.
+**Not a Tell key, and not committed — the Anecdote platform pin is environment-sourced.** The Floor's
+storage-adapter seam verifies delivered bottle clients against the **Anecdote platform identity**,
+which is *not* one of the Tell's own keys. Its module (`floor/adapter/platform-key.mjs`, mirrored from
+`anecdote.channel/composer/platform-key.mjs`) is an empty slot; the public fingerprint is supplied by
+the **environment** (`ANECDOTE_PLATFORM_KEY`) and stamped into the built Floor by `bin/floor-build` —
+never committed here (see `anecdote.channel/docs/decisions.md` D1/D3). So there is nothing to bootstrap
+or commit under `keys/` for it. A sovereign Tell's own keys (below) are the only per-node material —
+and by that same principle their long-term home is the environment too (`decisions.md` O1).
 
 ### 2 · Capability secret — no public half
 

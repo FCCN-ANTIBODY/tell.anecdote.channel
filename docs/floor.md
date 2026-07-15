@@ -111,13 +111,16 @@ installs), and that never generalized to the free-form bottles on `bottles.anecd
 (arbitrary cubbies: user data, code blocks, engines like `git-enough`). Rather than carve Tell-land
 from bottles-land and ask two offices to sign, Anecdote — the module loader — signs them all.
 
-Crucially the pin is **not a per-node key** — unlike a Tell's own `keys/tell.fpr` / `keys/boundary.fpr`,
-which each sovereign node generates and legitimately *diverges* on. There is one canonical Anecdote, so
-the value lives once at `composer/platform-key.mjs` and the floor mirrors it; no checkout sets its own,
-and there is nothing to stamp at build. It is `null` until set at inception — with no key the floor
-wires no seam and an adapter load reaches for nothing (the safe default, like an unprovisioned bottle).
-To bring floors alive, set `PLATFORM_KEY` once in `anecdote.channel/composer/platform-key.mjs` and
-re-mirror.
+Crucially the pin is **not a per-node key**, and it is **not committed** — see `anecdote.channel`
+`docs/decisions.md` **D1** (environment-sourced identity) and **D3** (the platform pin). The mirrored
+`platform-key.mjs` is an empty *slot*; the value is supplied by the operator's **environment**
+(`ANECDOTE_PLATFORM_KEY`) — the on-device offline origin, mirrored into a Secret under Actions. Since a
+Pages site has no runtime env, `bin/floor-build` **stamps** that public fingerprint into the built
+`adapter/platform-key.mjs`; absent, the slot stays `null` and the adapter is inert (the safe default,
+like an unprovisioned bottle). Nothing operator-specific lives in the repo, so a fork inherits a clean
+slot and the site is single-operator: only whoever holds the environment can bring it alive. **To bring
+floors alive:** set `ANECDOTE_PLATFORM_KEY` in the build environment and rebuild — no committed value,
+no per-node file.
 
 ## Custody
 
