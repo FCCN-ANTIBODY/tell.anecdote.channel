@@ -13,11 +13,12 @@
 //   bin/boundaries compile   # geojson + tell.yml entry -> signed compiled artifact; prints the id to pin
 //   bin/boundaries check     # CI-safe, keyless: pins match, signatures verify, geometry matches authoring
 //   bin/boundaries renew     # re-sign each claim's id with a fresh date (the lease heartbeat)
-//   bin/boundaries fpr       # print the boundary signer's public fingerprint (what keys/boundary.fpr holds)
+//   bin/boundaries fpr       # print the boundary signer's public fingerprint (from the env key)
 //
 // SIGNING KEY: an Ed25519 pkcs8 at $TELL_BOUNDARY_KEY (default keys/boundary-signer.pk8, NEVER committed —
-// .gitignore'd; the PUBLIC fingerprint is committed at keys/boundary.fpr, the keys/tell.fpr pattern).
-// Generated on first compile. Renewals MUST come from the same key — keep it like you keep TELL_SIGNER_KEY.
+// .gitignore'd). The PUBLIC fingerprint is ALSO never committed (docs/decisions.md D1): it is derived from the
+// env key, and `check` re-derives it (or reads $TELL_BOUNDARY_FPR) — nothing external pins it. Generated on
+// first compile. Renewals MUST come from the same key — keep it like you keep TELL_SIGNER_KEY.
 //
 // FORMAT: the attestation exactly mirrors anecdote.channel/composer/sign.mjs (canonical JSON = sorted keys
 // + undefined dropped; sig = { alg: "ed25519", by: "key:sha256:<hex>", key, signature }). Vendored here so
@@ -180,13 +181,27 @@ export async function compileAll(root, { create = true, now } = {}) {
     writeFileSync(dest, JSON.stringify(signed, null, 2) + "\n");
     out.push({ slug: entry.slug, id, dest, pinned: entry.hash, signer: signer.fingerprint });
   }
-  writeFileSync(path.join(root, "keys/boundary.fpr"), signer.fingerprint + "\n");
+  // The fingerprint is NOT committed (docs/decisions.md D1) — it is the operator's, derived from their env key.
+  // It rides in the return value (and each compiled artifact's own sig.by); `check` re-derives it from the
+  // environment. To have `check` confirm the identity in a keyless context, publish it as $TELL_BOUNDARY_FPR.
   return { signer, boundaries: out };
 }
 
-export async function checkAll(root) {
+// The boundary signer's PUBLIC fingerprint is environment-sourced, never committed (anecdote.channel
+// docs/decisions.md D1): nothing external pins it (an Atlas trusts each artifact's own signature and enforces
+// same-key continuity itself — atlas bin/dump.mjs), so it is only the operator's own self-consistency check.
+// `check` catches a signer swap by INTERNAL consistency alone (every compiled artifact shares one signer) — no
+// key needed, so it still runs in a fork's CI — and, when the environment names the expected identity
+// (TELL_BOUNDARY_FPR, or derivable from TELL_BOUNDARY_KEY), additionally confirms that one signer is the
+// operator's key. `opts.expectFpr` overrides the environment (for tests).
+export async function checkAll(root, { expectFpr } = {}) {
   const entries = readBoundariesBlock(readFileSync(path.join(root, "tell.yml"), "utf8"));
   const problems = [];
+  const signers = new Set();
+  let expect = expectFpr || process.env.TELL_BOUNDARY_FPR || null;
+  if (!expect && process.env.TELL_BOUNDARY_KEY) {
+    try { expect = (await loadOrCreateSigner(process.env.TELL_BOUNDARY_KEY, { create: false })).fingerprint; } catch { /* no key here → identity check skipped */ }
+  }
   for (const entry of entries) {
     const dest = path.join(root, "boundaries/compiled", `${entry.slug}.json`);
     if (!existsSync(dest)) { problems.push(`${entry.slug}: no compiled artifact (run compile)`); continue; }
@@ -200,9 +215,11 @@ export async function checkAll(root) {
     const unsigned = { ...signed }; delete unsigned.sig;
     if (canonicalize(unsigned) !== canonicalize(rebuilt))
       problems.push(`${entry.slug}: compiled artifact drifted from authoring form (recompile or explain)`);
-    const fpr = existsSync(path.join(root, "keys/boundary.fpr")) ? readFileSync(path.join(root, "keys/boundary.fpr"), "utf8").trim() : null;
-    if (fpr && v.by !== fpr) problems.push(`${entry.slug}: signed by ${v.by}, but keys/boundary.fpr publishes ${fpr}`);
+    signers.add(v.by);
+    if (expect && v.by !== expect) problems.push(`${entry.slug}: signed by ${v.by}, but the environment expects ${expect}`);
   }
+  // internal consistency: all compiled boundaries share ONE signer — a swap is caught with no pinned value.
+  if (signers.size > 1) problems.push(`compiled boundaries are signed by ${signers.size} different keys (${[...signers].join(", ")}) — a signer swap; recompile under one key`);
   return problems;
 }
 
@@ -233,7 +250,7 @@ async function main() {
   if (mode === "compile") {
     const { signer, boundaries } = await compileAll(root);
     if (signer.created) console.log(`new boundary signer created — keep ${process.env.TELL_BOUNDARY_KEY || "keys/boundary-signer.pk8"} like you keep TELL_SIGNER_KEY`);
-    console.log(`signer: ${signer.fingerprint}  (published at keys/boundary.fpr)`);
+    console.log(`signer: ${signer.fingerprint}  (environment-sourced — set TELL_BOUNDARY_FPR to this so keyless \`check\` can confirm it)`);
     for (const bd of boundaries) {
       console.log(`${bd.slug}: ${bd.id}`);
       if (bd.pinned !== bd.id) console.log(`  → pin it: set \`hash: ${bd.id}\` on the ${bd.slug} entry in tell.yml`);

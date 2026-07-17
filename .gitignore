@@ -12,3 +12,4 @@ vendor/
 /.submissions/
 qr-*.png
 keys/boundary-signer.pk8
+keys/boundary.fpr

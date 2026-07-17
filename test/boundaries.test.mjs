@@ -74,6 +74,24 @@ function scratchTell() {
   ok(problems.some((p) => /drifted/.test(p)), "check CATCHES authoring drift from the compiled artifact");
 }
 
+// 3b. the boundary fingerprint is ENVIRONMENT-sourced (decisions.md D1), never committed: `check` derives the
+// expected identity from the env key (or TELL_BOUNDARY_FPR), flags a wrong expected fpr, and stays green
+// keyless on internal consistency alone (so a fork's CI still runs it). compile writes no keys/boundary.fpr.
+{
+  const dir = scratchTell();
+  const { boundaries } = await compileAll(dir);                 // scratchTell set TELL_BOUNDARY_KEY (a path)
+  let yml = readFileSync(path.join(dir, "tell.yml"), "utf8");
+  for (const b of boundaries) yml = yml.replace(/hash: PENDING/, `hash: "${b.id}"`);
+  writeFileSync(path.join(dir, "tell.yml"), yml);
+  ok(!existsSync(path.join(dir, "keys/boundary.fpr")), "compile writes NO keys/boundary.fpr (never committed)");
+  ok((await checkAll(dir)).length === 0, "check derives the expected signer from the env key and confirms identity");
+  const wrong = await checkAll(dir, { expectFpr: "key:sha256:" + "0".repeat(64) });
+  ok(wrong.some((p) => /environment expects/.test(p)), "check flags a signer that isn't the environment's expected identity");
+  const savedKey = process.env.TELL_BOUNDARY_KEY; delete process.env.TELL_BOUNDARY_KEY;
+  ok((await checkAll(dir)).length === 0, "keyless check stays green on internal consistency (fork-CI safe)");
+  process.env.TELL_BOUNDARY_KEY = savedKey;
+}
+
 // 4. renewal: the lease heartbeat — same key, fresh date, cites the exact boundary id; never mints a key.
 {
   const dir = scratchTell();
@@ -144,8 +162,9 @@ function scratchTell() {
     const outside = await bisect([-107.0, 39.0], [signed]);
     ok(inside.length === 1 && inside[0].constituency === "colorado-4" && outside.length === 0,
        "the eastern plains bisect INTO colorado-4; the western slope does not — producer and consumer agree");
-    const fpr = readFileSync(path.join(ROOT, "keys/boundary.fpr"), "utf8").trim();
-    ok(v.by === fpr, "the artifact's signer matches the published keys/boundary.fpr");
+    // the artifact self-identifies its signer (sig.by) — the fingerprint is environment-sourced, not a
+    // committed keys/boundary.fpr (decisions.md D1); the signature itself is the verification.
+    ok(/^key:sha256:[0-9a-f]{64}$/.test(v.by), "the committed artifact carries its own well-formed signer fingerprint (no committed fpr needed)");
   } else {
     console.log("  ok: (cross-repo client check SKIPPED — no sibling anecdote.channel checkout)");
   }
