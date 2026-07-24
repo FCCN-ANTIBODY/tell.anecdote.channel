@@ -44,8 +44,10 @@ const origins = {
 
 const ran = await withPage({ chromium, tls: true, origins }, async (page, { server }) => {
   // The template, viewed on the mother host: not a named floor — the blank-slate explainer.
+  // (Wait for the booted text itself, not just a non-empty notice — the markup ships an "…"
+  // placeholder that is already truthy before floor.mjs runs.)
   await page.goto("https://tell.anecdote.channel/floor/");
-  const notice = await page.waitFor("(document.getElementById('notice')||{}).textContent || ''");
+  const notice = await page.waitFor("(((document.getElementById('notice')||{}).textContent||'').includes('Floor template')) && document.getElementById('notice').textContent");
   ok(notice.includes("Floor template"), "the mother host shows the template, not a vault");
   ok(await page.eval("document.getElementById('pile-address').textContent") === "", "no pile address without a name");
 
