@@ -453,6 +453,15 @@ else
   echo "[12f] SKIPPED — node not available for the sealed-credential test"
 fi
 
+if command -v node >/dev/null 2>&1; then
+  echo "[12g] the Floor driven in real Chromium (self-skips without a browser / harness / 443)"
+  node "$root/test/floor-ui.test.mjs" || fail "floor UI test failed"
+  echo "[12h] the puppeted chain: Floor -> Tell -> runtime, three origins, one browser"
+  node "$root/test/chain-ui.test.mjs" || fail "chain UI test failed"
+else
+  echo "[12g/12h] SKIPPED — node not available for the UI suites"
+fi
+
 echo "[12e] bin/floor-build emits the Floor as its own complete Pages site"
 fbout="$work/floor-site"
 FLOOR_CNAME="floor.tell.anecdote.channel" bin/floor-build "$fbout" 2>/dev/null
