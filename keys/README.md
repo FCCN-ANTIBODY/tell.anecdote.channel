@@ -45,7 +45,7 @@ The Tell's provenance. Each has a **private** half (never committed; held per th
 | Identity | Private (held) | Public (committed) | Signs | Provisioned by |
 | --- | --- | --- | --- | --- |
 | **Delivery signer** | `TELL_SIGNER_KEY` (ssh ed25519) | `tell.pub` · `tell.signers` · `tell.fpr` | inbound digest manifests (`bin/deliver`); QR provenance in CI (`bin/qr --signkey`); the peer registration commit (`bin/register`) | `bin/tell-bootstrap` |
-| **Boundary signer** | `TELL_BOUNDARY_KEY` (ed25519 pkcs8) | `boundary.fpr` | `anecdote.boundary/v1` artifacts + lease renewals (`bin/boundaries`) | `bin/boundary-bootstrap` |
+| **Boundary signer** | `TELL_BOUNDARY_KEY` (ed25519 pkcs8) | *(none — env-sourced, D1)* | `anecdote.boundary/v1` artifacts + lease renewals (`bin/boundaries`) | `bin/boundary-bootstrap` |
 | **Device identity** *(Mobile)* | a non-extractable WebCrypto key in the phone's IndexedDB (`composer/sign.mjs`) | its allowed-signers line, added to `tell.signers` (`composer/qr-sign.mjs :: allowedSignersLine`) | QR provenance **on the phone** — a byte-compatible SSHSIG `bin/authz` accepts exactly like the CI one | the app, on first use |
 
 The **device identity replaces the delivery signer's QR role** in the Mobile posture: the phone
@@ -54,6 +54,16 @@ the phone to mint a signed poll. `bin/authz` verifies either — same `tell.sign
 `tell`, namespace `tell-poll`, **verify-if-present** (an unsigned, token-only QR still passes;
 `TELL_REQUIRE_SIG=1` demands one). Because provenance is optional, `sig` is also the field you
 **drop to shrink a QR** — a token-only QR is short.
+
+**The boundary signer's public half is environment-sourced (D1), not committed.** It is the first of
+the Tell's own identities to move its *public* half out of the repo: nothing external pins it (an
+Atlas trusts each boundary artifact's own signature and enforces same-key continuity itself), so
+`keys/boundary.fpr` is gone. `bin/boundaries check` catches a signer swap by internal consistency
+alone (fork-CI safe) and confirms the operator's identity from `TELL_BOUNDARY_KEY` or the public
+`TELL_BOUNDARY_FPR` variable when the environment provides it. The **delivery signer** (`tell.fpr` /
+`tell.pub` / `tell.signers`) is *not* yet converted — a data-pile pins it, so its committed public
+half is a genuine publication channel, not just self-consistency. Whether that too moves to the
+environment is `anecdote.channel/docs/decisions.md` **O1**.
 
 **Not a Tell key, and not committed — the Anecdote platform pin is environment-sourced.** The Floor's
 storage-adapter seam verifies delivered bottle clients against the **Anecdote platform identity**,
@@ -125,9 +135,9 @@ an existing signer unless `--force` (rotation makes consumers re-pin).
 
 ```sh
 bin/tell-bootstrap        # delivery signer (TELL_SIGNER_KEY) + seed (TELL_SEED_IDENTITY) + TELL_QR_SECRET
-bin/boundary-bootstrap    # boundary signer (TELL_BOUNDARY_KEY) → publishes keys/boundary.fpr
+bin/boundary-bootstrap    # boundary signer (TELL_BOUNDARY_KEY) → prints the fingerprint (env-sourced, not committed — D1)
 bin/submit-bootstrap      # capture/validate the submission PAT → sets TELL_POST_TOKEN (guides you to scope it)
-git push                  # publish the committed public material (tell.{pub,signers,fpr}, boundary.fpr)
+git push                  # publish the committed public material (tell.{pub,signers,fpr})
 ```
 
 `--no-secrets` on any of them prints the value once for manual `gh secret set`; `--no-commit`
