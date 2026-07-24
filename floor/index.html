@@ -92,7 +92,11 @@
         const [{ makeOpen }, { PLATFORM_KEY }] = await Promise.all([import(base + "adapter/open-seam.mjs"), import(base + "adapter/platform-key.mjs")]);
         open = makeOpen({ platformKey: PLATFORM_KEY });
       }
-      m.boot(document, location, { open });
+      // The boot's outcome (role, engine, and — in adapter role — the open seam's handle) lands on
+      // globalThis so an operator's devtools, or a harness driving this real page, can SEE the dispatch
+      // resolve instead of inferring it. Observability only: holding the object grants nothing beyond
+      // what the page already wired.
+      globalThis.__FLOOR_BOOT__ = m.boot(document, location, { open });
     })();
   </script>
   <noscript><p style="padding:1rem">The Floor needs JavaScript to open a vault.</p></noscript>

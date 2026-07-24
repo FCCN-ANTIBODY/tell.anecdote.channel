@@ -458,8 +458,10 @@ if command -v node >/dev/null 2>&1; then
   node "$root/test/floor-ui.test.mjs" || fail "floor UI test failed"
   echo "[12h] the puppeted chain: Floor -> Tell -> runtime, three origins, one browser"
   node "$root/test/chain-ui.test.mjs" || fail "chain UI test failed"
+  echo "[12i] the stamped floor wears the glove: floor-build pin -> signed install -> a repo hosted in the bottle"
+  node "$root/test/adapter-live-ui.test.mjs" || fail "live-adapter UI test failed"
 else
-  echo "[12g/12h] SKIPPED — node not available for the UI suites"
+  echo "[12g/12h/12i] SKIPPED — node not available for the UI suites"
 fi
 
 echo "[12e] bin/floor-build emits the Floor as its own complete Pages site"
