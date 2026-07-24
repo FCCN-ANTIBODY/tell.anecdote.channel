@@ -10,6 +10,8 @@ on:
     paths:
       - "bin/**"
       - "test/**"
+      - "floor/**"
+      - "index.md"
       - ".github/workflows/test.yml"
   pull_request:
   workflow_dispatch:
@@ -40,5 +42,12 @@ jobs:
             || git clone --depth 1 https://github.com/FCCN-ANTIBODY/data-pile ../data-pile
       - name: Crypto core has not drifted from data-pile
         run: DP_LIB=../data-pile/bin/lib.sh bin/check-pile-lib
-      - name: Producer + cross-repo verify
+      - name: Clone anecdote.channel (the probe-test UI harness, same branch-matching pattern)
+        run: |
+          ref="${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}"
+          git clone --depth 1 --branch "$ref" https://github.com/FCCN-ANTIBODY/anecdote.channel ../anecdote.channel \
+            || git clone --depth 1 https://github.com/FCCN-ANTIBODY/anecdote.channel ../anecdote.channel
+      - name: Let the UI harness bind 443 (real-https origins for pages that pin absolute URLs)
+        run: sudo sysctl -w net.ipv4.ip_unprivileged_port_start=443
+      - name: Producer + cross-repo verify (incl. the real-Chromium floor + chain UI suites)
         run: DP_REPO=../data-pile test/run.sh
